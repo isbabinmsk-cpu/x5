@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Журнал работы водителя</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <nav class="navbar">
+            <h1>📅 Журнал работы водителя</h1>
+            <div class="nav-buttons">
+                <button class="nav-btn active" data-tab="entry" onclick="switchTab('entry')">📝 Ввод</button>
+                <button class="nav-btn" data-tab="analytics" onclick="switchTab('analytics')">📊 Аналитика</button>
+                <button class="nav-btn" data-tab="history" onclick="switchTab('history')">📋 История</button>
+                <button class="nav-btn" data-tab="tariffs" onclick="switchTab('tariffs')">⚙️ Тарифы</button>
+                <button class="nav-btn" onclick="exportData()">💾 Экспорт</button>
+                <button class="nav-btn" onclick="downloadDataJS()">📥 Скачать data.js</button>
+                <button class="nav-btn" onclick="document.getElementById('import-file').click()">📥 Импорт</button>
+                <button class="nav-btn btn-reset" onclick="resetAllData()">🗑️ Сброс</button>
+                <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+            </div>
+        </nav>
+
+        <!-- ВВОД ДАННЫХ -->
+        <section id="tab-entry" class="tab-content active">
+            <div class="card">
+                <h2>Ввод данных за день</h2>
+                <div id="editing-notice" class="editing-notice" style="display:none;">
+                    📝 Режим редактирования.
+                    <button type="button" class="btn btn-secondary btn-small" onclick="recalcCurrentByTariff()">💱 Пересчитать по тарифу</button>
+                    <button type="button" class="btn btn-danger btn-small" onclick="cancelEdit()">❌ Отменить</button>
+                </div>
+                <div class="current-tariffs-info">
+                    <h3>📋 Действующие тарифы на <span id="tariff-date-display"></span></h3>
+                    <div class="tariff-badges">
+                        <span class="tariff-badge">📦 Забор: <strong id="t-pickup">60</strong> ₽/шт</span>
+                        <span class="tariff-badge">📤 Выдача: <strong id="t-delivery">81</strong> ₽/шт</span>
+                        <span class="tariff-badge">🛣️ Км: <strong id="t-km">11</strong> ₽/км</span>
+                        <span class="tariff-badge">⚖️ Вес: <strong id="t-weight">2</strong> ₽/кг</span>
+                    </div>
+                </div>
+
+                <form id="daily-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Дата *</label>
+                            <input type="date" id="date" required>
+                        </div>                        <div class="form-group">
+                            <label>День недели</label>
+                            <input type="text" id="weekday" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label>Часы работы 🕐</label>
+                            <input type="number" id="hours" step="0.5" min="0" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row auto-calc-row">
+                        <div class="form-group">
+                            <label>📦 Забор (шт)</label>
+                            <input type="number" id="orders-pickup" min="0" oninput="autoCalc('pickup')">
+                        </div>
+                        <div class="form-group">
+                            <label>Забор (₽) <small class="auto-hint">автоматически</small></label>
+                            <input type="number" id="pay-pickup" step="0.01" min="0">
+                        </div>
+                    </div>
+
+                    <div class="form-row auto-calc-row">
+                        <div class="form-group">
+                            <label>📤 Выдача (шт)</label>
+                            <input type="number" id="orders-delivery" min="0" oninput="autoCalc('delivery')">
+                        </div>
+                        <div class="form-group">
+                            <label>Выдача (₽) <small class="auto-hint">автоматически</small></label>
+                            <input type="number" id="pay-delivery" step="0.01" min="0">
+                        </div>
+                    </div>
+
+                    <div class="form-row auto-calc-row">
+                        <div class="form-group">
+                            <label>🛣️ Км</label>
+                            <input type="number" id="distance" step="0.01" min="0" oninput="autoCalc('km')">
+                        </div>
+                        <div class="form-group">
+                            <label>Км (₽) <small class="auto-hint">автоматически</small></label>
+                            <input type="number" id="pay-distance" step="0.01" min="0">
+                        </div>
+                    </div>
+
+                    <div class="form-row auto-calc-row">
+                        <div class="form-group">
+                            <label>⚖️ Вес (кг)</label>
+                            <input type="number" id="weight" step="0.01" min="0" oninput="autoCalc('weight')">
+                        </div>
+                        <div class="form-group">
+                            <label>Вес (₽) <small class="auto-hint">автоматически</small></label>                            <input type="number" id="pay-weight" step="0.01" min="0">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Нагрузка (₽)</label>
+                            <input type="number" id="load-pay" step="0.01" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>🏆 Рейтинг (₽)</label>
+                            <input type="number" id="rating" step="0.01" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Чаевые (₽)</label>
+                            <input type="number" id="tips" step="0.01" min="0">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Бензин (₽)</label>
+                            <input type="number" id="fuel-cost" step="0.01" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Ремонт (₽)</label>
+                            <input type="number" id="repair-cost" step="0.01" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Налог (₽)</label>
+                            <input type="number" id="tax" step="0.01" min="0">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Тип записи</label>
+                            <select id="record-type">
+                                <option value="work">Рабочий день</option>
+                                <option value="bonus">Бонус</option>
+                                <option value="expense">Только расход</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Период бонуса (если бонус)</label>
+                            <input type="text" id="bonus-period" placeholder="например: 04-10 мая">
+                        </div>
+                    </div>
+
+                    <div class="form-actions">                        <button type="submit" class="btn btn-success">💾 Сохранить</button>
+                        <button type="button" class="btn btn-danger" onclick="clearForm()">🗑️ Очистить</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- АНАЛИТИКА -->
+        <section id="tab-analytics" class="tab-content">
+            <div class="filters">
+                <div class="form-group">
+                    <label>Месяц</label>
+                    <select id="filter-month" onchange="updateAnalytics()">
+                        <option value="">Все месяцы</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Год</label>
+                    <select id="filter-year" onchange="updateAnalytics()">
+                        <option value="">Все годы</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="dashboard">
+                <h2 class="section-title">📊 ПОКАЗАТЕЛИ ЗА МЕСЯЦ</h2>
+                <div class="stats-grid">
+                    <div class="stat-card income">
+                        <h3>💰 Общий доход:</h3>
+                        <p class="stat-value" id="total-income">0 ₽</p>
+                    </div>
+                    <div class="stat-card income">
+                        <h3>💰 Общий доход в день:</h3>
+                        <p class="stat-value" id="avg-income-per-day">0 ₽</p>
+                    </div>
+                    <div class="stat-card expense">
+                        <h3>⛔ Расходы на бензин:</h3>
+                        <p class="stat-value" id="total-fuel">0 ₽</p>
+                    </div>
+                    <div class="stat-card expense">
+                        <h3>🔧 Ремонт:</h3>
+                        <p class="stat-value" id="total-repair">0 ₽</p>
+                    </div>
+                    <div class="stat-card expense">
+                        <h3>📋 Налог:</h3>
+                        <p class="stat-value" id="total-tax">0 ₽</p>
+                    </div>
+                    <div class="stat-card expense">
+                        <h3>📉 ВСЕГО РАСХОДЫ:</h3>
+                        <p class="stat-value" id="total-expenses">0 ₽</p>                    </div>
+                    <div class="stat-card profit">
+                        <h3>✅ Чистая прибыль:</h3>
+                        <p class="stat-value" id="net-profit">0 ₽</p>
+                    </div>
+                    <div class="stat-card profit">
+                        <h3>✅ Чистая прибыль в день:</h3>
+                        <p class="stat-value" id="avg-net-profit-per-day">0 ₽</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>⏱ Часов отработано:</h3>
+                        <p class="stat-value" id="total-hours">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>📦 Заказов (выдача):</h3>
+                        <p class="stat-value" id="total-orders">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>🛣️ Пройдено км:</h3>
+                        <p class="stat-value" id="total-distance">0</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>📅 Рабочих дней:</h3>
+                        <p class="stat-value" id="working-days">0</p>
+                    </div>
+                </div>
+
+                <h2 class="section-title">📈 ЭФФЕКТИВНОСТЬ ЗА МЕСЯЦ</h2>
+                <div class="efficiency-metrics">
+                    <div class="metric-card">
+                        <span>💵 Средний ₽/час (чистая прибыль):</span>
+                        <strong id="avg-per-hour">0 ₽</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>📦 Средний чек:</span>
+                        <strong id="avg-check">0 ₽</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>📦⏱ Заказов в час:</span>
+                        <strong id="orders-per-hour">0</strong>
+                    </div>
+                    <div class="metric-card">
+                        <span>📊 Эффективность:</span>
+                        <strong id="efficiency-percent">0%</strong>
+                    </div>
+                </div>
+
+                <!-- СРАВНЕНИЕ ПЕРИОДОВ -->
+<div class="comparison-section">
+    <h2 class="section-title">📊 СРАВНЕНИЕ ПЕРИОДОВ</h2>
+    
+    <div class="comparison-selectors">
+        <div class="comparison-period">
+            <h3>📅 Период 1</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Месяц</label>
+                    <select id="compare1-month" onchange="updateComparison()">
+                        <option value="">Весь год</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Год</label>
+                    <select id="compare1-year" onchange="updateComparison()"></select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="comparison-vs">VS</div>
+        
+        <div class="comparison-period">
+            <h3>📅 Период 2</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Месяц</label>
+                    <select id="compare2-month" onchange="updateComparison()">
+                        <option value="">Весь год</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Год</label>
+                    <select id="compare2-year" onchange="updateComparison()"></select>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="quick-compare-buttons">
+        <button class="btn btn-secondary" onclick="quickCompare('month')">📅 Этот месяц vs Прошлый</button>
+        <button class="btn btn-secondary" onclick="quickCompare('year')">📆 Этот год vs Прошлый</button>
+        <button class="btn btn-secondary" onclick="quickCompare('yoy')">📊 Тот же месяц, прошлый год</button>
+    </div>
+    
+    <div class="comparison-results" id="comparison-results">
+        <p class="comparison-hint">Выберите два периода для сравнения</p>
+    </div>
+    
+    <div class="chart-container" style="margin-top: 20px;">
+        <h3>📈 Сравнительный график</h3>
+        <canvas id="comparison-chart"></canvas>
+    </div>
+</div>
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h3>Доход и прибыль по дням</h3>                        <canvas id="income-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Расходы по категориям</h3>
+                        <canvas id="expenses-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ИСТОРИЯ -->
+        <section id="tab-history" class="tab-content">
+            <div class="card">
+                <h2>История записей</h2>
+                <div class="table-container">
+                    <table id="records-table">
+                        <thead>
+                            <tr>
+                                <th>Дата</th>
+                                <th>Тип</th>
+                                <th>Часы</th>
+                                <th>Забор</th>
+                                <th>Выдача</th>
+                                <th>Доход</th>
+                                <th>Расходы</th>
+                                <th>Прибыль</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="records-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- ТАРИФЫ -->
+        <section id="tab-tariffs" class="tab-content">
+            <div class="card">
+                <h2>⚙️ Управление тарифами</h2>
+                <p class="tariff-info">Тарифы применяются с указанной даты.</p>
+                
+                <form id="tariff-form" class="tariff-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Дата вступления в силу *</label>
+                            <input type="date" id="tariff-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label>📦 Забор (₽/шт)</label>
+                            <input type="number" id="tariff-pickup" step="0.01" min="0" required>                        </div>
+                        <div class="form-group">
+                            <label>📤 Выдача (₽/шт)</label>
+                            <input type="number" id="tariff-delivery" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>🛣️ Км (₽/км)</label>
+                            <input type="number" id="tariff-km" step="0.01" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label>⚖️ Вес (₽/кг)</label>
+                            <input type="number" id="tariff-weight" step="0.01" min="0" required>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success">➕ Добавить тариф</button>
+                    </div>
+                </form>
+
+                <div class="tariff-actions-panel">
+                    <h3>🔄 Массовые действия</h3>
+                    <button class="btn btn-primary" onclick="recalculateAllTariffs()">💱 Пересчитать все записи по актуальным тарифам</button>
+                </div>
+
+                <div class="tariffs-history">
+                    <h3>📜 История тарифов</h3>
+                    <div class="tariffs-list" id="tariffs-list"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="data.js?v=6"></script>
+    <script src="script.js?v=7"></script>
+</body>
+</html>

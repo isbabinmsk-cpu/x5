@@ -1,0 +1,747 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container { max-width: 1400px; margin: 0 auto; }
+
+.navbar {
+    background: white;
+    padding: 20px 30px;
+    border-radius: 15px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.navbar h1 { color: #333; font-size: 24px; }
+
+.nav-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.nav-btn {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    background: #e0e0e0;
+    color: #333;
+    transition: all 0.3s;
+}
+
+.btn-reset {
+    background: #fee2e2 !important;
+    color: #dc2626 !important;
+    border: 2px solid #fca5a5 !important;
+}
+.btn-reset:hover { background: #fecaca !important; }
+
+.nav-btn:hover {
+    background: #d0d0d0;
+    transform: translateY(-2px);
+}
+
+.nav-btn.active {
+    background: #667eea;
+    color: white;
+}
+/* Скрываем все вкладки по умолчанию */
+.tab-content {
+    display: none;
+}
+
+/* Показываем только активную вкладку */
+.tab-content.active {
+    display: block;
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.card {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.card h2 { color: #333; margin-bottom: 25px; }
+
+.current-tariffs-info {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border: 2px solid #0ea5e9;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 25px;
+}
+
+.current-tariffs-info h3 {
+    color: #0369a1;
+    margin-bottom: 12px;
+    font-size: 16px;
+}
+
+.tariff-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.tariff-badge {
+    background: white;
+    padding: 8px 14px;
+    border-radius: 20px;    font-size: 14px;
+    color: #333;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.tariff-badge strong {
+    color: #0ea5e9;
+    font-size: 16px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.auto-calc-row {
+    background: #f8fafc;
+    padding: 15px;
+    border-radius: 10px;
+    border-left: 4px solid #10b981;
+}
+
+.form-group { display: flex; flex-direction: column; }
+.form-group label { font-weight: 600; color: #555; margin-bottom: 8px; font-size: 14px; }
+
+.auto-hint {
+    color: #10b981;
+    font-weight: 400;
+    font-size: 12px;
+}
+
+.form-group input, .form-group select {
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 15px;
+    transition: border-color 0.3s;
+}
+
+.form-group input:focus, .form-group select:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.form-actions { display: flex; gap: 15px; margin-top: 30px; }
+
+.btn {
+    padding: 12px 24px;    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.btn:hover { transform: translateY(-2px); }
+.btn-success { background: #10b981; color: white; }
+.btn-danger { background: #ef4444; color: white; }
+
+.filters {
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.stat-card h3 { font-size: 13px; color: #666; margin-bottom: 8px; }
+.stat-value { font-size: 24px; font-weight: 700; }
+.stat-card.income .stat-value { color: #10b981; }
+.stat-card.expense .stat-value { color: #ef4444; }
+.stat-card.profit .stat-value { color: #667eea; }
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+.chart-container {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.chart-container h3 { margin-bottom: 20px; color: #333; }
+
+.efficiency-metrics {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.efficiency-metrics h3 { margin-bottom: 20px; color: #333; }
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+}
+
+.metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.metric span { color: #666; }
+.metric strong { color: #667eea; font-size: 18px; }
+
+.table-container { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+th { background: #f8f9fa; font-weight: 600; color: #333; }
+tr:hover { background: #f8f9fa; }
+
+.tariff-info {
+    color: #666;
+    margin-bottom: 20px;
+    font-size: 14px;
+    background: #fef3c7;
+    padding: 12px;
+    border-radius: 8px;
+    border-left: 4px solid #f59e0b;}
+
+.tariff-form {
+    background: #f0fdf4;
+    padding: 20px;
+    border-radius: 12px;
+    border: 2px solid #10b981;
+    margin-bottom: 30px;
+}
+
+.tariffs-history h3 {
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.tariffs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tariff-item {
+    background: #f8f9fa;
+    padding: 15px 20px;
+    border-radius: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    border-left: 4px solid #667eea;
+}
+
+.tariff-item.current {
+    border-left-color: #10b981;
+    background: #f0fdf4;
+}
+
+.tariff-item .tariff-date {
+    font-weight: 600;
+    color: #333;
+    min-width: 120px;
+}
+
+.tariff-item .tariff-values {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    font-size: 14px;
+}
+.tariff-item .tariff-values span {
+    background: white;
+    padding: 4px 10px;
+    border-radius: 12px;
+}
+
+.tariff-item .btn {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+@media (max-width: 768px) {
+    .navbar { flex-direction: column; text-align: center; }
+    .form-row { grid-template-columns: 1fr; }
+    .charts-grid { grid-template-columns: 1fr; }
+    .tariff-item { flex-direction: column; align-items: flex-start; }
+}
+
+/* Уведомление о режиме редактирования */
+.editing-notice {
+    background: #fef3c7;
+    border: 2px solid #f59e0b;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 20px;
+    color: #92400e;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* Кнопка сброса */
+.btn-reset {
+    background: #fee2e2 !important;
+    color: #dc2626 !important;
+    border: 2px solid #fca5a5 !important;
+}
+
+.btn-reset:hover {
+    background: #fecaca !important;
+}
+
+/* Маленькие кнопки */
+.btn-small {
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+    margin-left: 8px;
+}
+
+.btn-secondary {
+    background: #6b7280;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #4b5563;
+}
+
+/* Панель массовых действий с тарифами */
+.tariff-actions-panel {
+    background: #eff6ff;
+    border: 2px solid #3b82f6;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.tariff-actions-panel h3 {
+    color: #1e40af;
+    margin-bottom: 12px;
+    font-size: 16px;
+}
+
+.tariff-actions-panel .btn {
+    margin-bottom: 10px;
+}
+
+.hint-text {
+    color: #6b7280;
+    font-size: 13px;
+    margin-top: 8px;
+    font-style: italic;
+}
+
+/* Уведомление о режиме редактирования */
+.editing-notice {
+    background: #fef3c7;
+    border: 2px solid #f59e0b;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    color: #92400e;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+/* Кнопка сброса */
+.btn-reset {
+    background: #fee2e2 !important;
+    color: #dc2626 !important;
+    border: 2px solid #fca5a5 !important;
+}
+
+.btn-reset:hover {
+    background: #fecaca !important;
+}
+
+/* Заголовки секций */
+.section-title {
+    font-size: 24px;
+    color: #333;
+    margin: 30px 0 20px 0;
+    text-align: center;
+    padding: 15px;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-radius: 12px;
+    border-left: 4px solid #0ea5e9;
+}
+
+/* Карточки метрик */
+.metric-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.metric-card span {
+    color: #666;
+    font-size: 16px;
+}
+
+.metric-card strong {
+    color: #667eea;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+/* Панель массовых действий */
+.tariff-actions-panel {
+    background: #eff6ff;
+    border: 2px solid #3b82f6;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.tariff-actions-panel h3 {
+    color: #1e40af;
+    margin-bottom: 12px;
+    font-size: 16px;
+}
+.tariff-actions-panel .btn {
+    margin-bottom: 10px;
+}
+
+.hint-text {
+    color: #6b7280;
+    font-size: 13px;
+    margin-top: 8px;
+    font-style: italic;
+}
+
+/* Уведомление о режиме редактирования */
+.editing-notice {
+    background: #fef3c7;
+    border: 2px solid #f59e0b;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    color: #92400e;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+/* Маленькие кнопки */
+.btn-small {
+    padding: 6px 12px !important;
+    font-size: 12px !important;
+    margin-left: 8px;
+}
+
+.btn-secondary {
+    background: #6b7280;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #4b5563;
+}
+
+/* Кнопка сброса */
+.btn-reset {
+    background: #fee2e2 !important;
+    color: #dc2626 !important;
+    border: 2px solid #fca5a5 !important;
+}
+
+.btn-reset:hover {    background: #fecaca !important;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .navbar { flex-direction: column; text-align: center; }
+    .form-row { grid-template-columns: 1fr; }
+    .charts-grid { grid-template-columns: 1fr; }
+    .metric-card { flex-direction: column; text-align: center; gap: 10px; }
+    .editing-notice { flex-direction: column; }
+}
+
+/* Переключение вкладок */
+.tab-content {
+    display: none;
+    animation: fadeIn 0.3s;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.nav-btn {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    background: #e0e0e0;
+    color: #333;
+    transition: all 0.3s;
+}
+
+.nav-btn:hover {
+    background: #d0d0d0;
+    transform: translateY(-2px);
+}
+
+.nav-btn.active {
+    background: #667eea;
+    color: white;
+}
+
+/* ===== СРАВНЕНИЕ ПЕРИОДОВ ===== */
+.comparison-section {
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.comparison-selectors {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 20px;
+    align-items: center;
+    margin-bottom: 25px;
+    padding: 20px;
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-radius: 12px;
+    border: 2px solid #0ea5e9;
+}
+
+.comparison-period {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.comparison-period h3 {
+    color: #0369a1;
+    margin-bottom: 15px;
+    font-size: 16px;
+    text-align: center;
+}
+
+.comparison-vs {
+    font-size: 32px;
+    font-weight: 900;
+    color: #667eea;
+    text-align: center;
+    padding: 0 10px;
+}
+
+.quick-compare-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 25px;
+}
+.quick-compare-buttons .btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 10px 18px;
+    font-size: 13px;
+}
+
+.quick-compare-buttons .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.comparison-results {
+    margin-top: 20px;
+}
+
+.comparison-hint {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    padding: 30px;
+}
+
+.comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.comparison-table thead {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.comparison-table th {
+    padding: 15px 12px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.comparison-table td {
+    padding: 12px;
+    text-align: center;
+    border-bottom: 1px solid #e0e0e0;
+    font-size: 14px;}
+
+.comparison-table tr:last-child td {
+    border-bottom: none;
+}
+
+.comparison-table tr:hover {
+    background: #f8f9fa;
+}
+
+.comparison-table .metric-name {
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+}
+
+.diff-positive {
+    color: #10b981;
+    font-weight: 700;
+}
+
+.diff-negative {
+    color: #ef4444;
+    font-weight: 700;
+}
+
+.diff-neutral {
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.comparison-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.summary-card {
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.summary-card.positive {
+    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+    border: 2px solid #10b981;
+}
+.summary-card.negative {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    border: 2px solid #ef4444;
+}
+
+.summary-card.neutral {
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+    border: 2px solid #6b7280;
+}
+
+.summary-card h4 {
+    font-size: 13px;
+    color: #333;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.summary-card .big-number {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.summary-card .small-text {
+    font-size: 12px;
+    color: #666;
+}
+
+@media (max-width: 768px) {
+    .comparison-selectors {
+        grid-template-columns: 1fr;
+    }
+    .comparison-vs {
+        font-size: 24px;
+        padding: 10px 0;
+    }
+    .comparison-table th,
+    .comparison-table td {
+        padding: 8px 4px;
+        font-size: 12px;
+    }
+}
