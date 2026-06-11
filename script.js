@@ -1062,38 +1062,6 @@ function importData(e) {
     reader.readAsText(file);
 }
 
-// ===== СКАЧИВАНИЕ DATA.JS =====
-function downloadDataJS() {
-    // Объединяем начальные данные и новые записи
-    const allRecords = [...records];
-    const allTariffs = [...tariffs];
-    
-    // Генерируем код data.js
-    let jsCode = `// Данные из таблицы Доставка_v2.pdf + новые записи\n`;
-    jsCode += `// Обновлено: ${new Date().toLocaleString('ru-RU')}\n\n`;
-    
-    jsCode += `const initialTariffs = ${JSON.stringify(allTariffs, null, 2)};\n\n`;
-    
-    jsCode += `const initialData = ${JSON.stringify(allRecords, null, 2)};\n`;
-    
-    // Скачиваем файл
-    const blob = new Blob([jsCode], { type: 'application/javascript' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `data_${new Date().toISOString().split('T')[0]}.js`;
-    a.click();
-    URL.revokeObjectURL(url);
-    
-    alert('✅ Файл data.js скачан!\n\nЗамените старый data.js в проекте этим файлом.');
-}
-
-// ===== АВТОМАТИЧЕСКОЕ СОХРАНЕНИЕ ПРИ ЗАКРЫТИИ =====
-window.addEventListener('beforeunload', (e) => {
-    // Сохраняем данные перед закрытием
-    saveData();
-});
-
 // ===== УТИЛИТЫ =====
 function formatMoney(n) {
     return new Intl.NumberFormat('ru-RU', {style:'currency', currency:'RUB', minimumFractionDigits: 2}).format(n);
