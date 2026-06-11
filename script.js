@@ -28,10 +28,26 @@ function switchTab(tabName) {
 }
 
 // ===== СБРОС ДАННЫХ =====
-function resetAllData() {
+async function resetAllData() {
     if (!confirm('⚠️ Вы уверены? Все данные и тарифы будут удалены!')) return;
     if (!confirm('Это действие нельзя отменить. Продолжить?')) return;
     
+    try {
+        // Удаляем все записи из Firebase
+        const recordsSnapshot = await db.collection('records').get();
+        const batch = db.batch();
+        recordsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+        
+        const tariffsSnapshot = await db.collection('tariffs').get();
+        tariffsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+        
+        await batch.commit();
+        console.log('✅ Все данные удалены из Firebase');
+    } catch (error) {
+        console.error('❌ Ошибка очистки:', error);
+        alert('Ошибка очистки: ' + error.message);
+        return;
+    }    
     localStorage.removeItem('driverRecords');
     localStorage.removeItem('driverTariffs');
     
@@ -80,8 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ===== ВАЛИДАЦИЯ ФОРМЫ =====
 function addFormValidation() {
     const numericFields = ['hours', 'orders-pickup', 'orders-delivery', 'distance', 'weight', 
-                           'pay-pickup', 'pay-delivery', 'pay-distance', 'pay-weight',
-                           'load-pay', 'rating', 'tips', 'fuel-cost', 'repair-cost', 'tax'];
+                           'pay-pickup', 'pay-delivery', 'pay-distance', 'pay-weight',                           'load-pay', 'rating', 'tips', 'fuel-cost', 'repair-cost', 'tax'];
     
     numericFields.forEach(fieldId => {
         const field = document.getElementById(fieldId);
@@ -95,32 +110,116 @@ function addFormValidation() {
     });
 }
 
-// ===== ЗАГРУЗКА ДАННЫХ =====
-function loadData() {
-    const savedRecords = localStorage.getItem('driverRecords');
-    const savedTariffs = localStorage.getItem('driverTariffs');
-    
-    if (savedRecords) {
-        records = JSON.parse(savedRecords).map(normalizeRecord);
-    } else if (typeof initialData !== 'undefined') {
-        records = initialData.map(r => normalizeRecord({
-            id: Date.now() + Math.random(),
-            ...r
-        }));
+// ===== ЗАГРУЗКА ДАННЫХ ИЗ FIREBASE =====
+async function loadData() {
+    try {
+        console.log('🔄 Загрузка данных из Firebase...');
+        
+        // Проверяем localStorage сначала
+        const savedRecords = localStorage.getItem('driverRecords');
+        const savedTariffs = localStorage.getItem('driverTariffs');
+        
+        if (savedRecords && typeof db !== 'undefined') {
+            // Загружаем из Firebase
+            const recordsSnapshot = await db.collection('records').get();
+            if (!recordsSnapshot.empty) {
+                records = recordsSnapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return normalizeRecord({ id: doc.id, ...data });
+                });
+                console.log('✅ Загружено записей из Firebase:', records.length);
+            } else if (typeof initialData !== 'undefined') {
+                // Если Firebase пустой, загружаем из data.js
+                for (const r of initialData) {
+                    const normalized = normalizeRecord({ ...r });
+                    delete normalized.id;
+                    const docRef = await db.collection('records').add(normalized);
+                    records.push(normalizeRecord({ id: docRef.id, ...normalized }));
+                }
+                console.log('✅ Загружено из data.js:', records.length);
+            }
+        } else if (savedRecords) {
+            records = JSON.parse(savedRecords).map(normalizeRecord);
+        } else if (typeof initialData !== 'undefined') {
+            records = initialData.map(r => normalizeRecord({
+                id: Date.now() + Math.random(),
+                ...r
+            }));
+        }        
+        if (savedTariffs && typeof db !== 'undefined') {
+            const tariffsSnapshot = await db.collection('tariffs').get();
+            if (!tariffsSnapshot.empty) {
+                tariffs = tariffsSnapshot.docs.map(doc => {
+                    const data = doc.data();
+                    return normalizeTariff({ id: doc.id, ...data });
+                });
+                console.log('✅ Загружено тарифов из Firebase:', tariffs.length);
+            } else if (typeof initialTariffs !== 'undefined') {
+                for (const t of initialTariffs) {
+                    const normalized = normalizeTariff({ ...t });
+                    delete normalized.id;
+                    const docRef = await db.collection('tariffs').add(normalized);
+                    tariffs.push(normalizeTariff({ id: docRef.id, ...normalized }));
+                }
+                console.log('✅ Загружено тарифов:', tariffs.length);
+            }
+        } else if (savedTariffs) {
+            tariffs = JSON.parse(savedTariffs).map(normalizeTariff);
+        } else if (typeof initialTariffs !== 'undefined') {
+            tariffs = initialTariffs.map(t => normalizeTariff({ id: Date.now() + Math.random(), ...t }));
+        }
+        
+        saveData();
+        console.log('✅ Все данные загружены!');
+    } catch (error) {
+        console.error('❌ Ошибка загрузки:', error);
+        // Fallback к localStorage
+        const savedRecords = localStorage.getItem('driverRecords');
+        const savedTariffs = localStorage.getItem('driverTariffs');
+        
+        if (savedRecords) {
+            records = JSON.parse(savedRecords).map(normalizeRecord);
+        }
+        if (savedTariffs) {
+            tariffs = JSON.parse(savedTariffs).map(normalizeTariff);
+        }
     }
-    
-    if (savedTariffs) {
-        tariffs = JSON.parse(savedTariffs).map(normalizeTariff);
-    } else if (typeof initialTariffs !== 'undefined') {
-        tariffs = initialTariffs.map(t => normalizeTariff({ id: Date.now() + Math.random(), ...t }));
-    }
-    
-    saveData();
 }
 
+// ===== СОХРАНЕНИЕ ДАННЫХ =====
 function saveData() {
     localStorage.setItem('driverRecords', JSON.stringify(records));
     localStorage.setItem('driverTariffs', JSON.stringify(tariffs));
+}
+
+// ===== СОХРАНЕНИЕ ЗАПИСИ В FIREBASE =====
+async function saveRecordToFirebase(record) {
+    try {        if (!record.id || !records.find(r => r.id === record.id)) {
+            // Создание новой записи
+            const recordToSave = { ...record };
+            delete recordToSave.id;
+            const docRef = await db.collection('records').add(recordToSave);
+            record.id = docRef.id;
+        } else {
+            // Обновление существующей записи
+            const recordToSave = { ...record };
+            delete recordToSave.id;
+            await db.collection('records').doc(record.id).set(recordToSave);
+        }
+        console.log('✅ Запись сохранена в Firebase');
+    } catch (error) {
+        console.error('❌ Ошибка сохранения:', error);
+    }
+}
+
+// ===== УДАЛЕНИЕ ИЗ FIREBASE =====
+async function deleteRecordFromFirebase(id) {
+    try {
+        await db.collection('records').doc(id).delete();
+        console.log('✅ Запись удалена из Firebase');
+    } catch (error) {
+        console.error('❌ Ошибка удаления:', error);
+    }
 }
 
 // ===== ТАРИФЫ =====
@@ -145,7 +244,6 @@ function getCurrentTariff() {
     const today = new Date().toISOString().split('T')[0];
     return getTariffForDate(today);
 }
-
 function updateTariffDisplay() {
     const dateVal = document.getElementById('date').value;
     const tariff = getTariffForDate(dateVal);
@@ -194,8 +292,7 @@ function autoCalc(type) {
         document.getElementById(priceField).value = '';
         return;
     }
-    
-    const qty = parseFloat(qtyValue);
+        const qty = parseFloat(qtyValue);
     if (isNaN(qty) || qty <= 0) {
         document.getElementById(priceField).value = '';
         return;
@@ -226,7 +323,7 @@ function recalcCurrentByTariff() {
 }
 
 function cancelEdit() {
-    if (!confirm('Отменить редактирование?')) return;
+    if (!confirm('Отменить редактирование? Все изменения будут потеряны.')) return;
     editingId = null;
     document.getElementById('editing-notice').style.display = 'none';
     clearForm();
@@ -244,7 +341,6 @@ function updateWeekday() {
         document.getElementById('weekday').value = days[new Date(val).getDay()];
     }
 }
-
 function calcIncome(r) {
     return (r.payPickup || 0) + (r.payDelivery || 0) + (r.payDistance || 0) +
            (r.payWeight || 0) + (r.loadPay || 0) + (r.rating || 0) + (r.tips || 0);
@@ -255,12 +351,12 @@ function calcExpenses(r) {
 }
 
 // ===== СОХРАНЕНИЕ ЗАПИСИ =====
-function saveRecord(e) {
+async function saveRecord(e) {
     e.preventDefault();
     
     const recordType = document.getElementById('record-type').value;
     const record = {
-        id: editingId || Date.now(),
+        id: editingId || Date.now().toString(),
         date: document.getElementById('date').value,
         weekday: document.getElementById('weekday').value,
         hours: parseFloat(document.getElementById('hours').value) || 0,
@@ -294,8 +390,7 @@ function saveRecord(e) {
     } else {
         const idx = records.findIndex(r => r.date === record.date && r.recordType === record.recordType);
         if (idx >= 0) {
-            if (confirm('Запись за эту дату с таким типом уже существует. Перезаписать?')) {
-                records[idx] = normalizedRecord;
+            if (confirm('Запись за эту дату с таким типом уже существует. Перезаписать?')) {                records[idx] = normalizedRecord;
             } else return;
         } else {
             records.push(normalizedRecord);
@@ -303,6 +398,12 @@ function saveRecord(e) {
     }
     
     records.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    // Сохраняем в Firebase
+    if (typeof db !== 'undefined') {
+        await saveRecordToFirebase(normalizedRecord);
+    }
+    
     saveData();
     alert('✅ Сохранено! Доход: ' + formatMoney(normalizedRecord.totalIncome));
     clearForm();
@@ -321,10 +422,10 @@ function clearForm() {
 }
 
 // ===== СОХРАНЕНИЕ ТАРИФА =====
-function saveTariff(e) {
+async function saveTariff(e) {
     e.preventDefault();
     const tariff = normalizeTariff({
-        id: Date.now(),
+        id: Date.now().toString(),
         date: document.getElementById('tariff-date').value,
         pickup: parseFloat(document.getElementById('tariff-pickup').value) || 0,
         delivery: parseFloat(document.getElementById('tariff-delivery').value) || 0,
@@ -338,10 +439,24 @@ function saveTariff(e) {
             tariffs[idx] = tariff;
         } else return;
     } else {
-        tariffs.push(tariff);
-    }
+        tariffs.push(tariff);    }
     
     tariffs.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    // Сохраняем в Firebase
+    if (typeof db !== 'undefined') {
+        try {
+            const tariffToSave = { ...tariff };
+            delete tariffToSave.id;
+            const docRef = await db.collection('tariffs').add(tariffToSave);
+            const idx = tariffs.findIndex(t => t.date === tariff.date);
+            if (idx >= 0) tariffs[idx].id = docRef.id;
+            console.log('✅ Тариф сохранён в Firebase');
+        } catch (error) {
+            console.error('❌ Ошибка сохранения тарифа:', error);
+        }
+    }
+    
     saveData();
     alert('✅ Тариф сохранен!');
     document.getElementById('tariff-form').reset();
@@ -349,12 +464,23 @@ function saveTariff(e) {
     updateTariffDisplay();
 }
 
-function deleteTariff(id) {
+async function deleteTariff(id) {
     if (tariffs.length <= 1) {
         alert('Нельзя удалить последний тариф!');
         return;
     }
     if (!confirm('Удалить этот тариф?')) return;
+    
+    // Удаляем из Firebase
+    if (typeof db !== 'undefined') {
+        try {
+            await db.collection('tariffs').doc(id).delete();
+            console.log('✅ Тариф удалён из Firebase');
+        } catch (error) {
+            console.error('❌ Ошибка удаления тарифа:', error);
+        }
+    }
+    
     tariffs = tariffs.filter(t => t.id !== id);
     saveData();
     renderTariffs();
@@ -362,12 +488,10 @@ function deleteTariff(id) {
 }
 
 // ===== МАССОВЫЙ ПЕРЕСЧЁТ =====
-function recalculateAllTariffs() {
-    if (records.length === 0) {
+function recalculateAllTariffs() {    if (records.length === 0) {
         alert('Нет записей для пересчёта');
         return;
     }
-    
     if (!confirm('⚠️ Пересчитать ВСЕ записи по актуальным тарифам на их даты?')) {
         return;
     }
@@ -413,8 +537,7 @@ function renderTariffs() {
         const isCurrent = currentTariff && t.id === currentTariff.id;
         const div = document.createElement('div');
         div.className = 'tariff-item' + (isCurrent ? ' current' : '');
-        div.innerHTML = `
-            <div class="tariff-date">
+        div.innerHTML = `            <div class="tariff-date">
                 📅 ${formatDate(t.date)}
                 ${isCurrent ? '<span style="color:#10b981;font-weight:bold"> (действует)</span>' : ''}
             </div>
@@ -425,7 +548,7 @@ function renderTariffs() {
                 <span>⚖️ ${t.weight} ₽/кг</span>
             </div>
             <div class="tariff-actions">
-                <button class="btn btn-danger" onclick="deleteTariff(${t.id})">🗑️ Удалить</button>
+                <button class="btn btn-danger" onclick="deleteTariff('${t.id}')">🗑️ Удалить</button>
             </div>
         `;
         list.appendChild(div);
@@ -437,7 +560,6 @@ function updateAnalytics() {
     const month = document.getElementById('filter-month').value;
     const year = document.getElementById('filter-year').value;
     let filtered = [...records];
-    
     if (month) filtered = filtered.filter(r => (new Date(r.date).getMonth()+1).toString().padStart(2,'0') === month);
     if (year) filtered = filtered.filter(r => new Date(r.date).getFullYear().toString() === year);
     
@@ -464,8 +586,7 @@ function updateAnalytics() {
     const avgIncomePerDay = s.workingDays > 0 ? s.totalIncome / s.workingDays : 0;
     const avgNetProfitPerDay = s.workingDays > 0 ? s.netProfit / s.workingDays : 0;
     const avgPerHour = s.totalHours > 0 ? s.netProfit / s.totalHours : 0;
-    const avgCheck = s.totalOrders > 0 ? s.totalIncome / s.totalOrders : 0;
-    const ordersPerHour = s.totalHours > 0 ? s.totalOrders / s.totalHours : 0;
+    const avgCheck = s.totalOrders > 0 ? s.totalIncome / s.totalOrders : 0;    const ordersPerHour = s.totalHours > 0 ? s.totalOrders / s.totalHours : 0;
     const efficiencyPercent = s.totalIncome > 0 ? (s.netProfit / s.totalIncome) * 100 : 0;
     
     const setEl = (id, value) => {
@@ -514,8 +635,7 @@ function updateCharts(filteredRecords) {
         if (incomeChart) incomeChart.destroy();
         incomeChart = new Chart(ctx1, {
             type: 'bar',
-            data: {
-                labels,
+            data: {                labels,
                 datasets: [
                     { label: 'Доход', data: sorted.map(r => r.totalIncome || 0), backgroundColor: 'rgba(16,185,129,0.7)' },
                     { label: 'Прибыль', data: sorted.map(r => r.netProfit || 0), backgroundColor: 'rgba(102,126,234,0.7)' }
@@ -564,8 +684,7 @@ function initComparisonSelectors() {
     
     if (!c1m || !c1y || !c2m || !c2y) return;
     
-    [c1m, c2m].forEach(select => {
-        select.innerHTML = '<option value="">Весь год</option>';
+    [c1m, c2m].forEach(select => {        select.innerHTML = '<option value="">Весь год</option>';
         [...months].sort().forEach(m => {
             const o = document.createElement('option');
             o.value = m;
@@ -614,8 +733,7 @@ function getPeriodStats(month, year) {
         netProfit: filtered.reduce((sum, r) => sum + (r.netProfit || 0), 0),
         totalHours: filtered.reduce((sum, r) => sum + (r.hours || 0), 0),
         totalOrders: filtered.reduce((sum, r) => sum + (r.ordersDelivery || 0), 0),
-        totalDistance: filtered.reduce((sum, r) => sum + (r.distance || 0), 0),
-        workingDays: uniqueDates.size,
+        totalDistance: filtered.reduce((sum, r) => sum + (r.distance || 0), 0),        workingDays: uniqueDates.size,
         recordsCount: filtered.length
     };
 }
@@ -664,8 +782,7 @@ function updateComparison() {
     
     if (!c1m || !c1y || !c2m || !c2y) return;
     
-    const month1 = c1m.value;
-    const year1 = c1y.value;
+    const month1 = c1m.value;    const year1 = c1y.value;
     const month2 = c2m.value;
     const year2 = c2y.value;
     
@@ -714,8 +831,7 @@ function updateComparison() {
                     <td>${formatDiff(s1.totalIncome, s2.totalIncome)}</td>
                 </tr>
                 <tr>
-                    <td class="metric-name">💰 Доход в день</td>
-                    <td>${formatMoney(incomePerDay1)}</td>
+                    <td class="metric-name">💰 Доход в день</td>                    <td>${formatMoney(incomePerDay1)}</td>
                     <td>${formatMoney(incomePerDay2)}</td>
                     <td>${formatDiff(incomePerDay1, incomePerDay2)}</td>
                 </tr>
@@ -764,8 +880,7 @@ function updateComparison() {
                 <tr>
                     <td class="metric-name">💵 Средний ₽/час</td>
                     <td>${formatMoney(avgPerHour1)}</td>
-                    <td>${formatMoney(avgPerHour2)}</td>
-                    <td>${formatDiff(avgPerHour1, avgPerHour2)}</td>
+                    <td>${formatMoney(avgPerHour2)}</td>                    <td>${formatDiff(avgPerHour1, avgPerHour2)}</td>
                 </tr>
                 <tr>
                     <td class="metric-name">📦 Средний чек</td>
@@ -814,8 +929,7 @@ function updateComparison() {
                 <div class="big-number">${hoursDiff.diff > 0 ? '+' : ''}${hoursDiff.diff.toFixed(1)} ч</div>
                 <div class="small-text">${name1}: ${s1.totalHours.toFixed(1)} ч vs ${name2}: ${s2.totalHours.toFixed(1)} ч</div>
             </div>
-        </div>
-    `;
+        </div>    `;
     
     results.innerHTML = html;
     updateComparisonChart(name1, name2, s1, s2);
@@ -864,8 +978,7 @@ function updateComparisonChart(name1, name2, s1, s2) {
         options: {
             responsive: true,
             plugins: {
-                legend: { display: true, position: 'top' },
-                tooltip: {
+                legend: { display: true, position: 'top' },                tooltip: {
                     callbacks: {
                         label: function(context) {
                             let val = context.raw;
@@ -914,8 +1027,7 @@ function quickCompare(type) {
         document.getElementById('compare2-year').value = (parseInt(currentYear) - 1).toString();
     }
     
-    updateComparison();
-}
+    updateComparison();}
 
 // ===== ФИЛЬТРЫ =====
 function populateFilters() {
@@ -954,8 +1066,8 @@ function renderTable() {
             <td>${formatMoney(r.totalExpenses)}</td>
             <td style="color:${r.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">${formatMoney(r.netProfit)}</td>
             <td>
-                <button class="btn btn-success" onclick="editRecord(${r.id})">✏️</button>
-                <button class="btn btn-danger" onclick="deleteRecord(${r.id})">🗑️</button>
+                <button class="btn btn-success" onclick="editRecord('${r.id}')">✏️</button>
+                <button class="btn btn-danger" onclick="deleteRecord('${r.id}')">🗑️</button>
             </td>`;
         tbody.appendChild(tr);
     });
@@ -964,8 +1076,7 @@ function renderTable() {
 function editRecord(id) {
     const r = records.find(x => x.id === id);
     if (!r) return;
-    
-    editingId = id;
+        editingId = id;
     
     document.getElementById('date').value = r.date;
     updateWeekday();
@@ -992,8 +1103,15 @@ function editRecord(id) {
     switchTab('entry');
 }
 
-function deleteRecord(id, confirmDelete = true) {
+async function deleteRecord(id, confirmDelete = true) {
     if (confirmDelete && !confirm('Удалить запись?')) return;
+    
+    // Удаляем из Firebase
+    if (typeof db !== 'undefined') {
+        await deleteRecordFromFirebase(id);
+    }
+    
+    // Удаляем из локального массива
     records = records.filter(r => r.id !== id);
     saveData();
     renderTable();
@@ -1007,8 +1125,7 @@ function exportData() {
         const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `driver-data-${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
+        a.download = `driver-data-${new Date().toISOString().split('T')[0]}.json`;        a.click();
         alert('✅ Данные экспортированы!');
     } catch(err) {
         alert('❌ Ошибка при экспорте: ' + err.message);
@@ -1057,8 +1174,7 @@ function importData(e) {
         alert('❌ Ошибка при чтении файла');
         importBtn.textContent = originalText;
         importBtn.disabled = false;
-        e.target.value = '';
-    };
+        e.target.value = '';    };
     reader.readAsText(file);
 }
 
