@@ -23,28 +23,18 @@ function switchTab(tabName) {
     if (tabName === 'tariffs') renderTariffs();
 }
 
-// ===== СБРОС ДАННЫХ =====
+// ===== СБРОС ДАННЫХ (только localStorage, Firebase не трогаем!) =====
 async function resetAllData() {
-    if (!confirm('⚠️ Вы уверены? Все данные и тарифы будут удалены!')) return;
-    if (!confirm('Это действие нельзя отменить. Продолжить?')) return;
-    try {
-        const recordsSnapshot = await db.collection('records').get();
-        const batch = db.batch();
-        recordsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-        const tariffsSnapshot = await db.collection('tariffs').get();
-        tariffsSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-        await batch.commit();
-        console.log('✅ Все данные удалены из Firebase');
-    } catch (error) {
-        console.error('❌ Ошибка очистки:', error);
-        alert('Ошибка очистки: ' + error.message);
-        return;
-    }    
+    if (!confirm('⚠️ Вы уверены? Локальные данные будут очищены.\n\nДанные в Firebase будут сохранены.')) return;
+    
+    // Очищаем ТОЛЬКО localStorage
     localStorage.removeItem('driverRecords');
     localStorage.removeItem('driverTariffs');
+    
     records = [];
     tariffs = [];
-    alert('✅ Все данные очищены! Приложение перезагрузится.');
+    
+    alert('✅ Локальные данные очищены! Данные в Firebase сохранены.\nПриложение перезагрузится и загрузит данные из Firebase.');
     location.reload();
 }
 // ===== НОРМАЛИЗАЦИЯ ДАННЫХ =====
@@ -310,7 +300,8 @@ function updateWeekday() {
 
 function calcIncome(r) {
     return (r.payPickup || 0) + (r.payDelivery || 0) + (r.payDistance || 0) +
-        (r.payWeight || 0) + (r.loadPay || 0) + (r.rating || 0) + (r.tips || 0);
+        (r.payWeight || 0) + (r.loadPay || 0) + (r.bonusPay || 0) +  // ДОБАВИТЬ bonusPay
+        (r.rating || 0) + (r.tips || 0);
 }
 
 function calcExpenses(r) {
@@ -334,6 +325,7 @@ async function saveRecord(e) {
         weight: parseFloat(document.getElementById('weight').value) || 0,
         payWeight: parseFloat(document.getElementById('pay-weight').value) || 0,
         loadPay: parseFloat(document.getElementById('load-pay').value) || 0,
+        bonusPay: parseFloat(document.getElementById('bonus-pay').value) || 0,
         rating: parseFloat(document.getElementById('rating').value) || 0,
         tips: parseFloat(document.getElementById('tips').value) || 0,
         fuelCost: parseFloat(document.getElementById('fuel-cost').value) || 0,
@@ -986,6 +978,7 @@ function editRecord(id) {
     document.getElementById('weight').value = r.weight;
     document.getElementById('pay-weight').value = r.payWeight;
     document.getElementById('load-pay').value = r.loadPay;
+    document.getElementById('bonus-pay').value = r.bonusPay || '';
     document.getElementById('rating').value = r.rating;
     document.getElementById('tips').value = r.tips;
     document.getElementById('fuel-cost').value = r.fuelCost;
