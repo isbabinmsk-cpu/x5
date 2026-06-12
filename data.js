@@ -233,5 +233,7 @@ const initialData = [
 {date: "2026-03-25", weekday: "среда", hours: 12, ordersPickup: 22, payPickup: 1320, ordersDelivery: 31, payDelivery: 2511, distance: 67.48, payDistance: 742.28, weight: 227.02, payWeight: 454.04, loadPay: 0, rating: 0, tips: 0, fuelCost: 0, repairCost: 0, tax: 0},
 {date: "2026-03-26", weekday: "четверг", hours: 12, ordersPickup: 17, payPickup: 1020, ordersDelivery: 28, payDelivery: 2268, distance: 45.26, payDistance: 497.86, weight: 260.84, payWeight: 521.68, loadPay: 0, rating: 0, tips: 0, fuelCost: 0, repairCost: 0, tax: 0},
 {date: "2026-03-30", weekday: "понедельник", hours: 12, ordersPickup: 14, payPickup: 840, ordersDelivery: 23, payDelivery: 1863, distance: 38.08, payDistance: 418.88, weight: 192.63, payWeight: 385.26, loadPay: 0, rating: 0, tips: 0, fuelCost: 0, repairCost: 0, tax: 0},
-{date: "2026-03-31", weekday: "вторник", hours: 12, ordersPickup: 20, payPickup: 1200, ordersDelivery: 40, payDelivery: 3240, distance: 103.75, payDistance: 1141.25, weight: 312.79, payWeight: 625.58, loadPay: 0, rating: 0, tips: 0, fuelCost: 1688.87, repairCost: 62400, tax: 1900.05}
+{date: "2026-03-31", weekday: "вторник", hours: 12, ordersPickup: 20, payPickup: 1200, ordersDelivery: 40, payDelivery: 3240, distance: 103.75, payDistance: 1141.25, weight: 312.79, payWeight: 625.58, loadPay: 0, rating: 0, tips: 0, fuelCost: 1688.87, repairCost: 62400, tax: 1900.05},
+
+
 ];
