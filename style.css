@@ -257,8 +257,8 @@ body {
     justify-content: center;
     gap: 8px;
     white-space: nowrap;
-    white-space: normal; /* ДОБАВИТЬ ЭТУ СТРОКУ */
-    word-wrap: break-word; /* ДОБАВИТЬ ЭТУ СТРОКУ */
+    white-space: normal;
+    word-wrap: break-word;
 }
 
 .btn:active {
@@ -266,21 +266,25 @@ body {
 }
 
 .btn-success {
+    background: transparent;
+    color: #34C759;
+    border: 2px solid #34C759;
+}
+
+.btn-success:hover {
     background: #34C759;
     color: #FFFFFF;
 }
 
-.btn-success:hover {
-    background: #30B350;
-}
-
 .btn-danger {
-    background: #FF3B30;
-    color: #FFFFFF;
+    background: transparent;
+    color: #FF3B30;
+    border: 2px solid #FF3B30;
 }
 
 .btn-danger:hover {
-    background: #E6352B;
+    background: #FF3B30;
+    color: #FFFFFF;
 }
 
 .btn-secondary {
@@ -295,7 +299,8 @@ body {
 .btn-small {
     padding: 6px 12px !important;
     font-size: 13px !important;
-    border-radius: 8px !important;    margin-left: 8px;
+    border-radius: 8px !important;
+    margin-left: 8px;
 }
 
 /* ===== FILTERS ===== */
@@ -1455,3 +1460,4 @@ tr:hover {
         padding: 12px 10px;
     }
 }
+    
