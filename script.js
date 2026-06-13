@@ -804,6 +804,8 @@ function updateComparison() {
                 </tr>
             </tbody>
         </table>
+    
+    
     `;
     const profitDiff = calcDiff(s1.netProfit, s2.netProfit);
     const incomeDiff = calcDiff(s1.totalIncome, s2.totalIncome);
@@ -829,9 +831,24 @@ function updateComparison() {
             </div>
         </div>
     `;
+    // Разделяем таблицу и карточки
+const tableMatch = html.match(/<table[\s\S]*?<\/table>/);
+const summaryMatch = html.match(/<div class="comparison-summary"[\s\S]*$/);
+
+if (tableMatch) {
+    // Оборачиваем таблицу в прокручиваемый контейнер
+    let newHtml = '<div class="table-scroll-container">' + tableMatch[0] + '</div>';
+    if (summaryMatch) {
+        newHtml += summaryMatch[0];
+    }
+    results.innerHTML = newHtml;
+} else {
     results.innerHTML = html;
+}
     updateComparisonChart(name1, name2, s1, s2);
 }
+
+
 
 function updateComparisonChart(name1, name2, s1, s2) {
     const canvas = document.getElementById('comparison-chart');
