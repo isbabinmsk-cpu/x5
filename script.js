@@ -6,6 +6,326 @@ let comparisonChart = null;
 let editingId = null;
 const DEFAULT_TARIFF = { pickup: 60, delivery: 81, km: 11, weight: 2 };
 
+// ===== ФИЛЬТРЫ =====
+let activeFilters = {};
+let filterState = {
+    date: { type: 'month', values: [] },
+    weekday: { type: 'checkbox', values: [] },
+    type: { type: 'checkbox', values: [] },
+    hours: { type: 'range', min: '', max: '' },
+    pickup: { type: 'range', min: '', max: '' },
+    delivery: { type: 'range', min: '', max: '' },
+    income: { type: 'range', min: '', max: '' },
+    expenses: { type: 'range', min: '', max: '' },
+    profit: { type: 'range', min: '', max: '' }
+};
+
+let currentFilterColumn = null; // Текущая открытая колонка фильтра
+
+// ===== ФУНКЦИИ ФИЛЬТРАЦИИ =====
+function toggleFilter(column) {
+    const filterRow = document.getElementById('filter-row');
+    if (!filterRow) return;
+    
+    // Если панель закрыта — открываем и показываем фильтр этой колонки
+    if (filterRow.style.display === 'none' || filterRow.style.display === '') {
+        filterRow.style.display = 'table-row';
+        currentFilterColumn = column;
+        showFilterForColumn(column);
+    } 
+    // Если панель открыта и клик по той же колонке — закрываем
+    else if (currentFilterColumn === column) {
+        filterRow.style.display = 'none';
+        currentFilterColumn = null;
+    } 
+    // Если панель открыта и клик по другой колонке — переключаем фильтр
+    else {
+        currentFilterColumn = column;
+        showFilterForColumn(column);
+    }
+}
+
+// Показывает фильтр только для указанной колонки, остальные скрывает
+function showFilterForColumn(column) {
+    const columns = ['date', 'weekday', 'type', 'hours', 'pickup', 'delivery', 'income', 'expenses', 'profit'];
+    columns.forEach(col => {
+        const cell = document.getElementById('filter-' + col);
+        if (cell) {
+            if (col === column) {
+                cell.style.display = 'table-cell';
+                renderFilter(col);
+            } else {
+                cell.style.display = 'none';                cell.innerHTML = '';
+            }
+        }
+    });
+}
+
+function renderFilter(column) {
+    const container = document.getElementById('filter-' + column);
+    if (!container) return;
+    
+    container.innerHTML = '';
+    // ВАЖНО: останавливаем всплытие клика, чтобы панель не закрывалась
+    container.onclick = (e) => e.stopPropagation();
+    
+    if (column === 'date') {
+        const months = getUniqueMonths();
+        const select = document.createElement('select');
+        select.innerHTML = '<option value="">Все месяцы</option>';
+        months.forEach(m => {
+            const option = document.createElement('option');
+            option.value = m.value;
+            option.textContent = m.label;
+            if (filterState.date.values.includes(m.value)) option.selected = true;
+            select.appendChild(option);
+        });
+        // Останавливаем всплытие
+        select.onclick = (e) => e.stopPropagation();
+        select.onchange = (e) => {
+            if (e.target.value) {
+                filterState.date.values = [e.target.value];
+            } else {
+                filterState.date.values = [];
+            }
+            renderTable();
+        };
+        container.appendChild(select);
+    }
+    else if (column === 'weekday') {
+        const days = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;';
+        // Останавливаем всплытие на контейнере
+        wrapper.onclick = (e) => e.stopPropagation();
+        
+        days.forEach(day => {
+            const label = document.createElement('label');
+            label.style.cssText = 'display:flex;align-items:center;font-size:11px;cursor:pointer;';
+            // Останавливаем всплытие на каждом label
+            label.onclick = (e) => e.stopPropagation();
+                        const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = day;
+            checkbox.checked = filterState.weekday.values.includes(day);
+            // Останавливаем всплытие на чекбоксе
+            checkbox.onclick = (e) => e.stopPropagation();
+            checkbox.onchange = updateWeekdayFilter;
+            
+            label.appendChild(checkbox);
+            label.appendChild(document.createTextNode(day.slice(0, 3)));
+            wrapper.appendChild(label);
+        });
+        container.appendChild(wrapper);
+    }
+    else if (column === 'type') {
+    const types = [
+        { value: 'work', label: '📅 Работа' },
+        { value: 'bonus', label: '🎁 Бонус' },
+        { value: 'expense', label: '💸 Расход' }
+    ];
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+    wrapper.onclick = (e) => e.stopPropagation();
+    
+    types.forEach(t => {
+        const label = document.createElement('label');
+        label.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;';
+        label.onclick = (e) => e.stopPropagation();
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = t.value;
+        checkbox.checked = filterState.type.values.includes(t.value);
+        checkbox.onclick = (e) => e.stopPropagation();
+        checkbox.onchange = () => {
+            if (checkbox.checked) {
+                if (!filterState.type.values.includes(t.value)) {
+                    filterState.type.values.push(t.value);
+                }
+            } else {
+                filterState.type.values = filterState.type.values.filter(v => v !== t.value);
+            }
+            console.log('🔍 Фильтр по типу:', filterState.type.values);
+            renderTable();
+        };
+        
+        label.appendChild(checkbox);
+        label.appendChild(document.createTextNode(t.label));
+        wrapper.appendChild(label);
+    });
+    
+    // Добавляем кнопку "Выбрать все"
+    const selectAll = document.createElement('button');
+    selectAll.textContent = 'Выбрать все';
+    selectAll.style.cssText = 'margin-top:8px;padding:4px 8px;font-size:11px;cursor:pointer;';
+    selectAll.onclick = (e) => {
+        e.stopPropagation();
+        filterState.type.values = ['work', 'bonus', 'expense'];
+        wrapper.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+        renderTable();
+    };
+    wrapper.appendChild(selectAll);
+    
+    container.appendChild(wrapper);
+}
+    else if (['hours','pickup','delivery','income','expenses','profit'].includes(column)) {
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'display:flex;gap:4px;align-items:center;';
+        wrapper.onclick = (e) => e.stopPropagation();
+        
+        const minInput = document.createElement('input');
+        minInput.type = 'number';
+        minInput.placeholder = 'От';        minInput.value = filterState[column].min;
+        minInput.style.cssText = 'width:50px;font-size:11px;padding:2px;';
+        minInput.onclick = (e) => e.stopPropagation();
+        minInput.onchange = (e) => {
+            filterState[column].min = e.target.value;
+            renderTable();
+        };
+        
+        const maxInput = document.createElement('input');
+        maxInput.type = 'number';
+        maxInput.placeholder = 'До';
+        maxInput.value = filterState[column].max;
+        maxInput.style.cssText = 'width:50px;font-size:11px;padding:2px;';
+        maxInput.onclick = (e) => e.stopPropagation();
+        maxInput.onchange = (e) => {
+            filterState[column].max = e.target.value;
+            renderTable();
+        };
+        
+        wrapper.appendChild(minInput);
+        wrapper.appendChild(document.createTextNode('-'));
+        wrapper.appendChild(maxInput);
+        container.appendChild(wrapper);
+    }
+}
+
+// Оставь только ПЕРВУЮ версию updateWeekdayFilter (строка ~260):
+function updateWeekdayFilter(e) {
+    if (e) e.stopPropagation();
+    const checkboxes = document.querySelectorAll('#filter-weekday input[type="checkbox"]');
+    filterState.weekday.values = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+    renderTable();
+}
+
+// Оставь только ПЕРВУЮ версию updateTypeFilter (строка ~266):
+function updateTypeFilter(e) {
+    if (e) e.stopPropagation();
+    const checkboxes = document.querySelectorAll('#filter-type input[type="checkbox"]');
+    filterState.type.values = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
+    renderTable();
+}
+
+// Оставь только ПЕРВУЮ версию getUniqueMonths (строка ~272):
+function getUniqueMonths() {
+    const monthsMap = new Map();
+    records.forEach(r => {
+        if (!r.date) return;
+        const d = new Date(r.date);
+        const monthKey = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+        const monthLabel = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][d.getMonth()] + ' ' + d.getFullYear();
+        if (!monthsMap.has(monthKey)) {
+            monthsMap.set(monthKey, { value: monthKey, label: monthLabel });
+        }
+    });
+    return Array.from(monthsMap.values()).sort((a,b) => b.value.localeCompare(a.value));
+}
+
+// Оставь только ПЕРВУЮ версию clearAllFilters (строка ~284):
+function clearAllFilters() {
+    filterState = {
+        date: { type: 'month', values: [] },
+        weekday: { type: 'checkbox', values: [] },
+        type: { type: 'checkbox', values: [] },
+        hours: { type: 'range', min: '', max: '' },
+        pickup: { type: 'range', min: '', max: '' },
+        delivery: { type: 'range', min: '', max: '' },
+        income: { type: 'range', min: '', max: '' },
+        expenses: { type: 'range', min: '', max: '' },
+        profit: { type: 'range', min: '', max: '' }
+    };
+    const filterRow = document.getElementById('filter-row');
+    if (filterRow) {
+        filterRow.style.display = 'none';
+        const cells = filterRow.querySelectorAll('td');
+        cells.forEach(cell => {
+            if (cell.id && cell.id.startsWith('filter-')) {
+                cell.innerHTML = '';
+            }
+        });
+    }
+    currentFilterColumn = null;
+    renderTable();
+}
+
+// Оставь только ПЕРВУЮ версию applyFilters (строка ~298):
+function applyFilters(data) {
+    return data.filter(r => {
+        if (filterState.date.values.length > 0) {
+            const recordMonth = r.date ? r.date.substring(0, 7) : '';
+            if (!filterState.date.values.includes(recordMonth)) return false;
+        }
+        
+        if (filterState.weekday.values.length > 0) {
+            const recordWeekday = r.weekday ? 
+                r.weekday.trim().charAt(0).toUpperCase() + r.weekday.trim().slice(1).toLowerCase() : '';
+            if (!filterState.weekday.values.includes(recordWeekday)) return false;
+        }
+        
+        if (filterState.type.values.length > 0) {
+            if (!filterState.type.values.includes(r.recordType)) return false;
+        }
+        
+        const ranges = [
+            { field: 'hours', value: r.hours || 0 },
+            { field: 'pickup', value: r.ordersPickup || 0 },
+            { field: 'delivery', value: r.ordersDelivery || 0 },
+            { field: 'income', value: r.totalIncome || 0 },
+            { field: 'expenses', value: r.totalExpenses || 0 },
+            { field: 'profit', value: r.netProfit || 0 }
+        ];
+        
+        for (const range of ranges) {
+            const filter = filterState[range.field];
+            if (filter.min !== '' && range.value < parseFloat(filter.min)) return false;
+            if (filter.max !== '' && range.value > parseFloat(filter.max)) return false;
+        }
+        
+        return true;
+    });
+}
+
+function clearAllFilters() {
+    filterState = {
+        date: { type: 'month', values: [] },
+        weekday: { type: 'checkbox', values: [] },
+        type: { type: 'checkbox', values: [] },
+        hours: { type: 'range', min: '', max: '' },        pickup: { type: 'range', min: '', max: '' },
+        delivery: { type: 'range', min: '', max: '' },
+        income: { type: 'range', min: '', max: '' },
+        expenses: { type: 'range', min: '', max: '' },
+        profit: { type: 'range', min: '', max: '' }
+    };
+    const filterRow = document.getElementById('filter-row');
+    if (filterRow) {
+        filterRow.style.display = 'none';
+        // Очищаем все ячейки фильтров
+        const cells = filterRow.querySelectorAll('td');
+        cells.forEach(cell => {
+            if (cell.id && cell.id.startsWith('filter-')) {
+                cell.innerHTML = '';
+            }
+        });
+    }
+    currentFilterColumn = null;
+    renderTable();
+}
+
+
+
+
 // ===== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК =====
 function switchTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
@@ -39,10 +359,19 @@ async function resetAllData() {
 }
 // ===== НОРМАЛИЗАЦИЯ ДАННЫХ =====
 function normalizeRecord(r) {
+    // Исправляем recordType если он некорректный
+    let recordType = r.recordType;
+    if (!recordType || recordType === '' || recordType === 'undefined') {
+        // Если есть bonusPay или bonusPeriod - это бонус, иначе работа
+        recordType = (r.bonusPay || r.bonusPeriod) ? 'bonus' : 'work';
+    }
+    
     return {
         ...r,
         date: typeof r.date === 'string' ? r.date.trim() : r.date,
-        weekday: typeof r.weekday === 'string' ? r.weekday.trim() : r.weekday,
+        weekday: typeof r.weekday === 'string' ? 
+            (r.weekday.trim().charAt(0).toUpperCase() + r.weekday.trim().slice(1).toLowerCase()) : r.weekday,
+        recordType: recordType,
         totalIncome: calcIncome(r),
         totalExpenses: calcExpenses(r),
         netProfit: calcIncome(r) - calcExpenses(r)
@@ -63,6 +392,22 @@ function normalizeTariff(t) {
 // ===== ИНИЦИАЛИЗАЦИЯ =====
 document.addEventListener('DOMContentLoaded', async () => {
     await loadData();
+    
+    // Исправляем все некорректные recordType
+    let fixed = false;
+    records = records.map(r => {
+        if (!r.recordType || r.recordType === '' || r.recordType === 'undefined') {
+            fixed = true;
+            r.recordType = (r.bonusPay || r.bonusPeriod) ? 'bonus' : 'work';
+        }
+        return normalizeRecord(r);
+    });
+    
+    if (fixed) {
+        console.log('✅ Исправлены некорректные recordType');
+        saveData();
+    }
+    
     document.getElementById('date').addEventListener('change', onDateChange);
     document.getElementById('daily-form').addEventListener('submit', saveRecord);
     document.getElementById('tariff-form').addEventListener('submit', saveTariff);
@@ -314,7 +659,8 @@ async function saveRecord(e) {
     const record = {
         id: editingId || Date.now().toString(),
         date: document.getElementById('date').value,
-        weekday: document.getElementById('weekday').value,
+        weekday: document.getElementById('weekday').value.charAt(0).toUpperCase() + 
+             document.getElementById('weekday').value.slice(1).toLowerCase(),
         hours: parseFloat(document.getElementById('hours').value) || 0,
         ordersPickup: parseInt(document.getElementById('orders-pickup').value) || 0,
         payPickup: parseFloat(document.getElementById('pay-pickup').value) || 0,
@@ -428,6 +774,8 @@ async function deleteTariff(id) {
     renderTariffs();
     updateTariffDisplay();
 }
+
+
 
 function recalculateAllTariffs() {
     if (records.length === 0) {
@@ -958,26 +1306,40 @@ function populateFilters() {    const months = new Set(), years = new Set();
 function renderTable() {
     const tbody = document.getElementById('records-body');
     tbody.innerHTML = '';
-    [...records].sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(r => {
+    
+    // Применяем фильтры
+    let filteredRecords = [...records];
+    filteredRecords = applyFilters(filteredRecords);
+    
+    // Сортируем
+    filteredRecords.sort((a,b) => new Date(b.date) - new Date(a.date));
+    
+    filteredRecords.forEach(r => {
         const typeLabel = r.recordType === 'bonus' ? '🎁 Бонус' :
-            r.recordType === 'expense' ? '💸 Расход' : '📅 Работа';
+                         r.recordType === 'expense' ? '💸 Расход' : '📅 Работа';
         const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${formatDate(r.date)}</td>
-            <td>${typeLabel}</td>
-            <td>${r.hours || '-'}</td>
-            <td>${r.ordersPickup || '-'}</td>
-            <td>${r.ordersDelivery || '-'}</td>
-            <td>${formatMoney(r.totalIncome)}</td>
-            <td>${formatMoney(r.totalExpenses)}</td>
-            <td style="color:${r.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">${formatMoney(r.netProfit)}</td>
-            <td>
-                <button class="btn btn-success" onclick="editRecord('${r.id}')">✏️</button>
-                <button class="btn btn-danger" onclick="deleteRecord('${r.id}')">🗑️</button>
-            </td>
-        `;
+        tr.innerHTML = `<td>${formatDate(r.date)}</td><td>${r.weekday || '-'}</td><td>${typeLabel}</td><td>${r.hours || '-'}</td><td>${r.ordersPickup || '-'}</td><td>${r.ordersDelivery || '-'}</td><td>${formatMoney(r.totalIncome)}</td><td>${formatMoney(r.totalExpenses)}</td><td style="color:${r.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">${formatMoney(r.netProfit)}</td><td><button class="btn btn-success" onclick="editRecord('${r.id}')">✏️</button><button class="btn btn-danger" onclick="deleteRecord('${r.id}')">🗑️</button></td>`;
         tbody.appendChild(tr);
     });
+    
+    // Обновляем счетчик отфильтрованных записей
+let infoEl = document.getElementById('filter-info');
+if (!infoEl) {
+    infoEl = document.createElement('div');
+    infoEl.id = 'filter-info';
+    infoEl.style.cssText = 'padding:15px;background:#dbeafe;border-radius:8px;margin:10px 0;text-align:center;color:#1e40af;font-weight:600;';
+    tbody.parentElement.appendChild(infoEl);
+}
+
+const count = filteredRecords.length;
+const total = records.length;
+
+if (count < total || count === 0) {
+    infoEl.style.display = 'block';
+    infoEl.textContent = `Показано ${count} из ${total} записей`;
+} else {
+    infoEl.style.display = 'none';
+}
 }
 
 function editRecord(id) {

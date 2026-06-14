@@ -311,18 +311,32 @@
                 <div class="table-container">
                     <table>
                         <thead>
-                            <tr>
-                                <th>Дата</th>
-                                <th>Тип</th>
-                                <th>Часы</th>
-                                <th>Забор</th>
-                                <th>Выдача</th>
-                                <th>Доход</th>
-                                <th>Расходы</th>
-                                <th>Прибыль</th>
-                                <th>Действия</th>
-                            </tr>
-                        </thead>
+    <tr>
+        <th>Дата <button onclick="toggleFilter('date')" class="filter-btn">🔽</button></th>
+        <th>День <button onclick="toggleFilter('weekday')" class="filter-btn">🔽</button></th>
+        <th>Тип <button onclick="toggleFilter('type')" class="filter-btn">🔽</button></th>
+        <th>Часы <button onclick="toggleFilter('hours')" class="filter-btn">🔽</button></th>
+        <th>Забор <button onclick="toggleFilter('pickup')" class="filter-btn">🔽</button></th>
+        <th>Выдача <button onclick="toggleFilter('delivery')" class="filter-btn">🔽</button></th>
+        <th>Доход <button onclick="toggleFilter('income')" class="filter-btn">🔽</button></th>
+        <th>Расходы <button onclick="toggleFilter('expenses')" class="filter-btn">🔽</button></th>
+        <th>Прибыль <button onclick="toggleFilter('profit')" class="filter-btn">🔽</button></th>
+        <th>Действия</th>
+    </tr>
+    <!-- Строка фильтров -->
+    <tr id="filter-row" style="display:none; background:#f8f9fa;">
+        <td id="filter-date"></td>
+        <td id="filter-weekday"></td>
+        <td id="filter-type"></td>
+        <td id="filter-hours"></td>
+        <td id="filter-pickup"></td>
+        <td id="filter-delivery"></td>
+        <td id="filter-income"></td>
+        <td id="filter-expenses"></td>
+        <td id="filter-profit"></td>
+        <td><button onclick="clearAllFilters()" style="font-size:11px;padding:4px 8px;">Сбросить</button></td>
+    </tr>
+</thead>
                         <tbody id="records-body">
                             <!-- Данные загружаются через JS -->
                         </tbody>
@@ -442,7 +456,7 @@
 
 <!-- Ваши скрипты -->
 <script src="data.js?v=6"></script>
-<script src="script.js?v=6"></script>
+<script src="script.js?v=7"></script>
 <script>
     // Небольшой хак для совместимости с существующим script.js, 
     // который ищет .nav-btn[data-tab]. Мы добавляем этот класс динамически новым кнопкам.
