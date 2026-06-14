@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Журнал работы водителя</title>
     <link rel="stylesheet" href="style.css">
+    
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 </head>
 <body>
 
@@ -426,23 +429,23 @@
 <!-- Нижняя панель навигации (iOS Tab Bar) -->
 <nav class="bottom-nav">
     <button class="nav-item active" data-tab="entry" onclick="switchTab('entry')">
-        <span class="icon">📝</span>
+        <ion-icon name="create-outline"></ion-icon>
         <span class="label">Ввод</span>
     </button>
     <button class="nav-item" data-tab="analytics" onclick="switchTab('analytics')">
-        <span class="icon">📊</span>
+        <ion-icon name="stats-chart-outline"></ion-icon>
         <span class="label">Аналитика</span>
     </button>
     <button class="nav-item" data-tab="history" onclick="switchTab('history')">
-        <span class="icon">📋</span>
+        <ion-icon name="clipboard-outline"></ion-icon>
         <span class="label">История</span>
     </button>
     <button class="nav-item" data-tab="tariffs" onclick="switchTab('tariffs')">
-        <span class="icon">⚙️</span>
+        <ion-icon name="settings-outline"></ion-icon>
         <span class="label">Тарифы</span>
     </button>
     <button class="nav-item" data-tab="settings" onclick="switchTab('settings')">
-        <span class="icon">💾</span>
+        <ion-icon name="ellipsis-horizontal-outline"></ion-icon>
         <span class="label">Ещё</span>
     </button>
 </nav>
@@ -465,5 +468,7 @@
     });
 </script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+
 </body>
 </html>
