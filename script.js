@@ -6,6 +6,8 @@ let comparisonChart = null;
 let editingId = null;
 const DEFAULT_TARIFF = { pickup: 60, delivery: 81, km: 11, weight: 2 };
 
+
+
 // ===== ФИЛЬТРЫ =====
 let activeFilters = {};
 let filterState = {
@@ -1394,20 +1396,27 @@ function exportData() {
     }
 }
 
-function importData(e) {
+async function importData(e) {
     const file = e.target.files[0];
     if (!file) return;
     const importBtn = e.target.previousElementSibling;
     const originalText = importBtn.textContent;
-    importBtn.textContent = '⏳ Загрузка...';    importBtn.disabled = true;
+    importBtn.textContent = ' Загрузка...';
+    importBtn.disabled = true;
     const reader = new FileReader();
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
         try {
             const data = JSON.parse(ev.target.result);
             if (data.records) {
                 records = data.records.map(normalizeRecord);
                 if (data.tariffs) tariffs = data.tariffs.map(normalizeTariff);
                 saveData();
+                
+                // Если есть Firebase - сохраняем туда новые данные
+                if (typeof db !== 'undefined') {
+                    await syncToFirebase();
+                }
+                
                 renderTable();
                 renderTariffs();
                 populateFilters();
@@ -1416,13 +1425,18 @@ function importData(e) {
             } else if (Array.isArray(data)) {
                 records = data.map(normalizeRecord);
                 saveData();
+                
+                if (typeof db !== 'undefined') {
+                    await syncToFirebase();
+                }
+                
                 renderTable();
                 populateFilters();
                 updateAnalytics();
                 alert('✅ Импортировано ' + records.length + ' записей');
             }
-        } catch(err) { 
-            alert('❌ Ошибка при импорте: ' + err.message); 
+        } catch(err) {
+            alert('❌ Ошибка при импорте: ' + err.message);
         } finally {
             importBtn.textContent = originalText;
             importBtn.disabled = false;
@@ -1436,6 +1450,43 @@ function importData(e) {
         e.target.value = '';
     };
     reader.readAsText(file);
+}
+
+// Синхронизация данных с Firebase (полная замена)
+async function syncToFirebase() {
+    try {
+        console.log('🔄 Синхронизация с Firebase...');
+        
+        // Удаляем все старые записи
+        const oldRecords = await db.collection('records').get();
+        const deletePromises1 = oldRecords.docs.map(doc => doc.ref.delete());
+        await Promise.all(deletePromises1);
+        
+        // Удаляем все старые тарифы
+        const oldTariffs = await db.collection('tariffs').get();
+        const deletePromises2 = oldTariffs.docs.map(doc => doc.ref.delete());
+        await Promise.all(deletePromises2);
+        
+        // Загружаем новые записи
+        for (const r of records) {
+            const recordToSave = { ...r };
+            delete recordToSave.id;
+            const docRef = await db.collection('records').add(recordToSave);
+            r.id = docRef.id;
+        }
+        
+        // Загружаем новые тарифы
+        for (const t of tariffs) {
+            const tariffToSave = { ...t };
+            delete tariffToSave.id;
+            const docRef = await db.collection('tariffs').add(tariffToSave);
+            t.id = docRef.id;
+        }
+        
+        console.log('✅ Данные синхронизированы с Firebase');
+    } catch (error) {
+        console.error('❌ Ошибка синхронизации:', error);
+    }
 }
 
 function formatMoney(n) {
