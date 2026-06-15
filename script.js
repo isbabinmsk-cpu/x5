@@ -6,7 +6,80 @@ let comparisonChart = null;
 let editingId = null;
 const DEFAULT_TARIFF = { pickup: 60, delivery: 81, km: 11, weight: 2 };
 
+// ===== СОХРАНЕНИЕ СОСТОЯНИЯ =====
+const STATE_KEY = 'appState';
+let isRestoringState = false; // Флаг восстановления состояния
 
+function saveState() {
+    try {
+        const activeBtn = document.querySelector('.nav-btn.active');
+        const state = {
+            activeTab: activeBtn ? activeBtn.getAttribute('data-tab') : 'entry',
+            filterMonth: document.getElementById('filter-month')?.value || '',
+            filterYear: document.getElementById('filter-year')?.value || '',
+            compare1Month: document.getElementById('compare1-month')?.value || '',
+            compare1Year: document.getElementById('compare1-year')?.value || '',
+            compare2Month: document.getElementById('compare2-month')?.value || '',
+            compare2Year: document.getElementById('compare2-year')?.value || '',
+            timestamp: Date.now()
+        };
+        localStorage.setItem(STATE_KEY, JSON.stringify(state));
+    } catch (e) {
+        console.error('Ошибка сохранения:', e);
+    }
+}
+
+function restoreState() {
+    try {
+        const saved = localStorage.getItem(STATE_KEY);
+        if (!saved) return;
+        
+        const state = JSON.parse(saved);
+        console.log('🔄 Восстановление состояния:', state);
+        
+        // Восстанавливаем фильтры аналитики
+        const filterMonth = document.getElementById('filter-month');
+        const filterYear = document.getElementById('filter-year');
+        if (filterMonth && state.filterMonth) filterMonth.value = state.filterMonth;
+        if (filterYear && state.filterYear) filterYear.value = state.filterYear;
+        
+        // Восстанавливаем периоды сравнения
+        const c1m = document.getElementById('compare1-month');
+        const c1y = document.getElementById('compare1-year');
+        const c2m = document.getElementById('compare2-month');
+        const c2y = document.getElementById('compare2-year');
+        if (c1m && state.compare1Month) c1m.value = state.compare1Month;
+        if (c1y && state.compare1Year) c1y.value = state.compare1Year;
+        if (c2m && state.compare2Month) c2m.value = state.compare2Month;
+        if (c2y && state.compare2Year) c2y.value = state.compare2Year;
+        
+        // Переключаем вкладку
+        if (state.activeTab) {
+            // Устанавливаем классы напрямую БЕЗ вызова switchTab
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            
+            const targetTab = document.getElementById('tab-' + state.activeTab);
+            const targetBtn = document.querySelector('.nav-btn[data-tab="' + state.activeTab + '"]');
+            
+            if (targetTab) targetTab.classList.add('active');
+            if (targetBtn) targetBtn.classList.add('active');
+            
+            // Запускаем функции для активной вкладки
+            if (state.activeTab === 'analytics') {
+                updateAnalytics();
+                initComparisonSelectors();
+                updateComparison();
+            } else if (state.activeTab === 'history') {
+                renderTable();
+            } else if (state.activeTab === 'tariffs') {
+                renderTariffs();
+            }
+        }
+    } catch (e) {
+        console.error('❌ Ошибка восстановления:', e);
+    }
+}
 
 // ===== ФИЛЬТРЫ =====
 let activeFilters = {};
@@ -331,11 +404,16 @@ function clearAllFilters() {
 // ===== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК =====
 function switchTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+    // ИСПРАВЛЕНО: используем .nav-item вместо .nav-btn
+    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+    
     const targetTab = document.getElementById('tab-' + tabName);
     if (targetTab) targetTab.classList.add('active');
-    const activeBtn = document.querySelector('.nav-btn[data-tab="' + tabName + '"]');
+    
+    // ИСПРАВЛЕНО: используем .nav-item
+    const activeBtn = document.querySelector('.nav-item[data-tab="' + tabName + '"]');
     if (activeBtn) activeBtn.classList.add('active');
+    
     if (tabName === 'analytics') {
         updateAnalytics();
         initComparisonSelectors();
@@ -343,6 +421,11 @@ function switchTab(tabName) {
     }
     if (tabName === 'history') renderTable();
     if (tabName === 'tariffs') renderTariffs();
+    
+    // Сохраняем состояние ТОЛЬКО если это не восстановление
+    if (!isRestoringState) {
+        saveState();
+    }
 }
 
 // ===== СБРОС ДАННЫХ (только localStorage, Firebase не трогаем!) =====
@@ -415,10 +498,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('tariff-form').addEventListener('submit', saveTariff);
     document.getElementById('date').valueAsDate = new Date();
     onDateChange();
+    
+    // 1. СНАЧАЛА заполняем фильтры (чтобы были опции для восстановления)
     populateFilters();
+    
+    // 2. ЗАТЕМ восстанавливаем состояние (вкладку + фильтры)
+    // restoreState() сам вызовет switchTab(), который вызовет updateAnalytics()
+    restoreState();
+    
+    // 3. Остальное рендерим
     renderTable();
     renderTariffs();
-    updateAnalytics();
     addFormValidation();
 });
 
@@ -889,6 +979,9 @@ function updateAnalytics() {
     setEl('orders-per-hour', ordersPerHour.toFixed(2));
     setEl('efficiency-percent', efficiencyPercent.toFixed(2) + '%');
     updateCharts(filtered);
+    
+    // Сохраняем состояние
+    saveState();
 }
 
 function updateCharts(filteredRecords) {
@@ -1196,6 +1289,9 @@ if (tableMatch) {
     results.innerHTML = html;
 }
     updateComparisonChart(name1, name2, s1, s2);
+    
+    // Сохраняем состояние
+    saveState();
 }
 
 
@@ -1496,3 +1592,4 @@ function formatMoney(n) {
 function formatDate(s) {
     return new Date(s).toLocaleDateString('ru-RU');
 }
+
