@@ -1409,35 +1409,192 @@ function renderTable() {
     let filteredRecords = [...records];
     filteredRecords = applyFilters(filteredRecords);
     
-    // Сортируем
-    filteredRecords.sort((a,b) => new Date(b.date) - new Date(a.date));
-    
-    filteredRecords.forEach(r => {
-        const typeLabel = r.recordType === 'bonus' ? '🎁 Бонус' :
-                         r.recordType === 'expense' ? '💸 Расход' : '📅 Работа';
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${formatDate(r.date)}</td><td>${r.weekday || '-'}</td><td>${typeLabel}</td><td>${r.hours || '-'}</td><td>${r.ordersPickup || '-'}</td><td>${r.ordersDelivery || '-'}</td><td>${formatMoney(r.totalIncome)}</td><td>${formatMoney(r.totalExpenses)}</td><td style="color:${r.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">${formatMoney(r.netProfit)}</td><td><button class="btn btn-success" onclick="editRecord('${r.id}')">✏️</button><button class="btn btn-danger" onclick="deleteRecord('${r.id}')">🗑️</button></td>`;
-        tbody.appendChild(tr);
+    // Определяем, применены ли фильтры
+    const hasActiveFilters = Object.keys(filterState).some(key => {
+        const filter = filterState[key];
+        if (filter.type === 'checkbox' || filter.type === 'month') {
+            return filter.values && filter.values.length > 0;
+        } else if (filter.type === 'range') {
+            return filter.min !== '' || filter.max !== '';
+        }
+        return false;
     });
     
-    // Обновляем счетчик отфильтрованных записей
-let infoEl = document.getElementById('filter-info');
-if (!infoEl) {
-    infoEl = document.createElement('div');
-    infoEl.id = 'filter-info';
-    infoEl.style.cssText = 'padding:15px;background:#dbeafe;border-radius:8px;margin:10px 0;text-align:center;color:#1e40af;font-weight:600;';
-    tbody.parentElement.appendChild(infoEl);
+    // Сортируем по дате
+    filteredRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    // Если фильтры НЕ применены — добавляем понедельные итоги
+    if (!hasActiveFilters) {
+        renderTableWithWeeklySummary(tbody, filteredRecords);
+    } else {
+        // При фильтрах показываем только записи без итогов
+        filteredRecords.forEach(r => {
+            const typeLabel = r.recordType === 'bonus' ? '🎁 Бонус' :
+                             r.recordType === 'expense' ? '💸 Расход' : '📅 Работа';
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${formatDate(r.date)}</td>
+                <td>${r.weekday || '-'}</td>
+                <td>${typeLabel}</td>
+                <td>${r.hours || '-'}</td>
+                <td>${r.ordersPickup || '-'}</td>
+                <td>${r.ordersDelivery || '-'}</td>
+                <td>${formatMoney(r.totalIncome)}</td>
+                <td>${formatMoney(r.totalExpenses)}</td>
+                <td style="color:${r.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">${formatMoney(r.netProfit)}</td>
+                <td>
+                    <button class="btn btn-success" onclick="editRecord('${r.id}')">✏️</button>
+                    <button class="btn btn-danger" onclick="deleteRecord('${r.id}')">🗑️</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+        // Обновляем счетчик отфильтрованных записей
+    let infoEl = document.getElementById('filter-info');
+    if (!infoEl) {
+        infoEl = document.createElement('div');
+        infoEl.id = 'filter-info';
+        infoEl.style.cssText = 'padding:15px;background:#dbeafe;border-radius:8px;margin:10px 0;text-align:center;color:#1e40af;font-weight:600;';
+        tbody.parentElement.appendChild(infoEl);
+    }
+    const count = filteredRecords.length;
+    const total = records.length;
+    if (count < total || count === 0) {
+        infoEl.style.display = 'block';
+        infoEl.textContent = `Показано ${count} из ${total} записей`;
+    } else {
+        infoEl.style.display = 'none';
+    }
 }
 
-const count = filteredRecords.length;
-const total = records.length;
-
-if (count < total || count === 0) {
-    infoEl.style.display = 'block';
-    infoEl.textContent = `Показано ${count} из ${total} записей`;
-} else {
-    infoEl.style.display = 'none';
+// ===== ПОЛУЧЕНИЕ ISO НЕДЕЛИ ИЗ ДАТЫ =====
+function getISOWeek(dateStr) {
+    const date = new Date(dateStr);
+    const target = new Date(date.valueOf());
+    const dayNr = (date.getDay() + 6) % 7;
+    target.setDate(target.getDate() - dayNr + 3);
+    const firstThursday = target.valueOf();
+    target.setMonth(0, 1);
+    if (target.getDay() !== 4) {
+        target.setMonth(0, 1 + ((4 - target.getDay()) + 7) % 7);
+    }
+    const weekNumber = 1 + Math.ceil((firstThursday - target) / 604800000);
+    const year = date.getFullYear();
+    return `${year}-W${String(weekNumber).padStart(2, '0')}`;
 }
+
+// ===== ПОЛУЧЕНИЕ ДИАПАЗОНА ДАТ НЕДЕЛИ =====
+function getWeekDateRange(weekKey) {
+    const [yearStr, weekStr] = weekKey.split('-W');
+    const year = parseInt(yearStr);
+    const week = parseInt(weekStr);
+    
+    // Находим первый день года
+    const jan4 = new Date(year, 0, 4);
+    const dayOfWeek = (jan4.getDay() + 6) % 7;
+    const firstMonday = new Date(jan4);
+    firstMonday.setDate(jan4.getDate() - dayOfWeek);
+    
+    // Находим понедельник нужной недели
+    const weekMonday = new Date(firstMonday);
+    weekMonday.setDate(firstMonday.getDate() + (week - 1) * 7);
+        const weekSunday = new Date(weekMonday);
+    weekSunday.setDate(weekMonday.getDate() + 6);
+    
+    return {
+        start: weekMonday,
+        end: weekSunday,
+        label: `${weekMonday.getDate()}.${String(weekMonday.getMonth()+1).padStart(2,'0')} - ${weekSunday.getDate()}.${String(weekSunday.getMonth()+1).padStart(2,'0')}.${weekSunday.getFullYear()}`
+    };
+}
+
+// ===== РЕНДЕР ТАБЛИЦЫ С ПОНЕДЕЛЬНЫМИ ИТОГАМИ =====
+function renderTableWithWeeklySummary(tbody, records) {
+    // Группируем записи по неделям
+    const weeksMap = new Map();
+    
+    records.forEach(r => {
+        if (!r.date) return;
+        const weekKey = getISOWeek(r.date);
+        if (!weeksMap.has(weekKey)) {
+            weeksMap.set(weekKey, []);
+        }
+        weeksMap.get(weekKey).push(r);
+    });
+    
+    // Сортируем недели по убыванию (новые сверху)
+    const sortedWeeks = Array.from(weeksMap.keys()).sort((a, b) => b.localeCompare(a));
+    
+    sortedWeeks.forEach(weekKey => {
+        const weekRecords = weeksMap.get(weekKey);
+        const weekRange = getWeekDateRange(weekKey);
+        
+        // Считаем итоги по неделе
+const summary = weekRecords.reduce((acc, r) => {
+    acc.income += r.totalIncome || 0;
+    acc.expenses += r.totalExpenses || 0;
+    acc.profit += r.netProfit || 0;
+    acc.hours += r.hours || 0;
+    acc.ordersPickup += r.ordersPickup || 0;
+    acc.ordersDelivery += r.ordersDelivery || 0;
+    // Считаем только рабочие дни (не бонусы и не расходы)
+    if (r.recordType === 'work') {
+        acc.workingDays += 1;
+    }
+    return acc;
+}, { income: 0, expenses: 0, profit: 0, hours: 0, ordersPickup: 0, ordersDelivery: 0, workingDays: 0 });
+        
+        // Рендерим заголовк недели
+        const headerRow = document.createElement('tr');
+        headerRow.className = 'week-summary-header';
+        headerRow.innerHTML = `
+    <td colspan="10">
+        📅 Неделя ${weekKey.split('-W')[1]} (${weekRange.label}) — ${summary.workingDays} ${summary.workingDays === 1 ? 'день' : (summary.workingDays >= 2 && summary.workingDays <= 4 ? 'дня' : 'дней')}
+    </td>
+`;        
+        tbody.appendChild(headerRow);
+        
+        // Рендерим записи недели
+        weekRecords.forEach(r => {
+            const typeLabel = r.recordType === 'bonus' ? '🎁 Бонус' :
+                             r.recordType === 'expense' ? '💸 Расход' : '📅 Работа';
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${formatDate(r.date)}</td>
+                <td>${r.weekday || '-'}</td>
+                <td>${typeLabel}</td>
+                <td>${r.hours || '-'}</td>
+                <td>${r.ordersPickup || '-'}</td>
+                <td>${r.ordersDelivery || '-'}</td>
+                <td>${formatMoney(r.totalIncome)}</td>
+                <td>${formatMoney(r.totalExpenses)}</td>
+                <td style="color:${r.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">${formatMoney(r.netProfit)}</td>
+                <td>
+                    <button class="btn btn-success" onclick="editRecord('${r.id}')">✏️</button>
+                    <button class="btn btn-danger" onclick="deleteRecord('${r.id}')">🗑️</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+        // Рендерим итоговую строку недели
+        const summaryRow = document.createElement('tr');
+        summaryRow.className = 'week-summary-row';
+        summaryRow.innerHTML = `
+    <td colspan="3"><strong>📊 ИТОГО ЗА НЕДЕЛЮ:</strong></td>
+    <td><strong>${summary.hours.toFixed(1)} ч</strong></td>
+    <td><strong>${summary.ordersPickup}</strong></td>
+    <td><strong>${summary.ordersDelivery}</strong></td>
+    <td><strong>${formatMoney(summary.income)}</strong></td>
+    <td><strong>${formatMoney(summary.expenses)}</strong></td>
+    <td style="color:${summary.profit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">
+        <strong>${formatMoney(summary.profit)}</strong>
+    </td>
+    <td><strong>${summary.workingDays} дн.</strong></td>
+`;
+        tbody.appendChild(summaryRow);
+    });
 }
 
 function editRecord(id) {
