@@ -195,14 +195,14 @@ function renderFilter(column) {
     }
     else if (column === 'type') {
     const types = [
-        { value: 'work', label: '📅 Работа' },
-        { value: 'bonus', label: '🎁 Бонус' },
-        { value: 'expense', label: '💸 Расход' }
+        { value: 'work', label: '<ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px; color: #007AFF;"></ion-icon>Работа' },
+        { value: 'bonus', label: '<ion-icon name="gift-outline" style="vertical-align: middle; margin-right: 4px; color: #AF52DE;"></ion-icon>Бонус' },
+        { value: 'expense', label: '<ion-icon name="remove-circle-outline" style="vertical-align: middle; margin-right: 4px; color: #FF3B30;"></ion-icon>Расход' }
     ];
     const wrapper = document.createElement('div');
     wrapper.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
     wrapper.onclick = (e) => e.stopPropagation();
-    
+
     types.forEach(t => {
         const label = document.createElement('label');
         label.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;';
@@ -226,10 +226,13 @@ function renderFilter(column) {
         };
         
         label.appendChild(checkbox);
-        label.appendChild(document.createTextNode(t.label));
+        // ВАЖНО: используем innerHTML вместо createTextNode для иконок
+        const span = document.createElement('span');
+        span.innerHTML = t.label;
+        label.appendChild(span);
         wrapper.appendChild(label);
     });
-    
+
     // Добавляем кнопку "Выбрать все"
     const selectAll = document.createElement('button');
     selectAll.textContent = 'Выбрать все';
@@ -241,7 +244,7 @@ function renderFilter(column) {
         renderTable();
     };
     wrapper.appendChild(selectAll);
-    
+
     container.appendChild(wrapper);
 }
     else if (['hours','pickup','delivery','income','expenses','profit'].includes(column)) {
@@ -1163,92 +1166,90 @@ function updateComparison() {
             <thead>
                 <tr>
                     <th>Показатель</th>
-                    <th>📅 ${name1}</th>
-                    <th>📅 ${name2}</th>
+                    <th><ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px;"></ion-icon>${name1}</th>
+                    <th><ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px;"></ion-icon>${name2}</th>
                     <th>Разница</th>
                 </tr>
             </thead>
-            <tbody>                <tr>
-                    <td class="metric-name">💰 Общий доход</td>
+            <tbody>
+                <tr>
+                    <td class="metric-name"><ion-icon name="cash-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Общий доход</td>
                     <td>${formatMoney(s1.totalIncome)}</td>
                     <td>${formatMoney(s2.totalIncome)}</td>
                     <td>${formatDiff(s1.totalIncome, s2.totalIncome)}</td>
                 </tr>
-                <tr>
-                    <td class="metric-name">💰 Доход в день</td>
+                <tr>                    <td class="metric-name"><ion-icon name="trending-up-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Доход в день</td>
                     <td>${formatMoney(incomePerDay1)}</td>
                     <td>${formatMoney(incomePerDay2)}</td>
                     <td>${formatDiff(incomePerDay1, incomePerDay2)}</td>
                 </tr>
                 <tr>
-                    <td class="metric-name">📉 Всего расходов</td>
+                    <td class="metric-name"><ion-icon name="arrow-down-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Всего расходов</td>
                     <td>${formatMoney(s1.totalExpenses)}</td>
                     <td>${formatMoney(s2.totalExpenses)}</td>
                     <td>${formatDiff(s1.totalExpenses, s2.totalExpenses)}</td>
                 </tr>
                 <tr>
-                    <td class="metric-name">✅ Чистая прибыль</td>
+                    <td class="metric-name"><ion-icon name="checkmark-circle-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Чистая прибыль</td>
                     <td>${formatMoney(s1.netProfit)}</td>
                     <td>${formatMoney(s2.netProfit)}</td>
                     <td>${formatDiff(s1.netProfit, s2.netProfit)}</td>
                 </tr>
                 <tr>
-                    <td class="metric-name">✅ Прибыль в день</td>
+                    <td class="metric-name"><ion-icon name="trophy-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Прибыль в день</td>
                     <td>${formatMoney(profitPerDay1)}</td>
                     <td>${formatMoney(profitPerDay2)}</td>
                     <td>${formatDiff(profitPerDay1, profitPerDay2)}</td>
                 </tr>
                 <tr>
-                    <td class="metric-name">⏱️ Часов</td>
+                    <td class="metric-name"><ion-icon name="time-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Часов</td>
                     <td>${s1.totalHours.toFixed(1)}</td>
                     <td>${s2.totalHours.toFixed(1)}</td>
                     <td>${formatDiff(s1.totalHours, s2.totalHours, false)}</td>
                 </tr>
                 <tr>
-                    <td class="metric-name">📦 Заказов</td>
+                    <td class="metric-name"><ion-icon name="cube-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Заказов</td>
                     <td>${s1.totalOrders}</td>
                     <td>${s2.totalOrders}</td>
                     <td>${formatDiff(s1.totalOrders, s2.totalOrders, false)}</td>
                 </tr>
                 <tr>
-                    <td class="metric-name">🛣️ Пройдено км</td>
+                    <td class="metric-name"><ion-icon name="navigate-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Пройдено км</td>
                     <td>${s1.totalDistance.toFixed(1)}</td>
                     <td>${s2.totalDistance.toFixed(1)}</td>
                     <td>${formatDiff(s1.totalDistance, s2.totalDistance, false)}</td>
                 </tr>
                 <tr>
-                    <td class="metric-name">📅 Рабочих дней</td>                    <td>${s1.workingDays}</td>
+                    <td class="metric-name"><ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Рабочих дней</td>
+                    <td>${s1.workingDays}</td>
                     <td>${s2.workingDays}</td>
                     <td>${formatDiff(s1.workingDays, s2.workingDays, false)}</td>
                 </tr>
                 <tr>
-                    <td class="metric-name">💵 Средний ₽/час</td>
-                    <td>${formatMoney(avgPerHour1)}</td>
-                    <td>${formatMoney(avgPerHour2)}</td>
+                    <td class="metric-name"><ion-icon name="wallet-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Средний ₽/час</td>
+                    <td>${formatMoney(avgPerHour1)}</td>                    <td>${formatMoney(avgPerHour2)}</td>
                     <td>${formatDiff(avgPerHour1, avgPerHour2)}</td>
                 </tr>
                 <tr>
-                    <td class="metric-name">📦 Средний чек</td>
+                    <td class="metric-name"><ion-icon name="receipt-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Средний чек</td>
                     <td>${formatMoney(avgCheck1)}</td>
                     <td>${formatMoney(avgCheck2)}</td>
                     <td>${formatDiff(avgCheck1, avgCheck2)}</td>
                 </tr>
                 <tr>
-                    <td class="metric-name">📦⏱️ Заказов в час</td>
+                    <td class="metric-name"><ion-icon name="speedometer-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Заказов в час</td>
                     <td>${ordersPerHour1.toFixed(2)}</td>
                     <td>${ordersPerHour2.toFixed(2)}</td>
                     <td>${formatDiff(ordersPerHour1, ordersPerHour2, false)}</td>
                 </tr>
                 <tr>
-                    <td class="metric-name">📊 Эффективность</td>
+                    <td class="metric-name"><ion-icon name="analytics-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Эффективность</td>
                     <td>${efficiency1.toFixed(1)}%</td>
                     <td>${efficiency2.toFixed(1)}%</td>
                     <td>${formatDiff(efficiency1, efficiency2, false)}</td>
                 </tr>
             </tbody>
         </table>
-    
-    
     `;
     const profitDiff = calcDiff(s1.netProfit, s2.netProfit);
     const incomeDiff = calcDiff(s1.totalIncome, s2.totalIncome);
@@ -1429,8 +1430,12 @@ function renderTable() {
     } else {
         // При фильтрах показываем только записи без итогов
         filteredRecords.forEach(r => {
-            const typeLabel = r.recordType === 'bonus' ? '🎁 Бонус' :
-                             r.recordType === 'expense' ? '💸 Расход' : '📅 Работа';
+            const typeLabel = r.recordType === 'bonus' 
+                ? '<ion-icon name="gift-outline" style="vertical-align: middle; margin-right: 4px; color: #AF52DE;"></ion-icon>Бонус'
+                : r.recordType === 'expense' 
+                ? '<ion-icon name="remove-circle-outline" style="vertical-align: middle; margin-right: 4px; color: #FF3B30;"></ion-icon>Расход'
+                : '<ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px; color: #007AFF;"></ion-icon>Работа';
+            
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${formatDate(r.date)}</td>
@@ -1443,14 +1448,19 @@ function renderTable() {
                 <td>${formatMoney(r.totalExpenses)}</td>
                 <td style="color:${r.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">${formatMoney(r.netProfit)}</td>
                 <td>
-                    <button class="btn btn-success" onclick="editRecord('${r.id}')">✏️</button>
-                    <button class="btn btn-danger" onclick="deleteRecord('${r.id}')">🗑️</button>
+                    <button class="btn btn-success" onclick="editRecord('${r.id}')">
+                        <ion-icon name="create-outline"></ion-icon>
+                    </button>
+                    <button class="btn btn-danger" onclick="deleteRecord('${r.id}')">
+                        <ion-icon name="trash-outline"></ion-icon>
+                    </button>
                 </td>
             `;
             tbody.appendChild(tr);
         });
     }
-        // Обновляем счетчик отфильтрованных записей
+    
+    // Обновляем счетчик отфильтрованных записей
     let infoEl = document.getElementById('filter-info');
     if (!infoEl) {
         infoEl = document.createElement('div');
@@ -1556,27 +1566,36 @@ const summary = weekRecords.reduce((acc, r) => {
         tbody.appendChild(headerRow);
         
         // Рендерим записи недели
-        weekRecords.forEach(r => {
-            const typeLabel = r.recordType === 'bonus' ? '🎁 Бонус' :
-                             r.recordType === 'expense' ? '💸 Расход' : '📅 Работа';
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${formatDate(r.date)}</td>
-                <td>${r.weekday || '-'}</td>
-                <td>${typeLabel}</td>
-                <td>${r.hours || '-'}</td>
-                <td>${r.ordersPickup || '-'}</td>
-                <td>${r.ordersDelivery || '-'}</td>
-                <td>${formatMoney(r.totalIncome)}</td>
-                <td>${formatMoney(r.totalExpenses)}</td>
-                <td style="color:${r.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">${formatMoney(r.netProfit)}</td>
-                <td>
-                    <button class="btn btn-success" onclick="editRecord('${r.id}')">✏️</button>
-                    <button class="btn btn-danger" onclick="deleteRecord('${r.id}')">🗑️</button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
+        // Рендерим записи недели
+weekRecords.forEach(r => {
+    const typeLabel = r.recordType === 'bonus' 
+        ? '<ion-icon name="gift-outline" style="vertical-align: middle; margin-right: 4px; color: #AF52DE;"></ion-icon>Бонус'
+        : r.recordType === 'expense' 
+        ? '<ion-icon name="remove-circle-outline" style="vertical-align: middle; margin-right: 4px; color: #FF3B30;"></ion-icon>Расход'
+        : '<ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px; color: #007AFF;"></ion-icon>Работа';
+    
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td>${formatDate(r.date)}</td>
+        <td>${r.weekday || '-'}</td>
+        <td>${typeLabel}</td>
+        <td>${r.hours || '-'}</td>
+        <td>${r.ordersPickup || '-'}</td>
+        <td>${r.ordersDelivery || '-'}</td>
+        <td>${formatMoney(r.totalIncome)}</td>
+        <td>${formatMoney(r.totalExpenses)}</td>
+        <td style="color:${r.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">${formatMoney(r.netProfit)}</td>
+        <td>
+            <button class="btn btn-success" onclick="editRecord('${r.id}')">
+                <ion-icon name="create-outline"></ion-icon>
+            </button>
+            <button class="btn btn-danger" onclick="deleteRecord('${r.id}')">
+                <ion-icon name="trash-outline"></ion-icon>
+            </button>
+        </td>
+    `;
+    tbody.appendChild(tr);
+});
         
         // Рендерим итоговую строку недели
         const summaryRow = document.createElement('tr');

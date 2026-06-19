@@ -6,8 +6,8 @@
     <title>Журнал работы водителя</title>
     <link rel="stylesheet" href="style.css">
     
-    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
-    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <script type="module" src="https://unpkg.com/ionicons@8.0.13/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@8.0.13/dist/ionicons/ionicons.js"></script>
 </head>
 <body>
 
@@ -15,9 +15,12 @@
     
 <div class="container">
     <!-- Верхняя шапка только с заголовком -->
-    <header class="top-header">
-        <h1>📅 Журнал работы водителя</h1>
-    </header>
+<header class="top-header">
+    <h1>
+        <ion-icon name="car-sport-outline" class="header-icon"></ion-icon>
+        Журнал работы водителя
+    </h1>
+</header>
 
     <!-- Основной контент вкладок -->
     <main id="main-content">
@@ -34,14 +37,29 @@
                 </div>
 
                 <div class="current-tariffs-info">
-                    <h3>📋 Действующие тарифы на <span id="tariff-date-display">сегодня</span></h3>
-                    <div class="tariff-badges">
-                        <div class="tariff-badge"> Забор: <strong id="t-pickup">60</strong> ₽/шт</div>
-                        <div class="tariff-badge"> Выдача: <strong id="t-delivery">81</strong> ₽/шт</div>
-                        <div class="tariff-badge">🛣️ Км: <strong id="t-km">11</strong> ₽/км</div>
-                        <div class="tariff-badge">⚖️ Вес: <strong id="t-weight">2</strong> ₽/кг</div>
-                    </div>
-                </div>
+    <h3>
+        <ion-icon name="pricetag-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>
+        ДЕЙСТВУЮЩИЕ ТАРИФЫ НА <span id="tariff-date-display">сегодня</span>
+    </h3>
+    <div class="tariff-badges">
+        <div class="tariff-badge tariff-pickup">
+            <ion-icon name="arrow-down-outline" class="tariff-icon"></ion-icon>
+            Забор: <strong id="t-pickup">60</strong> ₽/шт
+        </div>
+        <div class="tariff-badge tariff-delivery">
+            <ion-icon name="arrow-up-outline" class="tariff-icon"></ion-icon>
+            Выдача: <strong id="t-delivery">81</strong> ₽/шт
+        </div>
+        <div class="tariff-badge tariff-km">
+            <ion-icon name="navigate-outline" class="tariff-icon"></ion-icon>
+            Км: <strong id="t-km">11</strong> ₽/км
+        </div>
+        <div class="tariff-badge tariff-weight">
+            <ion-icon name="scale-outline" class="tariff-icon"></ion-icon>
+            Вес: <strong id="t-weight">2</strong> ₽/кг
+        </div>
+    </div>
+</div>
 
                 <form id="daily-form">
                     <div class="form-row">
@@ -181,77 +199,119 @@
                 </div>
             </div>
 
-            <div class="section-title">📊 ПОКАЗАТЕЛИ ЗА ПЕРИОД</div>
+            <div class="section-title">ПОКАЗАТЕЛИ ЗА ПЕРИОД</div>
             <div class="stats-grid">
                 <div class="stat-card income">
-                    <h3> Общий доход:</h3>
-                    <div class="stat-value" id="total-income">0 ₽</div>
-                </div>
+                   <h3>
+                      <ion-icon name="cash-outline" style="vertical-align: middle; margin-right: 4px;"></ion-icon>
+                       ОБЩИЙ ДОХОД:
+                   </h3>
+                <div class="stat-value" id="total-income">0 ₽</div>
+            </div>
                 <div class="stat-card income">
-                    <h3>💰 Общий доход в день:</h3>
+                    <h3>
+                       <ion-icon name="cash-outline" style="vertical-align: middle; margin-right: 4px;"></ion-icon>
+                       Общий доход в день:
+                    </h3>
                     <div class="stat-value" id="avg-income-per-day">0 ₽</div>
                 </div>
                 <div class="stat-card expense">
-                    <h3>⛔ Расходы на бензин:</h3>
-                    <div class="stat-value" id="total-fuel">0 ₽</div>
-                </div>
+    <h3>
+        <ion-icon name="car-sport-outline"></ion-icon>
+        РАСХОДЫ НА БЕНЗИН:
+    </h3>
+    <div class="stat-value" id="total-fuel">0 ₽</div>
+</div>
                 <div class="stat-card expense">
-                    <h3> Ремонт:</h3>
-                    <div class="stat-value" id="total-repair">0 ₽</div>
-                </div>
-                <div class="stat-card expense">                    <h3> Налог:</h3>
-                    <div class="stat-value" id="total-tax">0 ₽</div>
-                </div>
+        <h3>
+            <ion-icon name="construct-outline"></ion-icon>
+            РЕМОНТ:
+        </h3>
+        <div class="stat-value" id="total-repair">0 ₽</div>
+    </div>
                 <div class="stat-card expense">
-                    <h3>📉 ВСЕГО РАСХОДЫ:</h3>
-                    <div class="stat-value" id="total-expenses">0 ₽</div>
-                </div>
+        <h3>
+            <ion-icon name="receipt-outline"></ion-icon>
+            НАЛОГ:
+        </h3>
+        <div class="stat-value" id="total-tax">0 ₽</div>
+    </div>
+                <div class="stat-card expense">
+        <h3>
+            <ion-icon name="trending-down-outline"></ion-icon>
+            ВСЕГО РАСХОДЫ:
+        </h3>
+        <div class="stat-value" id="total-expenses">0 ₽</div>
+    </div>
                 <div class="stat-card profit">
-                    <h3>✅ Чистая прибыль:</h3>
-                    <div class="stat-value" id="net-profit">0 ₽</div>
-                </div>
+        <h3>
+            <ion-icon name="checkmark-circle-outline"></ion-icon>
+            ЧИСТАЯ ПРИБЫЛЬ:
+        </h3>
+        <div class="stat-value" id="net-profit">0 ₽</div>
+    </div>
                 <div class="stat-card profit">
-                    <h3>✅ Чистая прибыль в день:</h3>
-                    <div class="stat-value" id="avg-net-profit-per-day">0 ₽</div>
-                </div>
+        <h3>
+            <ion-icon name="trending-up-outline"></ion-icon>
+            ЧИСТАЯ ПРИБЫЛЬ В ДЕНЬ:
+        </h3>
+        <div class="stat-value" id="avg-net-profit-per-day">0 ₽</div>
+    </div>
                 <div class="stat-card">
-                    <h3>⏱ Часов отработано:</h3>
-                    <div class="stat-value" id="total-hours">0</div>
-                </div>
+        <h3>
+            <ion-icon name="time-outline"></ion-icon>
+            ЧАСОВ ОТРАБОТАНО:
+        </h3>
+        <div class="stat-value" id="total-hours">0</div>
+    </div>
                 <div class="stat-card">
-                    <h3>📦 Заказов (выдача):</h3>
-                    <div class="stat-value" id="total-orders">0</div>
-                </div>
-                <div class="stat-card">
-                    <h3>🛣️ Пройдено км:</h3>
-                    <div class="stat-value" id="total-distance">0</div>
-                </div>
-                <div class="stat-card">
-                    <h3> Рабочих дней:</h3>
-                    <div class="stat-value" id="working-days">0</div>
-                </div>
+        <h3>
+            <ion-icon name="arrow-up-outline"></ion-icon>
+            ЗАКАЗОВ (ВЫДАЧА):
+        </h3>
+        <div class="stat-value" id="total-orders">0</div>
+    </div>
+                 <div class="stat-card">
+        <h3>
+            <ion-icon name="navigate-outline"></ion-icon>
+            ПРОЙДЕНО КМ:
+        </h3>
+        <div class="stat-value" id="total-distance">0</div>
+    </div>
+    <div class="stat-card">
+        <h3>
+            <ion-icon name="calendar-number-outline"></ion-icon>
+            РАБОЧИХ ДНЕЙ:
+        </h3>
+        <div class="stat-value" id="working-days">0</div>
+    </div>
             </div>
 
-            <div class="section-title"> ЭФФЕКТИВНОСТЬ ЗА ПЕРИОД</div>
-            <div class="efficiency-metrics">
-                <div class="metrics-grid">
-                    <div class="metric">
-                        <span>💵 Средний ₽/час (чистая прибыль):</span>
-                        <strong id="avg-per-hour">0 ₽</strong>
-                    </div>
-                    <div class="metric">
-                        <span>📦 Средний чек:</span>
-                        <strong id="avg-check">0 ₽</strong>
-                    </div>
-                    <div class="metric">
-                        <span>📦⏱ Заказов в час:</span>
-                        <strong id="orders-per-hour">0</strong>
-                    </div>
-                    <div class="metric">
-                        <span>📊 Эффективность:</span>                        <strong id="efficiency-percent">0%</strong>
-                    </div>
-                </div>
-            </div>
+            <div class="section-title">ЭФФЕКТИВНОСТЬ ЗА ПЕРИОД</div>
+<div class="stats-grid efficiency-grid">
+    <div class="stat-card profit">
+        <h3><ion-icon name="cash-outline" style="font-size: 32px; margin-bottom: 8px;"></ion-icon>
+        Средний ₽/час (чистая прибыль):</h3>
+        <div class="stat-value" id="avg-per-hour">0 ₽</div>
+    </div>
+    <div class="stat-card profit">
+        <h3><ion-icon name="receipt-outline" style="font-size: 32px; margin-bottom: 8px;"></ion-icon>
+        Средний чек:</h3>
+        <div class="stat-value" id="avg-check">0 ₽</div>
+    </div>
+    <div class="stat-card profit">
+        <h3><ion-icon name="speedometer-outline" style="font-size: 32px; margin-bottom: 8px;"></ion-icon>
+            Заказов в час:
+        </h3>
+        <div class="stat-value" id="orders-per-hour">0</div>
+    </div>
+    <div class="stat-card profit">
+        <h3><ion-icon name="analytics-outline" style="font-size: 32px; margin-bottom: 8px;"></ion-icon>
+            Эффективность:
+        </h3>
+        <div class="stat-value" id="efficiency-percent">0%</div>
+    </div>
+</div>
 
             <div class="charts-grid">
                 <div class="chart-container">
@@ -265,10 +325,10 @@
             </div>
 
             <div class="comparison-section">
-                <h2>📊 СРАВНЕНИЕ ПЕРИОДОВ</h2>
+                <h2><ion-icon name="git-compare-outline" style="vertical-align: middle; margin-right: 8px; font-size: 28px; color: var(--ios-accent);"></ion-icon>СРАВНЕНИЕ ПЕРИОДОВ</h2>
                 <div class="comparison-selectors">
                     <div class="comparison-period">
-                        <h3>📅 Период 1</h3>
+                        <h3><ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 6px; font-size: 22px; color: var(--ios-accent);"></ion-icon>ПЕРИОД 1</h3>
                         <div class="form-group">
                             <select id="compare1-month" onchange="updateComparison()"></select>
                         </div>
@@ -278,7 +338,7 @@
                     </div>
                     <div class="comparison-vs">VS</div>
                     <div class="comparison-period">
-                        <h3>📅 Период 2</h3>
+                        <h3><ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 6px; font-size: 22px; color: var(--ios-accent);"></ion-icon>ПЕРИОД 1</h3>
                         <div class="form-group">
                             <select id="compare2-month" onchange="updateComparison()"></select>
                         </div>
@@ -401,29 +461,35 @@
         </div>
 
         <!-- Вкладка: Настройки (Объединенные функции) -->
-        <div id="tab-settings" class="tab-content">
-            <div class="card">
-                <h2>💾 Управление данными</h2>
-                <div class="form-actions" style="flex-direction: column; gap: 15px;">
-                    <button class="btn btn-success" onclick="exportData()" style="width: 100%;">
-                        💾 Экспорт данных (JSON)
-                    </button>
-                    
-                    <div style="position: relative; width: 100%;">
-                        <button class="btn btn-secondary" style="width: 100%;" id="import-trigger-btn">
-                            📥 Импорт данных
-                        </button>
-                        <input type="file" id="import-file" accept=".json" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;" onchange="importData(event)">
-                    </div>
-                    <button class="btn btn-danger" onclick="resetAllData()" style="width: 100%;">
-                        🗑️ Полный сброс данных
-                    </button>
-                </div>
-                <p class="hint-text" style="margin-top: 20px; text-align: center;">
-                    При сбросе удаляются локальные данные. Данные в Firebase (если подключено) сохраняются.
-                </p>
+<div id="tab-settings" class="tab-content">
+    <div class="card">
+        <h2>
+            <ion-icon name="folder-open-outline" style="vertical-align: middle; margin-right: 8px; font-size: 28px !important; color: var(--ios-accent);"></ion-icon>
+            Управление данными
+        </h2>
+        <div class="form-actions" style="flex-direction: column; gap: 15px;">
+            <button class="btn btn-success" onclick="exportData()" style="width: 100%;">
+                <ion-icon name="cloud-download-outline" style="font-size: 24px !important; margin-right: 6px;"></ion-icon>
+                Экспорт данных (JSON)
+            </button>
+            
+            <div style="position: relative; width: 100%;">
+                <button class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;" id="import-trigger-btn">
+                    <ion-icon name="cloud-upload-outline" style="font-size: 24px !important;"></ion-icon>
+                    Импорт данных
+                </button>
+                <input type="file" id="import-file" accept=".json" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;" onchange="importData(event)">
             </div>
+            <button class="btn btn-danger" onclick="resetAllData()" style="width: 100%;">
+                <ion-icon name="trash-outline" style="font-size: 24px !important; margin-right: 6px;"></ion-icon>
+                Полный сброс данных
+            </button>
         </div>
+        <p class="hint-text" style="margin-top: 20px; text-align: center;">
+            При сбросе удаляются локальные данные. Данные в Firebase (если подключено) сохраняются.
+        </p>
+    </div>
+</div>
 
     </main>
 </div>
@@ -461,7 +527,7 @@
 
 <!-- Ваши скрипты -->
     <!--  <script src="data.js?v=7"></script> -->
-<script src="script.js?v=9"></script>
+<script src="script.js?v=10"></script>
 <script>
     // Небольшой хак для совместимости с существующим script.js, 
     // который ищет .nav-btn[data-tab]. Мы добавляем этот класс динамически новым кнопкам.

@@ -131,6 +131,27 @@ body {
     letter-spacing: -0.8px;
     word-wrap: break-word;
     line-height: 1.2;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-icon {
+    font-size: 60px;
+    color: var(--ios-danger);
+    flex-shrink: 0;
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 480px) {
+    .top-header h1 {
+        font-size: 24px;
+        gap: 8px;
+    }
+    
+    .header-icon {
+        font-size: 50px;
+    }
 }
 
 /* ===== ПЛАВАЮЩАЯ НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ ===== */
@@ -257,6 +278,99 @@ body {
     letter-spacing: -0.5px;
     word-wrap: break-word;
     line-height: 1.3;
+}
+
+/* Все иконки в карточках статистики - одинаковый размер */
+.stat-card h3 ion-icon,
+.stat-card ion-icon,
+.stat-card .stat-icon {
+    font-size: 32px !important;
+    color: var(--ios-text-secondary);
+    vertical-align: middle;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+/* Цвета иконок по типу карточки */
+.stat-card.income h3 ion-icon,
+.stat-card.income ion-icon {
+    color: var(--ios-success);
+}
+
+.stat-card.expense h3 ion-icon,
+.stat-card.expense ion-icon {
+    color: var(--ios-danger);
+}
+
+.stat-card.profit h3 ion-icon,
+.stat-card.profit ion-icon {
+    color: var(--ios-accent);
+}
+
+/* Для emoji - делаем их крупнее */
+.stat-card h3 {
+    font-size: 12px;
+    color: var(--ios-text-tertiary);
+    margin-bottom: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    line-height: 1.3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.stat-card h3 ion-icon {
+    font-size: 50px !important;
+}
+
+
+/* Адаптивность для мобильных */
+@media (max-width: 480px) {
+    .stat-icon-embossed {
+        width: 26px;
+        height: 26px;
+        margin-right: 4px;
+    }
+    
+    .stat-icon-embossed ion-icon {
+        font-size: 13px;
+    }
+}
+
+.metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px;
+    background: rgba(242, 242, 247, 0.6);
+    border-radius: var(--ios-radius-md);
+    gap: 12px;
+    border: 1px solid var(--ios-border);
+}
+
+.metric span {
+    color: var(--ios-text-primary);
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 1.3;
+    display: flex;
+    align-items: center;
+}
+
+.metric ion-icon {
+    font-size: 35px;
+    color: var(--ios-accent);
+    flex-shrink: 0;
+}
+
+.metric strong {
+    color: var(--ios-accent);
+    font-size: 17px;
+    font-weight: 700;
+    white-space: nowrap;
 }
 
 /* ===== ИНФОРМАЦИЯ О ТЕКУЩИХ ТАРИФАХ ===== */
@@ -1970,5 +2084,326 @@ th {
     .week-summary-row td {
         padding: 10px 8px !important;
         font-size: 12px !important;
+    }
+}
+
+/* ===== EFFICIENCY GRID (как stats-grid) ===== */
+.efficiency-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--ios-spacing-md);
+    margin-bottom: var(--ios-spacing-lg);
+}
+
+.efficiency-grid .stat-card {
+    padding: var(--ios-spacing-lg);
+    text-align: center;
+}
+
+.efficiency-grid .stat-card h3 {
+    font-size: 12px;
+    margin-bottom: 8px;
+    line-height: 1.3;
+}
+
+.efficiency-grid .stat-card ion-icon {
+    color: var(--ios-accent);
+    display: block;
+    margin: 0 auto 8px auto;
+    font-size: 50px !important;
+}
+
+.efficiency-grid .stat-card.profit ion-icon {
+    color: var(--ios-accent);
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 480px) {
+    .efficiency-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    
+    .efficiency-grid .stat-card {
+        padding: 12px;
+    }
+    
+    .efficiency-grid .stat-card h3 {
+        font-size: 11px;
+    }
+    
+    .efficiency-grid .stat-value {
+        font-size: 18px;
+    }
+}
+
+/* Для очень маленьких экранов */
+@media (max-width: 320px) {
+    .efficiency-grid .stat-card h3 {
+        font-size: 10px;
+    }
+    
+    .efficiency-grid .stat-value {
+        font-size: 16px;
+    }
+}
+
+/* ===== ИКОНКИ В ТАБЛИЦЕ СРАВНЕНИЯ ===== */
+.comparison-table .metric-name ion-icon {
+    font-size: 24px !important;
+    vertical-align: middle;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+/* Цвета иконок по категориям */
+/* Доход (строки 1-2) - зелёный */
+.comparison-table tbody tr:nth-child(1) ion-icon,
+.comparison-table tbody tr:nth-child(2) ion-icon {
+    color: var(--ios-success);
+}
+
+/* Расходы (строки 3) - красный */
+.comparison-table tbody tr:nth-child(3) ion-icon {
+    color: var(--ios-danger);
+}
+
+/* Прибыль (строки 4-5) - синий */
+.comparison-table tbody tr:nth-child(4) ion-icon,
+.comparison-table tbody tr:nth-child(5) ion-icon {
+    color: var(--ios-accent);
+}
+
+/* Часы, заказы, км, дни (строки 6-9) - серый */
+.comparison-table tbody tr:nth-child(6) ion-icon,
+.comparison-table tbody tr:nth-child(7) ion-icon,
+.comparison-table tbody tr:nth-child(8) ion-icon,
+.comparison-table tbody tr:nth-child(9) ion-icon {
+    color: var(--ios-text-secondary);
+}
+
+/* Средний ₽/час, средний чек, заказов в час, эффективность (строки 10-13) - синий */
+.comparison-table tbody tr:nth-child(10) ion-icon,
+.comparison-table tbody tr:nth-child(11) ion-icon,
+.comparison-table tbody tr:nth-child(12) ion-icon,
+.comparison-table tbody tr:nth-child(13) ion-icon {
+    color: var(--ios-accent);
+}
+
+/* Мобильные устройства - иконки чуть меньше */
+@media (max-width: 480px) {
+    .comparison-table .metric-name ion-icon {
+        font-size: 20px !important;
+        margin-right: 6px;
+    }
+}
+
+/* ===== ИКОНКИ В ЗАГОЛОВКАХ ТАБЛИЦЫ СРАВНЕНИЯ ===== */
+.comparison-table th ion-icon {
+    font-size: 24px !important;
+    vertical-align: middle;
+    margin-right: 6px;
+    color: var(--ios-accent);
+    flex-shrink: 0;
+}
+
+/* Мобильные устройства */
+@media (max-width: 480px) {
+    .comparison-table th ion-icon {
+        font-size: 20px !important;
+        margin-right: 4px;
+    }
+}
+
+/* ===== ИКОНКИ В СЕКЦИИ СРАВНЕНИЯ ===== */
+.comparison-section h2 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 20px;
+}
+
+.comparison-section h2 ion-icon {
+    font-size: 28px;
+    color: var(--ios-accent);
+}
+
+.comparison-period h3 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ios-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.comparison-period h3 ion-icon {
+    font-size: 22px;
+    color: var(--ios-accent);
+}
+
+/* Иконки в заголовках таблицы сравнения */
+.comparison-table th ion-icon {
+    font-size: 18px;
+    color: var(--ios-accent);
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+/* Мобильные устройства */
+@media (max-width: 480px) {
+    .comparison-section h2 ion-icon {
+        font-size: 24px;
+    }
+    
+    .comparison-period h3 ion-icon {
+        font-size: 18px;
+    }
+    
+    .comparison-table th ion-icon {
+        font-size: 16px;
+    }
+}
+
+.tariff-badge ion-icon {
+    font-size: 18px;
+    color: var(--ios-accent);
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+.current-tariffs-info h3 ion-icon {
+    font-size: 20px;
+    color: var(--ios-text-tertiary);
+}
+
+/* ===== ИКОНКИ ТАРИФОВ ===== */
+.tariff-icon {
+    font-size: 32px !important;
+    vertical-align: middle;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+/* Цвета иконок */
+.tariff-pickup .tariff-icon {
+    color: var(--ios-success);
+}
+
+.tariff-delivery .tariff-icon {
+    color: var(--ios-danger);
+}
+
+.tariff-km .tariff-icon,
+.tariff-weight .tariff-icon {
+    color: var(--ios-text-primary);
+}
+
+/* Мобильные устройства */
+@media (max-width: 480px) {
+    .tariff-icon {
+        font-size: 28px !important;
+        margin-right: 6px;
+    }
+}
+
+/* ===== ИКОНКИ ВНУТРИ КНОПОК ===== */
+.btn ion-icon {
+    font-size: 24px !important;
+    vertical-align: middle;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+/* Для кнопки экспорта - чуть крупнее */
+.btn-success ion-icon {
+    font-size: 24px !important;
+}
+
+/* Для кнопки импорта */
+.btn-secondary ion-icon {
+    font-size: 24px !important;
+}
+
+/* Для кнопки сброса */
+.btn-danger ion-icon {
+    font-size: 24px !important;
+}
+
+/* Иконки в кнопках действий таблицы */
+table .btn ion-icon {
+    font-size: 32px !important;
+    vertical-align: middle;
+}
+
+/* Иконки в колонке "Тип" */
+table td ion-icon {
+    font-size: 24px;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+/* Мобильные устройства */
+@media (max-width: 480px) {
+    table .btn ion-icon {
+        font-size: 24px !important;
+    }
+    
+    table td ion-icon {
+        font-size: 24px;
+    }
+}
+
+/* ===== КРУГЛЫЕ КНОПКИ ДЕЙСТВИЙ В ТАБЛИЦЕ ===== */
+table .btn-success,
+table .btn-danger {
+    width: 48px;
+    height: 48px;
+    border-radius: 50% !important;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    min-width: 48px;
+}
+
+/* Кнопки действий только в обычных строках (не в итогах недель) */
+table tbody tr:not(.week-summary-header):not(.week-summary-row) td:last-child {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+table .btn-success ion-icon,
+table .btn-danger ion-icon {
+    font-size: 22px;
+    margin: 0;
+}
+
+/* Для мобильных - чуть меньше */
+@media (max-width: 480px) {
+    table .btn-success,
+    table .btn-danger {
+        width: 42px;
+        height: 42px;
+        min-width: 42px;
+    }
+    
+    table tbody tr:not(.week-summary-header):not(.week-summary-row) td:last-child {
+    gap: 6px;
+}
+    
+    table .btn-success ion-icon,
+    table .btn-danger ion-icon {
+        font-size: 18px;
     }
 }
