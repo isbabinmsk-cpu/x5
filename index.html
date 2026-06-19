@@ -1,13 +1,51 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+    <!-- Основные мета-теги -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Журнал работы водителя - учет доходов, расходов и аналитика">
+    <meta name="keywords" content="водитель, журнал, учет, доходы, расходы, аналитика">
+    <meta name="author" content="Driver Journal">
+    
+    <!-- SEO и соцсети -->
+    <meta property="og:title" content="Журнал работы водителя">
+    <meta property="og:description" content="Учет доходов, расходов и аналитика для водителей">
+    <meta property="og:type" content="website">
+    
+    <!-- Тема для iOS -->
+    <meta name="theme-color" content="#007AFF">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Журнал водителя">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- Заголовок -->
     <title>Журнал работы водителя</title>
+    
+    <!-- Favicon - SVG иконка автомобиля -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><path fill='%23007AFF' d='M456 144h-48V96a48 48 0 0 0-48-48H152a48 48 0 0 0-48 48v48H56a24 24 0 0 0-24 24v256a24 24 0 0 0 24 24h400a24 24 0 0 0 24-24V168a24 24 0 0 0-24-24zM152 96h208v48H152V96z'/></svg>">
+    
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><path fill='%23007AFF' d='M456 144h-48V96a48 48 0 0 0-48-48H152a48 48 0 0 0-48 48v48H56a24 24 0 0 0-24 24v256a24 24 0 0 0 24 24h400a24 24 0 0 0 24-24V168a24 24 0 0 0-24-24zM152 96h208v48H152V96z'/></svg>">
+    
+    <!-- Стили -->
     <link rel="stylesheet" href="style.css">
     
-    <script type="module" src="https://unpkg.com/ionicons@8.0.13/dist/ionicons/ionicons.esm.js"></script>
-    <script nomodule src="https://unpkg.com/ionicons@8.0.13/dist/ionicons/ionicons.js"></script>
+    <!-- Ionicons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.4.0/dist/ionicons/ionicons.js"></script>
+    
+    <!-- Firebase (compat версия) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    
+    <!-- Конфигурация Firebase -->
+    <script src="firebase-config.js"></script>
+    
+    <!-- Основной скрипт приложения -->
+    <script src="script.js" defer></script>
 </head>
 <body>
 
