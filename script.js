@@ -95,6 +95,12 @@ let filterState = {
     profit: { type: 'range', min: '', max: '' }
 };
 
+// ===== СОРТИРОВКА =====
+let sortState = {
+    column: null, // Текущая колонка сортировки
+    direction: null // 'asc' или 'desc'
+};
+
 let currentFilterColumn = null; // Текущая открытая колонка фильтра
 
 // ===== ФУНКЦИИ ФИЛЬТРАЦИИ =====
@@ -248,36 +254,72 @@ function renderFilter(column) {
     container.appendChild(wrapper);
 }
     else if (['hours','pickup','delivery','income','expenses','profit'].includes(column)) {
-        const wrapper = document.createElement('div');
-        wrapper.style.cssText = 'display:flex;gap:4px;align-items:center;';
-        wrapper.onclick = (e) => e.stopPropagation();
-        
-        const minInput = document.createElement('input');
-        minInput.type = 'number';
-        minInput.placeholder = 'От';        minInput.value = filterState[column].min;
-        minInput.style.cssText = 'width:50px;font-size:11px;padding:2px;';
-        minInput.onclick = (e) => e.stopPropagation();
-        minInput.onchange = (e) => {
-            filterState[column].min = e.target.value;
-            renderTable();
-        };
-        
-        const maxInput = document.createElement('input');
-        maxInput.type = 'number';
-        maxInput.placeholder = 'До';
-        maxInput.value = filterState[column].max;
-        maxInput.style.cssText = 'width:50px;font-size:11px;padding:2px;';
-        maxInput.onclick = (e) => e.stopPropagation();
-        maxInput.onchange = (e) => {
-            filterState[column].max = e.target.value;
-            renderTable();
-        };
-        
-        wrapper.appendChild(minInput);
-        wrapper.appendChild(document.createTextNode('-'));
-        wrapper.appendChild(maxInput);
-        container.appendChild(wrapper);
-    }
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;gap:8px;align-items:center;';
+    wrapper.onclick = (e) => e.stopPropagation();
+    
+    // Кнопка сортировки А→Я (по возрастанию)
+    const btnAsc = document.createElement('button');
+    btnAsc.innerHTML = '<ion-icon name="arrow-up-outline" style="font-size:16px;vertical-align:middle;"></ion-icon> А→Я';
+    btnAsc.style.cssText = `
+        padding:6px 10px;
+        font-size:11px;
+        cursor:pointer;
+        border:1px solid #ccc;
+        border-radius:6px;
+        background:${sortState.column === column && sortState.direction === 'asc' ? '#007AFF' : '#fff'};
+        color:${sortState.column === column && sortState.direction === 'asc' ? '#fff' : '#333'};
+        display:flex;
+        align-items:center;
+        gap:4px;
+    `;
+    btnAsc.onclick = (e) => {
+        e.stopPropagation();
+        if (sortState.column === column && sortState.direction === 'asc') {
+            // Повторный клик - сброс
+            sortState.column = null;
+            sortState.direction = null;
+        } else {
+            sortState.column = column;
+            sortState.direction = 'asc';
+        }
+        renderTable();
+        renderFilter(column); // Обновляем стили кнопок
+    };
+    
+    // Кнопка сортировки Я→А (по убыванию)
+    const btnDesc = document.createElement('button');
+    btnDesc.innerHTML = '<ion-icon name="arrow-down-outline" style="font-size:16px;vertical-align:middle;"></ion-icon> Я→А';
+    btnDesc.style.cssText = `
+        padding:6px 10px;
+        font-size:11px;
+        cursor:pointer;
+        border:1px solid #ccc;
+        border-radius:6px;
+        background:${sortState.column === column && sortState.direction === 'desc' ? '#007AFF' : '#fff'};
+        color:${sortState.column === column && sortState.direction === 'desc' ? '#fff' : '#333'};
+        display:flex;
+        align-items:center;
+        gap:4px;
+    `;
+    btnDesc.onclick = (e) => {
+        e.stopPropagation();
+        if (sortState.column === column && sortState.direction === 'desc') {
+            // Повторный клик - сброс
+            sortState.column = null;
+            sortState.direction = null;
+        } else {
+            sortState.column = column;
+            sortState.direction = 'desc';
+        }
+        renderTable();
+        renderFilter(column); // Обновляем стили кнопок
+    };
+    
+    wrapper.appendChild(btnAsc);
+    wrapper.appendChild(btnDesc);
+    container.appendChild(wrapper);
+}
 }
 
 // Оставь только ПЕРВУЮ версию updateWeekdayFilter (строка ~260):
@@ -375,17 +417,57 @@ function applyFilters(data) {
     });
 }
 
+// ===== СОРТИРОВКА ДАННЫХ =====
+function applySorting(data) {
+    if (!sortState.column || !sortState.direction) {
+        return data; // Сортировка не применена
+    }
+    
+    const fieldMap = {
+        'hours': 'hours',
+        'pickup': 'ordersPickup',
+        'delivery': 'ordersDelivery',
+        'income': 'totalIncome',
+        'expenses': 'totalExpenses',
+        'profit': 'netProfit'
+    };
+    
+    const field = fieldMap[sortState.column];
+    if (!field) return data;
+    
+    return [...data].sort((a, b) => {
+        const valA = parseFloat(a[field]) || 0;
+        const valB = parseFloat(b[field]) || 0;
+        
+        if (sortState.direction === 'asc') {
+            return valA - valB; // По возрастанию
+        } else {
+            return valB - valA; // По убыванию
+        }
+    });
+}
+
 function clearAllFilters() {
+    // Сброс фильтров
     filterState = {
         date: { type: 'month', values: [] },
         weekday: { type: 'checkbox', values: [] },
         type: { type: 'checkbox', values: [] },
-        hours: { type: 'range', min: '', max: '' },        pickup: { type: 'range', min: '', max: '' },
+        hours: { type: 'range', min: '', max: '' },
+        pickup: { type: 'range', min: '', max: '' },
         delivery: { type: 'range', min: '', max: '' },
         income: { type: 'range', min: '', max: '' },
         expenses: { type: 'range', min: '', max: '' },
         profit: { type: 'range', min: '', max: '' }
     };
+    
+    // ⭐ Сброс сортировки
+    sortState = {
+        column: null,
+        direction: null
+    };
+    
+    
     const filterRow = document.getElementById('filter-row');
     if (filterRow) {
         filterRow.style.display = 'none';
@@ -916,16 +998,33 @@ function renderTariffs() {
         div.className = 'tariff-item' + (isCurrent ? ' current' : '');
         div.innerHTML = `
             <div class="tariff-date">
-                📅 ${formatDate(t.date)}
+                <ion-icon name="calendar-outline" style="font-size: 24px; vertical-align: middle; margin-right: 6px; color: var(--ios-accent);"></ion-icon>
+                ${formatDate(t.date)}
                 ${isCurrent ? '<span style="color:#10b981;font-weight:bold"> (действует)</span>' : ''}
             </div>
             <div class="tariff-values">
-                <span>📦 ${t.pickup} ₽/шт</span>
-                <span>📤 ${t.delivery} ₽/шт</span>
-                <span>🛣️ ${t.km} ₽/км</span>
-                <span>⚖️ ${t.weight} ₽/кг</span>            </div>
+                <span>
+                    <ion-icon name="arrow-down-circle-outline" class="tariff-icon pickup-icon"></ion-icon>
+                    ${t.pickup} ₽/шт
+                </span>
+                <span>
+                    <ion-icon name="arrow-up-circle-outline" class="tariff-icon delivery-icon"></ion-icon>
+                    ${t.delivery} ₽/шт
+                </span>
+                <span>
+                    <ion-icon name="navigate-outline" class="tariff-icon km-icon"></ion-icon>
+                    ${t.km} ₽/км
+                </span>
+                <span>
+                    <ion-icon name="scale-outline" class="tariff-icon weight-icon"></ion-icon>
+                    ${t.weight} ₽/кг
+                </span>
+            </div>
             <div class="tariff-actions">
-                <button class="btn btn-danger" onclick="deleteTariff('${t.id}')">🗑️ Удалить</button>
+                <button class="btn btn-danger" onclick="deleteTariff('${t.id}')">
+                    <ion-icon name="trash-outline" style="font-size: 20px; vertical-align: middle; margin-right: 6px;"></ion-icon>
+                    Удалить
+                </button>
             </div>
         `;
         list.appendChild(div);
@@ -1411,54 +1510,65 @@ function renderTable() {
     filteredRecords = applyFilters(filteredRecords);
     
     // Определяем, применены ли фильтры
-    const hasActiveFilters = Object.keys(filterState).some(key => {
-        const filter = filterState[key];
-        if (filter.type === 'checkbox' || filter.type === 'month') {
-            return filter.values && filter.values.length > 0;
-        } else if (filter.type === 'range') {
-            return filter.min !== '' || filter.max !== '';
-        }
-        return false;
-    });
-    
-    // Сортируем по дате
-    filteredRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
-    
-    // Если фильтры НЕ применены — добавляем понедельные итоги
-    if (!hasActiveFilters) {
-        renderTableWithWeeklySummary(tbody, filteredRecords);
-    } else {
-        // При фильтрах показываем только записи без итогов
-        filteredRecords.forEach(r => {
-            const typeLabel = r.recordType === 'bonus' 
-                ? '<ion-icon name="gift-outline" style="vertical-align: middle; margin-right: 4px; color: #AF52DE;"></ion-icon>Бонус'
-                : r.recordType === 'expense' 
-                ? '<ion-icon name="remove-circle-outline" style="vertical-align: middle; margin-right: 4px; color: #FF3B30;"></ion-icon>Расход'
-                : '<ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px; color: #007AFF;"></ion-icon>Работа';
-            
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td>${formatDate(r.date)}</td>
-                <td>${r.weekday || '-'}</td>
-                <td>${typeLabel}</td>
-                <td>${r.hours || '-'}</td>
-                <td>${r.ordersPickup || '-'}</td>
-                <td>${r.ordersDelivery || '-'}</td>
-                <td>${formatMoney(r.totalIncome)}</td>
-                <td>${formatMoney(r.totalExpenses)}</td>
-                <td style="color:${r.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">${formatMoney(r.netProfit)}</td>
-                <td>
-                    <button class="btn btn-success" onclick="editRecord('${r.id}')">
-                        <ion-icon name="create-outline"></ion-icon>
-                    </button>
-                    <button class="btn btn-danger" onclick="deleteRecord('${r.id}')">
-                        <ion-icon name="trash-outline"></ion-icon>
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
+const hasActiveFilters = Object.keys(filterState).some(key => {
+    const filter = filterState[key];
+    if (filter.type === 'checkbox' || filter.type === 'month') {
+        return filter.values && filter.values.length > 0;
+    } else if (filter.type === 'range') {
+        return filter.min !== '' || filter.max !== '';
     }
+    return false;
+});
+
+// ⭐ Проверяем, применена ли сортировка
+const hasActiveSorting = sortState.column !== null && sortState.direction !== null;
+
+// Если есть фильтры ИЛИ сортировка — скрываем недельные итоги
+const shouldHideWeeklySummary = hasActiveFilters || hasActiveSorting;
+    
+    // Применяем сортировку (если есть) или сортируем по дате
+if (sortState.column && sortState.direction) {
+    filteredRecords = applySorting(filteredRecords);
+} else {
+    // По умолчанию сортируем по дате (новые сверху)
+    filteredRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+}
+    
+    // Если фильтры И сортировка НЕ применены — добавляем понедельные итоги
+if (!shouldHideWeeklySummary) {
+    renderTableWithWeeklySummary(tbody, filteredRecords);
+} else {
+    // При фильтрах ИЛИ сортировке показываем только записи без итогов
+    filteredRecords.forEach(r => {
+        const typeLabel = r.recordType === 'bonus' 
+            ? '<ion-icon name="gift-outline" style="vertical-align: middle; margin-right: 4px; color: #AF52DE;"></ion-icon>Бонус'
+            : r.recordType === 'expense' 
+            ? '<ion-icon name="remove-circle-outline" style="vertical-align: middle; margin-right: 4px; color: #FF3B30;"></ion-icon>Расход'
+            : '<ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px; color: #007AFF;"></ion-icon>Работа';
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${formatDate(r.date)}</td>
+            <td>${r.weekday || '-'}</td>
+            <td>${typeLabel}</td>
+            <td>${r.hours || '-'}</td>
+            <td>${r.ordersPickup || '-'}</td>
+            <td>${r.ordersDelivery || '-'}</td>
+            <td>${formatMoney(r.totalIncome)}</td>
+            <td>${formatMoney(r.totalExpenses)}</td>
+            <td style="color:${r.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">${formatMoney(r.netProfit)}</td>
+            <td>
+                <button class="btn btn-success" onclick="editRecord('${r.id}')">
+                    <ion-icon name="create-outline"></ion-icon>
+                </button>
+                <button class="btn btn-danger" onclick="deleteRecord('${r.id}')">
+                    <ion-icon name="trash-outline"></ion-icon>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
     
     // Обновляем счетчик отфильтрованных записей
     let infoEl = document.getElementById('filter-info');
@@ -1555,15 +1665,16 @@ const summary = weekRecords.reduce((acc, r) => {
     return acc;
 }, { income: 0, expenses: 0, profit: 0, hours: 0, ordersPickup: 0, ordersDelivery: 0, workingDays: 0 });
         
-        // Рендерим заголовк недели
-        const headerRow = document.createElement('tr');
-        headerRow.className = 'week-summary-header';
-        headerRow.innerHTML = `
+        // Рендерим заголовок недели
+const headerRow = document.createElement('tr');
+headerRow.className = 'week-summary-header';
+headerRow.innerHTML = `
     <td colspan="10">
-        📅 Неделя ${weekKey.split('-W')[1]} (${weekRange.label}) — ${summary.workingDays} ${summary.workingDays === 1 ? 'день' : (summary.workingDays >= 2 && summary.workingDays <= 4 ? 'дня' : 'дней')}
+        <ion-icon name="calendar-outline" class="week-header-icon"></ion-icon>
+        Неделя ${weekKey.split('-W')[1]} (${weekRange.label}) — ${summary.workingDays} ${summary.workingDays === 1 ? 'день' : (summary.workingDays >= 2 && summary.workingDays <= 4 ? 'дня' : 'дней')}
     </td>
 `;        
-        tbody.appendChild(headerRow);
+tbody.appendChild(headerRow);
         
         // Рендерим записи недели
         // Рендерим записи недели
@@ -1598,10 +1709,15 @@ weekRecords.forEach(r => {
 });
         
         // Рендерим итоговую строку недели
-        const summaryRow = document.createElement('tr');
-        summaryRow.className = 'week-summary-row';
-        summaryRow.innerHTML = `
-    <td colspan="3"><strong>📊 ИТОГО ЗА НЕДЕЛЮ:</strong></td>
+const summaryRow = document.createElement('tr');
+summaryRow.className = 'week-summary-row';
+summaryRow.innerHTML = `
+    <td colspan="3">
+        <strong>
+            <ion-icon name="bar-chart-outline" class="week-summary-icon"></ion-icon>
+            ИТОГО ЗА НЕДЕЛЮ:
+        </strong>
+    </td>
     <td><strong>${summary.hours.toFixed(1)} ч</strong></td>
     <td><strong>${summary.ordersPickup}</strong></td>
     <td><strong>${summary.ordersDelivery}</strong></td>
@@ -1612,7 +1728,7 @@ weekRecords.forEach(r => {
     </td>
     <td><strong>${summary.workingDays} дн.</strong></td>
 `;
-        tbody.appendChild(summaryRow);
+tbody.appendChild(summaryRow);
     });
 }
 

@@ -37,15 +37,15 @@
     <script nomodule src="https://unpkg.com/ionicons@7.4.0/dist/ionicons/ionicons.js"></script>
     
     <!-- Firebase (compat версия) -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>    
+        
     <!-- Конфигурация Firebase -->
     <script src="firebase-config.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js" defer></script>
+    <script src="script.js?v=12" defer></script>
 </head>
 <body>
 
@@ -69,10 +69,17 @@
                 <h2>Ввод данных за день</h2>
                 
                 <div id="editing-notice" class="editing-notice" style="display:none;">
-                    📝 Режим редактирования. 
-                    <button type="button" class="btn btn-secondary btn-small" onclick="recalcCurrentByTariff()">💱 Пересчитать по тарифу</button>
-                    <button type="button" class="btn btn-danger btn-small" onclick="cancelEdit()">❌ Отменить</button>
-                </div>
+    <ion-icon name="create-outline" class="notice-icon"></ion-icon>
+    Режим редактирования. 
+    <button type="button" class="btn btn-secondary btn-small" onclick="recalcCurrentByTariff()">
+        <ion-icon name="calculator-outline" class="btn-icon-small"></ion-icon>
+        Пересчитать по тарифу
+    </button>
+    <button type="button" class="btn btn-danger btn-small" onclick="cancelEdit()">
+        <ion-icon name="close-circle-outline" class="btn-icon-small"></ion-icon>
+        Отменить
+    </button>
+</div>
 
                 <div class="current-tariffs-info">
     <h3>
@@ -101,125 +108,198 @@
 
                 <form id="daily-form">
                     <div class="form-row">
-                        <div class="form-group">
-                            <label>Дата *</label>
-                            <input type="date" id="date" required>
-                        </div>
-                        <div class="form-group">
-                            <label>День недели</label>
-                            <input type="text" id="weekday" readonly>
-                        </div>                        <div class="form-group">
-                            <label>Часы работы </label>
-                            <input type="number" id="hours" step="0.1" min="0">
-                        </div>
-                    </div>
+    <div class="form-group">
+        <label>
+            <ion-icon name="calendar-outline" class="form-icon date-field-icon"></ion-icon>
+            Дата *
+        </label>
+        <input type="date" id="date" required>
+    </div>
+    <div class="form-group">
+        <label>
+            <ion-icon name="calendar-number-outline" class="form-icon weekday-icon"></ion-icon>
+            День недели
+        </label>
+        <input type="text" id="weekday" readonly>
+    </div>
+    <div class="form-group">
+        <label>
+            <ion-icon name="time-outline" class="form-icon hours-icon"></ion-icon>
+            Часы работы
+        </label>
+        <input type="number" id="hours" step="0.1" min="0">
+    </div>
+</div>
 
                     <div class="auto-calc-row">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label> Забор (шт)</label>
-                                <input type="number" id="orders-pickup" min="0" oninput="autoCalc('pickup')">
-                            </div>
-                            <div class="form-group">
-                                <label>Забор (₽) <span class="auto-hint">автоматически</span></label>
-                                <input type="number" id="pay-pickup" readonly>
-                            </div>
-                        </div>
-                    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label>
+                <ion-icon name="arrow-down-circle-outline" class="form-icon"></ion-icon>
+                Забор (шт)
+            </label>
+            <input type="number" id="orders-pickup" min="0" oninput="autoCalc('pickup')">
+        </div>
+        <div class="form-group">
+            <label>
+                <ion-icon name="arrow-down-circle-outline" class="form-icon"></ion-icon>
+                Забор (₽) 
+                <span class="auto-hint">автоматически</span>
+            </label>
+            <input type="number" id="pay-pickup" readonly>
+        </div>
+    </div>
+</div>
 
                     <div class="auto-calc-row">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>📤 Выдача (шт)</label>
-                                <input type="number" id="orders-delivery" min="0" oninput="autoCalc('delivery')">
-                            </div>
-                            <div class="form-group">
-                                <label>Выдача (₽) <span class="auto-hint">автоматически</span></label>
-                                <input type="number" id="pay-delivery" readonly>
-                            </div>
-                        </div>
-                    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label>
+                <ion-icon name="arrow-up-circle-outline" class="form-icon delivery-icon"></ion-icon>
+                Выдача (шт)
+            </label>
+            <input type="number" id="orders-delivery" min="0" oninput="autoCalc('delivery')">
+        </div>
+        <div class="form-group">
+            <label>
+                <ion-icon name="arrow-up-circle-outline" class="form-icon delivery-icon"></ion-icon>
+                Выдача (₽) 
+                <span class="auto-hint">автоматически</span>
+            </label>
+            <input type="number" id="pay-delivery" readonly>
+        </div>
+    </div>
+</div>
 
                     <div class="auto-calc-row">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>️ Км</label>
-                                <input type="number" id="distance" step="0.001" min="0" oninput="autoCalc('km')">
-                            </div>
-                            <div class="form-group">
-                                <label>Км (₽) <span class="auto-hint">автоматически</span></label>
-                                <input type="number" id="pay-distance" readonly>
-                            </div>
-                        </div>
-                    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label>
+                <ion-icon name="navigate-outline" class="form-icon km-icon"></ion-icon>
+                Км
+            </label>
+            <input type="number" id="distance" step="0.001" min="0" oninput="autoCalc('km')">
+        </div>
+        <div class="form-group">
+            <label>
+                <ion-icon name="navigate-outline" class="form-icon km-icon"></ion-icon>
+                Км (₽) 
+                <span class="auto-hint">автоматически</span>
+            </label>
+            <input type="number" id="pay-distance" readonly>
+        </div>
+    </div>
+</div>
 
-                    <div class="auto-calc-row">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>️ Вес (кг)</label>
-                                <input type="number" id="weight" step="0.001" min="0" oninput="autoCalc('weight')">                            </div>
-                            <div class="form-group">
-                                <label>Вес (₽) <span class="auto-hint">автоматически</span></label>
-                                <input type="number" id="pay-weight" readonly>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Нагрузка (₽)</label>
-                            <input type="number" id="load-pay" step="0.01" min="0">
-                        </div>
-                        <div class="form-group">
-                            <label>🎁 Бонус (₽)</label>
-                            <input type="number" id="bonus-pay" step="0.01" min="0">
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>🏆 Рейтинг (₽)</label>
-                            <input type="number" id="rating" step="0.01" min="0">
-                        </div>
-                        <div class="form-group">
-                            <label>Чаевые (₽)</label>
-                            <input type="number" id="tips" step="0.01" min="0">
-                        </div>
-                    </div>
+<div class="auto-calc-row">
+    <div class="form-row">
+        <div class="form-group">
+            <label>
+                <ion-icon name="scale-outline" class="form-icon weight-icon"></ion-icon>
+                Вес (кг)
+            </label>
+            <input type="number" id="weight" step="0.001" min="0" oninput="autoCalc('weight')">
+        </div>
+        <div class="form-group">
+            <label>
+                <ion-icon name="scale-outline" class="form-icon weight-icon"></ion-icon>
+                Вес (₽) 
+                <span class="auto-hint">автоматически</span>
+            </label>
+            <input type="number" id="pay-weight" readonly>
+        </div>
+    </div>
+</div>
 
                     <div class="form-row">
-                        <div class="form-group">
-                            <label>Бензин (₽)</label>
-                            <input type="number" id="fuel-cost" step="0.01" min="0">
-                        </div>
-                        <div class="form-group">
-                            <label>Ремонт (₽)</label>
-                            <input type="number" id="repair-cost" step="0.01" min="0">
-                        </div>
-                        <div class="form-group">
-                            <label>Налог (₽)</label>
-                            <input type="number" id="tax" step="0.01" min="0">
-                        </div>
-                    </div>
+    <div class="form-group">
+        <label>
+            <ion-icon name="layers-outline" class="form-icon load-icon"></ion-icon>
+            Нагрузка (₽)
+        </label>
+        <input type="number" id="load-pay" step="0.01" min="0">
+    </div>
+    <div class="form-group">
+        <label>
+            <ion-icon name="gift-outline" class="form-icon bonus-icon"></ion-icon>
+            Бонус (₽)
+        </label>
+        <input type="number" id="bonus-pay" step="0.01" min="0">
+    </div>
+</div>
+
+<div class="form-row">
+    <div class="form-group">
+        <label>
+            <ion-icon name="trophy-outline" class="form-icon rating-icon"></ion-icon>
+            Рейтинг (₽)
+        </label>
+        <input type="number" id="rating" step="0.01" min="0">
+    </div>
+    <div class="form-group">
+        <label>
+            <ion-icon name="cash-outline" class="form-icon tips-icon"></ion-icon>
+            Чаевые (₽)
+        </label>
+        <input type="number" id="tips" step="0.01" min="0">
+    </div>
+</div>
+
+<div class="form-row">
+    <div class="form-group">
+        <label>
+            <ion-icon name="flame-outline" class="form-icon fuel-icon"></ion-icon>
+            Бензин (₽)
+        </label>
+        <input type="number" id="fuel-cost" step="0.01" min="0">
+    </div>
+    <div class="form-group">
+        <label>
+            <ion-icon name="construct-outline" class="form-icon repair-icon"></ion-icon>
+            Ремонт (₽)
+        </label>
+        <input type="number" id="repair-cost" step="0.01" min="0">
+    </div>
+    <div class="form-group">
+        <label>
+            <ion-icon name="receipt-outline" class="form-icon tax-icon"></ion-icon>
+            Налог (₽)
+        </label>
+        <input type="number" id="tax" step="0.01" min="0">
+    </div>
+</div>
 
                     <div class="form-row">
-                        <div class="form-group">
-                            <label>Тип записи</label>
-                            <select id="record-type">
-                                <option value="work">Рабочий день</option>                                <option value="bonus">Бонус</option>
-                                <option value="expense">Только расход</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Период бонуса (если бонус)</label>
-                            <input type="text" id="bonus-period" placeholder="Например: Июль 2024">
-                        </div>
-                    </div>
+    <div class="form-group">
+        <label>
+            <ion-icon name="list-outline" class="form-icon type-icon"></ion-icon>
+            Тип записи
+        </label>
+        <select id="record-type">
+            <option value="work">Рабочий день</option>
+            <option value="bonus">Бонус</option>
+            <option value="expense">Только расход</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label>
+            <ion-icon name="calendar-number-outline" class="form-icon bonus-period-icon"></ion-icon>
+            Период бонуса (если бонус)
+        </label>
+        <input type="text" id="bonus-period" placeholder="Например: Июль 2024">
+    </div>
+</div>
 
                     <div class="form-actions">
-                        <button type="submit" class="btn btn-success">💾 Сохранить</button>
-                        <button type="reset" class="btn btn-secondary" onclick="clearForm()">🗑️ Очистить</button>
-                    </div>
+    <button type="submit" class="btn btn-success">
+        <ion-icon name="save-outline" class="btn-icon"></ion-icon>
+        Сохранить
+    </button>
+    <button type="reset" class="btn btn-secondary btn-clear" onclick="clearForm()">
+        <ion-icon name="trash-outline" class="btn-icon"></ion-icon>
+        Очистить
+    </button>
+</div>
                 </form>
             </div>
         </div>
@@ -408,38 +488,85 @@
         </div>
 
         <!-- Вкладка: История -->
-        <div id="tab-history" class="tab-content">
-            <div class="card">
-                <h2>История записей</h2>
-                <div class="table-container">
-                    <table>
-                        <thead>
-    <tr>
-        <th>Дата <button onclick="toggleFilter('date')" class="filter-btn">🔽</button></th>
-        <th>День <button onclick="toggleFilter('weekday')" class="filter-btn">🔽</button></th>
-        <th>Тип <button onclick="toggleFilter('type')" class="filter-btn">🔽</button></th>
-        <th>Часы <button onclick="toggleFilter('hours')" class="filter-btn">🔽</button></th>
-        <th>Забор <button onclick="toggleFilter('pickup')" class="filter-btn">🔽</button></th>
-        <th>Выдача <button onclick="toggleFilter('delivery')" class="filter-btn">🔽</button></th>
-        <th>Доход <button onclick="toggleFilter('income')" class="filter-btn">🔽</button></th>
-        <th>Расходы <button onclick="toggleFilter('expenses')" class="filter-btn">🔽</button></th>
-        <th>Прибыль <button onclick="toggleFilter('profit')" class="filter-btn">🔽</button></th>
-        <th>Действия</th>
-    </tr>
-    <!-- Строка фильтров -->
-    <tr id="filter-row" style="display:none; background:#f8f9fa;">
-        <td id="filter-date"></td>
-        <td id="filter-weekday"></td>
-        <td id="filter-type"></td>
-        <td id="filter-hours"></td>
-        <td id="filter-pickup"></td>
-        <td id="filter-delivery"></td>
-        <td id="filter-income"></td>
-        <td id="filter-expenses"></td>
-        <td id="filter-profit"></td>
-        <td><button onclick="clearAllFilters()" style="font-size:11px;padding:4px 8px;">Сбросить</button></td>
-    </tr>
-</thead>
+<div id="tab-history" class="tab-content">
+    <div class="card">
+        <h2>История записей</h2>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>
+                            Дата 
+                            <button onclick="toggleFilter('date')" class="filter-btn">
+                                <ion-icon name="caret-down-outline"></ion-icon>
+                            </button>
+                        </th>
+                        <th>
+                            День 
+                            <button onclick="toggleFilter('weekday')" class="filter-btn">
+                                <ion-icon name="caret-down-outline"></ion-icon>
+                            </button>
+                        </th>
+                        <th>
+                            Тип 
+                            <button onclick="toggleFilter('type')" class="filter-btn">
+                                <ion-icon name="caret-down-outline"></ion-icon>
+                            </button>
+                        </th>
+                        <th>
+                            Часы 
+                            <button onclick="toggleFilter('hours')" class="filter-btn">
+                                <ion-icon name="caret-down-outline"></ion-icon>
+                            </button>
+                        </th>
+                        <th>
+                            Забор 
+                            <button onclick="toggleFilter('pickup')" class="filter-btn">
+                                <ion-icon name="caret-down-outline"></ion-icon>
+                            </button>
+                        </th>
+                        <th>
+                            Выдача 
+                            <button onclick="toggleFilter('delivery')" class="filter-btn">
+                                <ion-icon name="caret-down-outline"></ion-icon>
+                            </button>
+                        </th>
+                        <th>
+                            Доход 
+                            <button onclick="toggleFilter('income')" class="filter-btn">
+                                <ion-icon name="caret-down-outline"></ion-icon>
+                            </button>
+                        </th>
+                        <th>
+                            Расходы 
+                            <button onclick="toggleFilter('expenses')" class="filter-btn">
+                                <ion-icon name="caret-down-outline"></ion-icon>
+                            </button>
+                        </th>
+                        <th>
+                            Прибыль 
+                            <button onclick="toggleFilter('profit')" class="filter-btn">
+                                <ion-icon name="caret-down-outline"></ion-icon>
+                            </button>
+                        </th>
+                        <th>Действия</th>
+                    </tr>
+                    <!-- Строка фильтров -->
+                    <tr id="filter-row" style="display:none; background:#f8f9fa;">
+                        <td id="filter-date"></td>
+                        <td id="filter-weekday"></td>
+                        <td id="filter-type"></td>
+                        <td id="filter-hours"></td>
+                        <td id="filter-pickup"></td>
+                        <td id="filter-delivery"></td>
+                        <td id="filter-income"></td>
+                        <td id="filter-expenses"></td>
+                        <td id="filter-profit"></td>
+                        <td><button onclick="clearAllFilters()" style="font-size:11px;padding:4px 8px;">Сбросить</button></td>
+                    </tr>
+                </thead>
+            
+ 
                         <tbody id="records-body">
                             <!-- Данные загружаются через JS -->
                         </tbody>
@@ -450,53 +577,84 @@
 
         <!-- Вкладка: Тарифы -->
         <div id="tab-tariffs" class="tab-content">
-            <div class="card">
-                <h2>⚙️ Управление тарифами</h2>
-                <div class="tariff-info">
-                    Тарифы применяются с указанной даты.
-                </div>
-                
-                <form id="tariff-form" class="tariff-form">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Дата вступления в силу *</label>
-                            <input type="date" id="tariff-date" required>
-                        </div>
-                    </div>
-                    <div class="form-row">                        <div class="form-group">
-                            <label>📦 Забор (₽/шт)</label>
-                            <input type="number" id="tariff-pickup" step="0.01" min="0" required>
-                        </div>
-                        <div class="form-group">
-                            <label>📤 Выдача (₽/шт)</label>
-                            <input type="number" id="tariff-delivery" step="0.01" min="0" required>
-                        </div>
-                        <div class="form-group">
-                            <label>🛣️ Км (₽/км)</label>
-                            <input type="number" id="tariff-km" step="0.01" min="0" required>
-                        </div>
-                        <div class="form-group">
-                            <label>⚖️ Вес (₽/кг)</label>
-                            <input type="number" id="tariff-weight" step="0.01" min="0" required>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-success">➕ Добавить тариф</button>
-                </form>
-
-                <div class="tariff-actions-panel">
-                    <h3>🔄 Массовые действия</h3>
-                    <button class="btn btn-secondary" onclick="recalculateAllTariffs()">💱 Пересчитать все записи по актуальным тарифам</button>
-                    <p class="hint-text">Это обновит суммы выплат во всех записях согласно тарифам, действовавшим на дату каждой записи.</p>
-                </div>
-
-                <div class="tariffs-history">
-                    <h3>📜 История тарифов</h3>
-                    <div id="tariffs-list" class="tariffs-list">
-                        <!-- Список тарифов -->
-                    </div>
+    <div class="card">
+        <h2>
+            <ion-icon name="pricetag-outline" class="section-icon"></ion-icon>
+            Управление тарифами
+        </h2>
+        <div class="tariff-info">
+            Тарифы применяются с указанной даты.
+        </div>
+        
+        <form id="tariff-form" class="tariff-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>
+                        <ion-icon name="calendar-outline" class="form-icon date-icon"></ion-icon>
+                        Дата вступления в силу *
+                    </label>
+                    <input type="date" id="tariff-date" required>
                 </div>
             </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>
+                        <ion-icon name="arrow-down-circle-outline" class="form-icon pickup-icon"></ion-icon>
+                        Забор (₽/шт)
+                    </label>
+                    <input type="number" id="tariff-pickup" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <ion-icon name="arrow-up-circle-outline" class="form-icon delivery-icon"></ion-icon>
+                        Выдача (₽/шт)
+                    </label>
+                    <input type="number" id="tariff-delivery" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <ion-icon name="navigate-outline" class="form-icon km-icon"></ion-icon>
+                        Км (₽/км)
+                    </label>
+                    <input type="number" id="tariff-km" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <ion-icon name="scale-outline" class="form-icon weight-icon"></ion-icon>
+                        Вес (₽/кг)
+                    </label>
+                    <input type="number" id="tariff-weight" step="0.01" min="0" required>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-success">
+                <ion-icon name="add-circle-outline" class="btn-icon"></ion-icon>
+                Добавить тариф
+            </button>
+        </form>
+
+        <div class="tariff-actions-panel">
+            <h3>
+                <ion-icon name="sync-outline" class="section-icon"></ion-icon>
+                Массовые действия
+            </h3>
+            <button class="btn btn-secondary" onclick="recalculateAllTariffs()">
+                <ion-icon name="calculator-outline" class="btn-icon"></ion-icon>
+                Пересчитать все записи по актуальным тарифам
+            </button>
+            <p class="hint-text">Это обновит суммы выплат во всех записях согласно тарифам, действовавшим на дату каждой записи.</p>
         </div>
+
+        <div class="tariffs-history">
+            <h3>
+                <ion-icon name="time-outline" class="section-icon"></ion-icon>
+                История тарифов
+            </h3>
+            <div id="tariffs-list" class="tariffs-list">
+                <!-- Список тарифов -->
+            </div>
+        </div>
+    </div>
+</div>
 
         <!-- Вкладка: Настройки (Объединенные функции) -->
 <div id="tab-settings" class="tab-content">
@@ -556,16 +714,14 @@
     </button>
 </nav>
 
-   <!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+   
 
 <!-- Конфигурация Firebase -->
 <script src="firebase-config.js"></script>
 
 <!-- Ваши скрипты -->
     <!--  <script src="data.js?v=7"></script> -->
-<script src="script.js?v=10"></script>
+
 <script>
     // Небольшой хак для совместимости с существующим script.js, 
     // который ищет .nav-btn[data-tab]. Мы добавляем этот класс динамически новым кнопкам.
