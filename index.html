@@ -467,10 +467,19 @@
                 </div>
                 
                 <div class="quick-compare-buttons">
-                    <button class="btn" onclick="quickCompare('month')"> Этот месяц vs Прошлый</button>
-                    <button class="btn" onclick="quickCompare('year')">📆 Этот год vs Прошлый</button>
-                    <button class="btn" onclick="quickCompare('yoy')">📊 Тот же месяц, прошлый год</button>
-                </div>
+    <button class="btn" onclick="quickCompare('month')">
+        <ion-icon name="calendar-number-outline" class="btn-icon"></ion-icon>
+        Этот vs Прошлый месяц
+    </button>
+    <button class="btn" onclick="quickCompare('year')">
+        <ion-icon name="calendar-outline" class="btn-icon"></ion-icon>
+        Этот vs Прошлый год
+    </button>
+    <button class="btn" onclick="quickCompare('yoy')">
+        <ion-icon name="calendar-number-outline" class="btn-icon"></ion-icon>
+        Тот же месяц vs прошлый год
+    </button>
+</div>
 
                 <!-- Обертка для горизонтальной прокрутки таблицы -->
 
