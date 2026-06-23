@@ -1885,3 +1885,58 @@ function formatDate(s) {
     return new Date(s).toLocaleDateString('ru-RU');
 }
 
+// ===== РУЧНОЕ РЕДАКТИРОВАНИЕ С АВТО-РАСЧЕТОМ =====
+
+// Объект для хранения состояния авто-расчета
+const autoCalcState = {
+    km: true,      // true = авто-расчет включен
+    weight: true
+};
+
+// Переключение режима авто-расчета
+function toggleAutoCalc(field) {
+    autoCalcState[field] = !autoCalcState[field];
+    
+    const btn = event.target.closest('.btn-auto-toggle');
+    const input = document.getElementById(field === 'km' ? 'pay-distance' : 'pay-weight');
+    const hint = input.parentElement.querySelector('.auto-hint');
+    
+    if (autoCalcState[field]) {
+        // Включаем авто-расчет
+        btn.classList.remove('manual-mode');
+        input.classList.remove('manual-edit');
+        if (hint) hint.textContent = 'автоматически';
+        
+        // Пересчитываем автоматически
+        autoCalc(field);
+    } else {
+        // Отключаем авто-расчет
+        btn.classList.add('manual-mode');
+        input.classList.add('manual-edit');
+        if (hint) hint.textContent = 'ручной ввод';
+    }
+}
+
+// Помечаем поле как отредактированное вручную
+function markManualEdit(field) {
+    if (autoCalcState[field]) {
+        // Если авто-расчет включен, но пользователь редактирует - переключаем в ручной режим
+        autoCalcState[field] = false;
+        
+        const btn = document.querySelector(`[onclick="toggleAutoCalc('${field}')"]`);
+        const input = document.getElementById(field === 'km' ? 'pay-distance' : 'pay-weight');
+        const hint = input.parentElement.querySelector('.auto-hint');
+        
+        if (btn) btn.classList.add('manual-mode');
+        input.classList.add('manual-edit');
+        if (hint) hint.textContent = 'ручной ввод';
+    }
+}
+
+// Обновите функцию autoCalc для проверки состояния
+const originalAutoCalc = autoCalc;
+autoCalc = function(field) {
+    if (autoCalcState[field]) {
+        originalAutoCalc(field);
+    }
+};

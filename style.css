@@ -2953,3 +2953,43 @@ table .btn-danger ion-icon {
         font-size: 24px !important;
     }
 }
+
+/* ===== КНОПКА ПЕРЕКЛЮЧЕНИЯ АВТО-РАСЧЕТА ===== */
+.btn-auto-toggle {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    vertical-align: middle;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.btn-auto-toggle ion-icon {
+    font-size: 16px;
+    color: var(--ios-accent);
+}
+
+.btn-auto-toggle:hover {
+    background: rgba(0, 122, 255, 0.1);
+}
+
+.btn-auto-toggle.manual-mode ion-icon {
+    color: var(--ios-danger);
+}
+
+/* Поле с ручным редактированием */
+.manual-edit {
+    background: #fff9e6 !important;
+    border: 2px solid #f59e0b !important;
+}
+
+.auto-hint {
+    font-size: 11px;
+    color: var(--ios-text-tertiary);
+    font-weight: normal;
+    margin-left: 4px;
+}

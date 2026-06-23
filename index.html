@@ -183,10 +183,36 @@
         <div class="form-group">
             <label>
                 <ion-icon name="navigate-outline" class="form-icon km-icon"></ion-icon>
-                Км (₽) 
+                Км (₽)
                 <span class="auto-hint">автоматически</span>
+                <button type="button" class="btn-auto-toggle" onclick="toggleAutoCalc('km')" title="Переключить авто-расчет">
+                    <ion-icon name="sync-outline"></ion-icon>
+                </button>
             </label>
-            <input type="number" id="pay-distance" readonly>
+            <input type="number" id="pay-distance" step="0.01" min="0" oninput="markManualEdit('km')">
+        </div>
+    </div>
+</div>
+
+<div class="auto-calc-row">
+    <div class="form-row">
+        <div class="form-group">
+            <label>
+                <ion-icon name="scale-outline" class="form-icon weight-icon"></ion-icon>
+                Вес (кг)
+            </label>
+            <input type="number" id="weight" step="0.001" min="0" oninput="autoCalc('weight')">
+        </div>
+        <div class="form-group">
+            <label>
+                <ion-icon name="scale-outline" class="form-icon weight-icon"></ion-icon>
+                Вес (₽)
+                <span class="auto-hint">автоматически</span>
+                <button type="button" class="btn-auto-toggle" onclick="toggleAutoCalc('weight')" title="Переключить авто-расчет">
+                    <ion-icon name="sync-outline"></ion-icon>
+                </button>
+            </label>
+            <input type="number" id="pay-weight" step="0.01" min="0" oninput="markManualEdit('weight')">
         </div>
     </div>
 </div>
