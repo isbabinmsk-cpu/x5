@@ -11,6 +11,199 @@ let autoCalcState = {
     weight: true
 };
 
+// ===== АУТЕНТИФИКАЦИЯ =====
+function switchAuthTab(tab) {
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const tabs = document.querySelectorAll('.auth-tab');
+    
+    tabs.forEach(t => t.classList.remove('active'));
+    
+    if (tab === 'login') {
+        loginForm.style.display = 'flex';
+        registerForm.style.display = 'none';
+        tabs[0].classList.add('active');
+    } else {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'flex';
+        tabs[1].classList.add('active');
+    }
+    
+    // Очищаем ошибки
+    document.getElementById('login-error').textContent = '';
+    document.getElementById('register-error').textContent = '';
+}
+
+// Обработчик входа
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    const errorEl = document.getElementById('login-error');
+    
+    try {
+        errorEl.textContent = '';
+        await auth.signInWithEmailAndPassword(email, password);
+    } catch (error) {
+        errorEl.textContent = getAuthErrorMessage(error.code);
+    }
+});
+
+// Обработчик регистрации
+document.getElementById('register-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('register-name').value;
+    const email = document.getElementById('register-email').value;
+    const password = document.getElementById('register-password').value;
+    const confirm = document.getElementById('register-confirm').value;
+    const errorEl = document.getElementById('register-error');
+    
+    if (password !== confirm) {
+        errorEl.textContent = 'Пароли не совпадают';
+        return;
+    }
+    
+    try {
+        errorEl.textContent = '';
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        
+        // Сохраняем имя пользователя
+        await userCredential.user.updateProfile({
+            displayName: name
+        });
+        
+        // Создаем документ пользователя в Firestore
+        await db.collection('users').doc(userCredential.user.uid).set({
+            name: name,
+            email: email,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    } catch (error) {
+        errorEl.textContent = getAuthErrorMessage(error.code);
+    }
+});
+
+// Обработчик выхода
+document.getElementById('logout-btn').addEventListener('click', async () => {
+    if (confirm('Выйти из аккаунта?')) {
+        await auth.signOut();
+    }
+});
+
+// Слушатель состояния аутентификации
+auth.onAuthStateChanged(async (user) => {
+    const authScreen = document.getElementById('auth-screen');
+    const logoutBtn = document.getElementById('logout-btn');
+    
+    if (user) {
+        // Пользователь вошел
+        currentUser = user;
+        authScreen.classList.add('hidden');
+        logoutBtn.style.display = 'inline-flex';
+        
+        console.log('✅ Пользователь вошел:', user.email);
+        
+        // Загружаем данные пользователя
+        await loadUserData();
+    } else {
+        // Пользователь вышел
+        currentUser = null;
+        authScreen.classList.remove('hidden');
+        logoutBtn.style.display = 'none';
+        
+        // Очищаем данные
+        records = [];
+        tariffs = [];
+        saveData();
+    }
+});
+
+// Функция получения сообщений об ошибках
+function getAuthErrorMessage(errorCode) {
+    const messages = {
+        'auth/email-already-in-use': 'Этот email уже используется',
+        'auth/invalid-email': 'Некорректный email',
+        'auth/weak-password': 'Пароль слишком короткий (минимум 6 символов)',
+        'auth/user-not-found': 'Пользователь не найден',
+        'auth/wrong-password': 'Неверный пароль',
+        'auth/invalid-credential': 'Неверный email или пароль',
+        'auth/too-many-requests': 'Слишком много попыток. Попробуйте позже'
+    };
+    return messages[errorCode] || 'Произошла ошибка. Попробуйте еще раз';
+}
+
+// Загрузка данных пользователя из Firebase
+async function loadUserData() {
+    if (!currentUser) return;
+    
+    // В функции loadUserData(), в самом начале, добавьте:
+const mainContainer = document.querySelector('.container');
+const bottomNav = document.querySelector('.bottom-nav');
+const authScreen = document.getElementById('auth-screen');
+
+if (authScreen) authScreen.classList.add('hidden');
+if (mainContainer) mainContainer.style.display = 'block';
+if (bottomNav) bottomNav.style.display = 'flex';
+    
+    try {
+        console.log('🔄 Загрузка данных пользователя...');
+        
+        // Загружаем записи пользователя
+        const recordsSnapshot = await db.collection('users')
+            .doc(currentUser.uid)
+            .collection('records')
+            .orderBy('date', 'desc')
+            .get();
+        
+        records = recordsSnapshot.docs.map(doc => {
+            return normalizeRecord({ id: doc.id, ...doc.data() });
+        });
+        
+        console.log('✅ Загружено записей:', records.length);
+        
+        // Загружаем тарифы пользователя
+        const tariffsSnapshot = await db.collection('users')
+            .doc(currentUser.uid)
+            .collection('tariffs')
+            .orderBy('date', 'desc')
+            .get();
+        
+        tariffs = tariffsSnapshot.docs.map(doc => {
+            return normalizeTariff({ id: doc.id, ...doc.data() });
+        });
+        
+        console.log('✅ Загружено тарифов:', tariffs.length);
+        
+        // Если нет тарифов - создаем стандартный
+        if (tariffs.length === 0) {
+            const defaultTariff = {
+                date: new Date().toISOString().split('T')[0],
+                pickup: 60,
+                delivery: 81,
+                km: 11,
+                weight: 2
+            };
+            const docRef = await db.collection('users')
+                .doc(currentUser.uid)
+                .collection('tariffs')
+                .add(defaultTariff);
+            tariffs.push(normalizeTariff({ id: docRef.id, ...defaultTariff }));
+        }
+        
+        saveData();
+        
+        // Обновляем интерфейс
+        renderTable();
+        renderTariffs();
+        populateFilters();
+        updateAnalytics();
+        
+    } catch (error) {
+        console.error('❌ Ошибка загрузки данных:', error);
+        alert('Ошибка загрузки данных: ' + error.message);
+    }
+}
+
 // ===== СОХРАНЕНИЕ СОСТОЯНИЯ =====
 const STATE_KEY = 'appState';
 let isRestoringState = false; // Флаг восстановления состояния
@@ -565,10 +758,15 @@ function normalizeTariff(t) {
 }
 
 // ===== ИНИЦИАЛИЗАЦИЯ =====
+// ===== ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ =====
 document.addEventListener('DOMContentLoaded', async () => {
+    console.log('🚀 Инициализация приложения...');
+    
+    // 1. СНАЧАЛА загружаем локальный кэш (быстрый старт)
+    // Данные из Firebase загрузятся позже через loadUserData() после авторизации
     await loadData();
     
-    // Исправляем все некорректные recordType
+    // 2. Исправляем все некорректные recordType в локальном кэше
     let fixed = false;
     records = records.map(r => {
         if (!r.recordType || r.recordType === '' || r.recordType === 'undefined') {
@@ -579,27 +777,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     
     if (fixed) {
-        console.log('✅ Исправлены некорректные recordType');
+        console.log('✅ Исправлены некорректные recordType в localStorage');
         saveData();
     }
     
+    // 3. Инициализируем базовые обработчики форм
     document.getElementById('date').addEventListener('change', onDateChange);
     document.getElementById('daily-form').addEventListener('submit', saveRecord);
     document.getElementById('tariff-form').addEventListener('submit', saveTariff);
     document.getElementById('date').valueAsDate = new Date();
     onDateChange();
     
-    // 1. СНАЧАЛА заполняем фильтры (чтобы были опции для восстановления)
-    populateFilters();
+    // 4. ВАЖНО: Скрываем основной интерфейс до авторизации
+    // onAuthStateChanged() сам покажет его после входа
+    const mainContainer = document.querySelector('.container');
+    const bottomNav = document.querySelector('.bottom-nav');
+    const authScreen = document.getElementById('auth-screen');
     
-    // 2. ЗАТЕМ восстанавливаем состояние (вкладку + фильтры)
-    // restoreState() сам вызовет switchTab(), который вызовет updateAnalytics()
-    restoreState();
+    if (mainContainer) mainContainer.style.display = 'none';
+    if (bottomNav) bottomNav.style.display = 'none';
+    if (authScreen) authScreen.classList.remove('hidden');
     
-    // 3. Остальное рендерим
-    renderTable();
-    renderTariffs();
+    // 5. Инициализируем валидацию форм
     addFormValidation();
+    
+    // 6. НЕ рендерим таблицу и тарифы здесь!
+    // Они будут отрендерены в loadUserData() после успешной авторизации.
+    // Если рендерить сейчас — покажутся пустые/старые данные до входа.
+    
+    console.log('✅ Базовая инициализация завершена. Ожидание авторизации...');
 });
 
 // ===== ВАЛИДАЦИЯ ФОРМЫ =====
@@ -619,91 +825,56 @@ function addFormValidation() {
 }
 
 // ===== ЗАГРУЗКА ДАННЫХ =====
+// ===== ЗАГРУЗКА ДАННЫХ (ТОЛЬКО LOCALSTORAGE) =====
+// Данные из Firebase загружаются отдельно через loadUserData() после авторизации
 async function loadData() {
     try {
-        console.log('🔄 Загрузка данных...');
+        console.log('🔄 Загрузка данных из localStorage...');
         const savedRecords = localStorage.getItem('driverRecords');
         const savedTariffs = localStorage.getItem('driverTariffs');
         
-        if (savedRecords && typeof db !== 'undefined') {
-            const recordsSnapshot = await db.collection('records').get();
-            if (!recordsSnapshot.empty) {
-                records = recordsSnapshot.docs.map(doc => {
-                    const data = doc.data();
-                    return normalizeRecord({ id: doc.id, ...data });
-                });
-                console.log('✅ Загружено из Firebase:', records.length);
-            } else if (typeof initialData !== 'undefined') {
-                for (const r of initialData) { 
-                    const normalized = normalizeRecord({ ...r });
-                    delete normalized.id;
-                    const docRef = await db.collection('records').add(normalized);
-                    records.push(normalizeRecord({ id: docRef.id, ...normalized }));
-                }
-                console.log('✅ Загружено из data.js:', records.length);
-            }
-        } else if (savedRecords) {
-            records = JSON.parse(savedRecords).map(normalizeRecord);
-        } else if (typeof initialData !== 'undefined') {
-            records = initialData.map(r => normalizeRecord({
-                id: Date.now() + Math.random(),
-                ...r
-            }));
-        }        
-        
-        if (savedTariffs && typeof db !== 'undefined') {
-            const tariffsSnapshot = await db.collection('tariffs').get();
-            if (!tariffsSnapshot.empty) {
-                tariffs = tariffsSnapshot.docs.map(doc => {
-                    const data = doc.data();
-                    return normalizeTariff({ id: doc.id, ...data });
-                });
-                console.log('✅ Загружено тарифов:', tariffs.length);
-            } else if (typeof initialTariffs !== 'undefined') {
-                for (const t of initialTariffs) {
-                    const normalized = normalizeTariff({ ...t });
-                    delete normalized.id;                    const docRef = await db.collection('tariffs').add(normalized);
-                    tariffs.push(normalizeTariff({ id: docRef.id, ...normalized }));
-                }
-            }
-        } else if (savedTariffs) {
-            tariffs = JSON.parse(savedTariffs).map(normalizeTariff);
-        } else if (typeof initialTariffs !== 'undefined') {
-            tariffs = initialTariffs.map(t => normalizeTariff({ id: Date.now() + Math.random(), ...t }));
-        }
-        
-        saveData();
-        console.log('✅ Все данные загружены!');
-    } catch (error) {
-        console.error('❌ Ошибка загрузки:', error);
-        const savedRecords = localStorage.getItem('driverRecords');
-        const savedTariffs = localStorage.getItem('driverTariffs');
         if (savedRecords) {
             records = JSON.parse(savedRecords).map(normalizeRecord);
         }
+        
         if (savedTariffs) {
             tariffs = JSON.parse(savedTariffs).map(normalizeTariff);
         }
+        
+        console.log('✅ Локальные данные загружены');
+    } catch (error) {
+        console.error('❌ Ошибка загрузки из localStorage:', error);
     }
 }
 
+// ===== СОХРАНЕНИЕ ДАННЫХ В LOCALSTORAGE =====
 function saveData() {
-    localStorage.setItem('driverRecords', JSON.stringify(records));
-    localStorage.setItem('driverTariffs', JSON.stringify(tariffs));
+    try {
+        localStorage.setItem('driverRecords', JSON.stringify(records));
+        localStorage.setItem('driverTariffs', JSON.stringify(tariffs));
+    } catch (error) {
+        console.error('❌ Ошибка сохранения в localStorage:', error);
+    }
 }
 
 async function saveRecordToFirebase(record) {
+    if (!currentUser) return;
+    
     try {
+        const recordToSave = { ...record };
+        delete recordToSave.id;
+        
+        const userRecordsRef = db.collection('users')
+            .doc(currentUser.uid)
+            .collection('records');
+        
         if (!record.id || !records.find(r => r.id === record.id)) {
-            const recordToSave = { ...record };
-            delete recordToSave.id;
-            const docRef = await db.collection('records').add(recordToSave);
+            const docRef = await userRecordsRef.add(recordToSave);
             record.id = docRef.id;
         } else {
-            const recordToSave = { ...record };
-            delete recordToSave.id;
-            await db.collection('records').doc(record.id).set(recordToSave);
+            await userRecordsRef.doc(record.id).set(recordToSave);
         }
+        
         console.log('✅ Запись сохранена в Firebase');
     } catch (error) {
         console.error('❌ Ошибка сохранения:', error);
@@ -711,7 +882,15 @@ async function saveRecordToFirebase(record) {
 }
 
 async function deleteRecordFromFirebase(id) {
-    try {        await db.collection('records').doc(id).delete();
+    if (!currentUser) return;
+    
+    try {
+        await db.collection('users')
+            .doc(currentUser.uid)
+            .collection('records')
+            .doc(id)
+            .delete();
+        
         console.log('✅ Запись удалена из Firebase');
     } catch (error) {
         console.error('❌ Ошибка удаления:', error);
@@ -919,26 +1098,37 @@ async function saveTariff(e) {
         km: parseFloat(document.getElementById('tariff-km').value) || 0,
         weight: parseFloat(document.getElementById('tariff-weight').value) || 0
     });
-    const idx = tariffs.findIndex(t => t.date === tariff.date);    if (idx >= 0) {
+    
+    const idx = tariffs.findIndex(t => t.date === tariff.date);
+    if (idx >= 0) {
         if (confirm('Тариф на эту дату уже существует. Заменить?')) {
             tariffs[idx] = tariff;
         } else return;
     } else {
         tariffs.push(tariff);
     }
+    
     tariffs.sort((a, b) => new Date(a.date) - new Date(b.date));
-    if (typeof db !== 'undefined') {
+    
+    if (currentUser) {
         try {
             const tariffToSave = { ...tariff };
             delete tariffToSave.id;
-            const docRef = await db.collection('tariffs').add(tariffToSave);
+            
+            const docRef = await db.collection('users')
+                .doc(currentUser.uid)
+                .collection('tariffs')
+                .add(tariffToSave);
+            
             const idx = tariffs.findIndex(t => t.date === tariff.date);
             if (idx >= 0) tariffs[idx].id = docRef.id;
+            
             console.log('✅ Тариф сохранён в Firebase');
         } catch (error) {
             console.error('❌ Ошибка сохранения тарифа:', error);
         }
     }
+    
     saveData();
     alert('✅ Тариф сохранен!');
     document.getElementById('tariff-form').reset();
@@ -951,15 +1141,23 @@ async function deleteTariff(id) {
         alert('Нельзя удалить последний тариф!');
         return;
     }
+    
     if (!confirm('Удалить этот тариф?')) return;
-    if (typeof db !== 'undefined') {
+    
+    if (currentUser) {
         try {
-            await db.collection('tariffs').doc(id).delete();
+            await db.collection('users')
+                .doc(currentUser.uid)
+                .collection('tariffs')
+                .doc(id)
+                .delete();
+            
             console.log('✅ Тариф удалён из Firebase');
         } catch (error) {
             console.error('❌ Ошибка удаления тарифа:', error);
         }
     }
+    
     tariffs = tariffs.filter(t => t.id !== id);
     saveData();
     renderTariffs();
@@ -1856,16 +2054,20 @@ async function importData(e) {
 
 // Синхронизация данных с Firebase (полная замена)
 async function syncToFirebase() {
+    if (!currentUser) return;
+    
     try {
         console.log('🔄 Синхронизация с Firebase...');
         
+        const userRef = db.collection('users').doc(currentUser.uid);
+        
         // Удаляем все старые записи
-        const oldRecords = await db.collection('records').get();
+        const oldRecords = await userRef.collection('records').get();
         const deletePromises1 = oldRecords.docs.map(doc => doc.ref.delete());
         await Promise.all(deletePromises1);
         
         // Удаляем все старые тарифы
-        const oldTariffs = await db.collection('tariffs').get();
+        const oldTariffs = await userRef.collection('tariffs').get();
         const deletePromises2 = oldTariffs.docs.map(doc => doc.ref.delete());
         await Promise.all(deletePromises2);
         
@@ -1873,7 +2075,7 @@ async function syncToFirebase() {
         for (const r of records) {
             const recordToSave = { ...r };
             delete recordToSave.id;
-            const docRef = await db.collection('records').add(recordToSave);
+            const docRef = await userRef.collection('records').add(recordToSave);
             r.id = docRef.id;
         }
         
@@ -1881,7 +2083,7 @@ async function syncToFirebase() {
         for (const t of tariffs) {
             const tariffToSave = { ...t };
             delete tariffToSave.id;
-            const docRef = await db.collection('tariffs').add(tariffToSave);
+            const docRef = await userRef.collection('tariffs').add(tariffToSave);
             t.id = docRef.id;
         }
         

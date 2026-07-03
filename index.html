@@ -45,11 +45,61 @@
     <script src="firebase-config.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=13" defer></script>
+    <script src="script.js?v=2.2.1" defer></script>
 </head>
 <body>
 
-    
+<!-- Экран авторизации -->
+<div id="auth-screen" class="auth-screen">
+    <div class="auth-container">
+        <div class="auth-header">
+            <div class="auth-icon">🚗</div>
+            <h1>Журнал водителя</h1>
+            <p class="auth-subtitle">Войдите или создайте аккаунт</p>
+        </div>
+        
+        <div class="auth-tabs">
+            <button class="auth-tab active" onclick="switchAuthTab('login')">Вход</button>
+            <button class="auth-tab" onclick="switchAuthTab('register')">Регистрация</button>
+        </div>
+        
+        <!-- Форма входа -->
+        <form id="login-form" class="auth-form">
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="login-email" required placeholder="your@email.com">
+            </div>
+            <div class="form-group">
+                <label>Пароль</label>
+                <input type="password" id="login-password" required placeholder="••••••••" minlength="6">
+            </div>
+            <button type="submit" class="auth-btn auth-btn-primary">Войти</button>
+            <div id="login-error" class="auth-error"></div>
+        </form>
+        
+        <!-- Форма регистрации -->
+        <form id="register-form" class="auth-form" style="display: none;">
+            <div class="form-group">
+                <label>Имя</label>
+                <input type="text" id="register-name" required placeholder="Ваше имя">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="register-email" required placeholder="your@email.com">
+            </div>
+            <div class="form-group">
+                <label>Пароль</label>
+                <input type="password" id="register-password" required placeholder="Минимум 6 символов" minlength="6">
+            </div>
+            <div class="form-group">
+                <label>Подтвердите пароль</label>
+                <input type="password" id="register-confirm" required placeholder="Повторите пароль" minlength="6">
+            </div>
+            <button type="submit" class="auth-btn auth-btn-primary">Зарегистрироваться</button>
+            <div id="register-error" class="auth-error"></div>
+        </form>
+    </div>
+</div>    
     
 <div class="container">
     <!-- Верхняя шапка только с заголовком -->
@@ -58,6 +108,10 @@
         <ion-icon name="car-sport-outline" class="header-icon"></ion-icon>
         Журнал работы водителя
     </h1>
+    
+    <button id="logout-btn" class="btn btn-secondary btn-small" style="display: none; margin-left: auto;">
+    <ion-icon name="log-out-outline"></ion-icon> Выйти
+</button>
 </header>
 
     <!-- Основной контент вкладок -->
