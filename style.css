@@ -71,6 +71,26 @@
     --ios-spacing-2xl: 48px;
 }
 
+/* ===== ПРЕДОТВРАЩЕНИЕ ВСПЫШЕК (УПРАВЛЕНИЕ ЧЕРЕЗ BODY) ===== */
+/* По умолчанию скрываем основной интерфейс и навигацию */
+.container,
+.bottom-nav {
+    display: none; 
+}
+
+/* Когда JS подтверждает авторизацию (или находит кэш), показываем интерфейс */
+body.authenticated .container {
+    display: block;
+}
+body.authenticated .bottom-nav {
+    display: flex;
+}
+
+/* Когда авторизован — скрываем экран входа */
+body.authenticated .auth-screen {
+    display: none;
+}
+
 /* ===== СБРОС СТИЛЕЙ ===== */
 *,
 *::before,
