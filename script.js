@@ -2139,3 +2139,296 @@ function markManualEdit(field) {
         if (hint) hint.textContent = 'ручной ввод';
     }
 }
+
+// ===== ЭКСПОРТ В EXCEL (отдельная функция) =====
+function exportToExcel() {
+    console.log(' Начало экспорта в Excel...');
+    
+    if (!records || records.length === 0) {
+        alert('❌ Нет данных для экспорта. Сначала добавьте записи.');
+        return;
+    }
+    
+    try {
+        // Проверяем библиотеку
+        if (typeof XLSX === 'undefined') {
+            alert('❌ Библиотека Excel не загружена. Обновите страницу.');
+            return;
+        }
+        
+        // Формируем данные
+        const data = records.map((r, index) => {
+            const typeLabel = r.recordType === 'bonus' ? 'Бонус' :
+                r.recordType === 'expense' ? 'Расход' : 'Работа';
+            return {
+                '№': index + 1,
+                'Дата': formatDate(r.date),
+                'День недели': r.weekday || '',
+                'Тип записи': typeLabel,
+                'Часы работы': r.hours || 0,
+                'Забор (шт)': r.ordersPickup || 0,
+                'Забор (₽)': r.payPickup || 0,
+                'Выдача (шт)': r.ordersDelivery || 0,
+                'Выдача (₽)': r.payDelivery || 0,
+                'Км': r.distance || 0,
+                'Км (₽)': r.payDistance || 0,
+                'Вес (кг)': r.weight || 0,
+                'Вес (₽)': r.payWeight || 0,
+                'Нагрузка (₽)': r.loadPay || 0,
+                'Бонус (₽)': r.bonusPay || 0,
+                'Рейтинг (₽)': r.rating || 0,
+                'Чаевые (₽)': r.tips || 0,
+                'Бензин (₽)': r.fuelCost || 0,
+                'Ремонт (₽)': r.repairCost || 0,
+                'Налог (₽)': r.tax || 0,
+                'Общий доход (₽)': Math.round((r.totalIncome || 0) * 100) / 100,
+                'Всего расходов (₽)': Math.round((r.totalExpenses || 0) * 100) / 100,
+                'Чистая прибыль (₽)': Math.round((r.netProfit || 0) * 100) / 100
+            };
+        });
+        
+        console.log('✅ Подготовлено строк:', data.length);
+        
+        // Создаем worksheet
+        const ws = XLSX.utils.json_to_sheet(data);
+        
+        // Настраиваем ширину колонок
+        const colWidths = Object.keys(data[0]).map(key => ({ wch: Math.max(key.length, 12) }));
+        ws['!cols'] = colWidths;
+        
+        // Создаем workbook
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Журнал водителя");
+        
+        // Сохраняем файл
+        const fileName = `driver-data-${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        
+        console.log('✅ Excel файл создан:', fileName);
+        alert('✅ Excel файл успешно создан!\n\nФайл сохранен в папку "Загрузки"');
+        
+    } catch (error) {
+        console.error('❌ Ошибка экспорта в Excel:', error);
+        alert('❌ Ошибка при создании Excel файла:\n\n' + error.message);
+    }
+}
+
+// ===== ЭКСПОРТ В PDF (через печать браузера) =====
+function exportToPDF() {
+    if (!records || records.length === 0) {
+        alert('❌ Нет данных для экспорта');
+        return;
+    }
+    
+    // Считаем итоги
+    const totalIncome = records.reduce((sum, r) => sum + (r.totalIncome || 0), 0);
+    const totalExpenses = records.reduce((sum, r) => sum + (r.totalExpenses || 0), 0);
+    const totalProfit = records.reduce((sum, r) => sum + (r.netProfit || 0), 0);
+    const totalHours = records.reduce((sum, r) => sum + (r.hours || 0), 0);
+    
+    // Создаем HTML контент со ВСЕМИ столбцами
+    let rowsHTML = '';
+    records.forEach(r => {
+        const typeLabel = r.recordType === 'bonus' ? 'Бонус' :
+            r.recordType === 'expense' ? 'Расход' : 'Работа';
+        const profitColor = r.netProfit >= 0 ? '#10b981' : '#ef4444';
+        
+        rowsHTML += `
+            <tr>
+                <td style="border: 1px solid #ddd; padding: 6px; font-size: 10px;">${formatDate(r.date)}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; font-size: 10px;">${r.weekday || '-'}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; font-size: 10px;">${typeLabel}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${r.hours || 0}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${r.ordersPickup || 0}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${Math.round(r.payPickup * 100) / 100}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${r.ordersDelivery || 0}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${Math.round(r.payDelivery * 100) / 100}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${r.distance || 0}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${Math.round(r.payDistance * 100) / 100}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${r.weight || 0}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${Math.round(r.payWeight * 100) / 100}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${Math.round(r.loadPay * 100) / 100}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${Math.round(r.bonusPay * 100) / 100}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${Math.round(r.rating * 100) / 100}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${Math.round(r.tips * 100) / 100}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${Math.round(r.fuelCost * 100) / 100}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${Math.round(r.repairCost * 100) / 100}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${Math.round(r.tax * 100) / 100}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px; font-weight: bold;">${Math.round(r.totalIncome * 100) / 100}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px; font-weight: bold;">${Math.round(r.totalExpenses * 100) / 100}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px; color: ${profitColor}; font-weight: bold;">${Math.round(r.netProfit * 100) / 100}</td>
+            </tr>
+        `;
+    });
+    
+    const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <title>Журнал работы водителя</title>
+            <style>
+                @page { size: A4 landscape; margin: 8mm; }
+                body { 
+                    font-family: Arial, sans-serif; 
+                    font-size: 10px; 
+                    margin: 10px;
+                    color: #000;
+                }
+                h1 { 
+                    text-align: center; 
+                    margin-bottom: 8px; 
+                    font-size: 18px;
+                }
+                .date-info {
+                    text-align: center;
+                    color: #666;
+                    margin-bottom: 12px;
+                    font-size: 11px;
+                }
+                table { 
+                    width: 100%; 
+                    border-collapse: collapse;
+                    font-size: 9px;
+                }
+                th, td { 
+                    border: 1px solid #ddd; 
+                    padding: 5px; 
+                    font-size: 9px;
+                }
+                th { 
+                    background-color: #f2f2f7; 
+                    text-align: center;
+                    font-weight: bold;
+                    font-size: 9px;
+                }
+                td {
+                    text-align: right;
+                }
+                td:first-child, td:nth-child(2), td:nth-child(3) {
+                    text-align: left;
+                }
+                /* Итоговая строка - НЕ в tfoot, чтобы не повторялась */
+                .total-row {
+                    background-color: #f2f2f7;
+                    font-weight: bold;
+                    border-top: 2px solid #ddd;
+                }
+                .total-row td {
+                    padding: 8px 5px;
+                }
+                /* Отделяем таблицу итогов от основной */
+                .summary-table {
+                    margin-top: 15px;
+                    width: 100%;
+                    border-collapse: collapse;
+                }
+                .summary-table td {
+                    padding: 10px;
+                    border: 1px solid #ddd;
+                    text-align: center;
+                    font-size: 11px;
+                }
+                .summary-table .label {
+                    background-color: #f2f2f7;
+                    font-weight: bold;
+                    text-align: left;
+                    width: 30%;
+                }
+                .summary-table .value {
+                    font-weight: bold;
+                }
+                @media print {
+                    body { margin: 0; }
+                    .no-print { display: none; }
+                    /* Запрещаем повторение footer на каждой странице */
+                    tfoot {
+                        display: table-footer-group;
+                    }
+                }
+            </style>
+        </head>
+        <body>
+            <h1>Журнал работы водителя</h1>
+            <div class="date-info">Дата выгрузки: ${new Date().toLocaleDateString('ru-RU')}</div>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>День</th>
+                        <th>Тип</th>
+                        <th>Часы</th>
+                        <th>Забор<br>(шт)</th>
+                        <th>Забор<br>(₽)</th>
+                        <th>Выдача<br>(шт)</th>
+                        <th>Выдача<br>(₽)</th>
+                        <th>Км</th>
+                        <th>Км<br>(₽)</th>
+                        <th>Вес<br>(кг)</th>
+                        <th>Вес<br>(₽)</th>
+                        <th>Нагрузка<br>(₽)</th>
+                        <th>Бонус<br>(₽)</th>
+                        <th>Рейтинг<br>(₽)</th>
+                        <th>Чаевые<br>(₽)</th>
+                        <th>Бензин<br>(₽)</th>
+                        <th>Ремонт<br>(₽)</th>
+                        <th>Налог<br>(₽)</th>
+                        <th>Доход<br>(₽)</th>
+                        <th>Расход<br>(₽)</th>
+                        <th>Прибыль<br>(₽)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rowsHTML}
+                </tbody>
+            </table>
+            
+            <!-- ИТОГИ ОТДЕЛЬНОЙ ТАБЛИЦЕЙ ПОСЛЕ ОСНОВНОЙ -->
+            <table class="summary-table">
+                <tr>
+                    <td class="label">📊 ВСЕГО ЗАПИСЕЙ:</td>
+                    <td class="value">${records.length}</td>
+                    <td class="label">⏱ ОТРАБОТАНО ЧАСОВ:</td>
+                    <td class="value">${totalHours.toFixed(1)}</td>
+                </tr>
+                <tr>
+                    <td class="label">💰 ОБЩИЙ ДОХОД:</td>
+                    <td class="value" style="color: #10b981;">${Math.round(totalIncome * 100) / 100} ₽</td>
+                    <td class="label">💸 ВСЕГО РАСХОДОВ:</td>
+                    <td class="value" style="color: #ef4444;">${Math.round(totalExpenses * 100) / 100} ₽</td>
+                </tr>
+                <tr>
+                    <td class="label">✅ ЧИСТАЯ ПРИБЫЛЬ:</td>
+                    <td class="value" style="color: ${totalProfit >= 0 ? '#10b981' : '#ef4444'}; font-size: 13px;">${Math.round(totalProfit * 100) / 100} ₽</td>
+                    <td class="label">📈 СРЕДНИЙ ДОХОД В ДЕНЬ:</td>
+                    <td class="value">${Math.round((totalIncome / records.length) * 100) / 100} ₽</td>
+                </tr>
+            </table>
+            
+            <div class="no-print" style="margin-top: 20px; text-align: center;">
+                <button onclick="window.print()" style="padding: 12px 24px; font-size: 16px; background: #007AFF; color: white; border: none; border-radius: 8px; cursor: pointer;">
+                    💾 Сохранить как PDF
+                </button>
+                <p style="margin-top: 10px; color: #666; font-size: 13px;">
+                    Нажмите кнопку выше или используйте Ctrl+P (Cmd+P на Mac)<br>
+                    В диалоге печати выберите "Сохранить как PDF"
+                </p>
+            </div>
+            
+            <script>
+                setTimeout(function() {
+                    window.print();
+                }, 500);
+            <\/script>
+        </body>
+        </html>
+    `;
+    
+    // Открываем в новом окне
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    
+    alert('💡 Откроется окно для сохранения PDF\n\nВыберите "Сохранить как PDF" в диалоге печати');
+}

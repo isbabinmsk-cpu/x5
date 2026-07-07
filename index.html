@@ -55,8 +55,13 @@
     <!-- Конфигурация Firebase -->
     <script src="firebase-config.js"></script>
     
+    <!-- Библиотеки для экспорта в Excel и PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Замените старую версию на новую -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.2.1" defer></script>
+    <script src="script.js?v=2.3.0" defer></script>
 </head>
 <body>
 
@@ -738,37 +743,67 @@
     </div>
 </div>
 
-        <!-- Вкладка: Настройки (Объединенные функции) -->
-<div id="tab-settings" class="tab-content">
-    <div class="card">
-        <h2>
-            <ion-icon name="folder-open-outline" style="vertical-align: middle; margin-right: 8px; font-size: 28px !important; color: var(--ios-accent);"></ion-icon>
-            Управление данными
-        </h2>
-        <div class="form-actions" style="flex-direction: column; gap: 15px;">
-            <button class="btn btn-success" onclick="exportData()" style="width: 100%;">
-                <ion-icon name="cloud-download-outline" style="font-size: 24px !important; margin-right: 6px;"></ion-icon>
-                Экспорт данных (JSON)
-            </button>
+<!-- Вкладка: Настройки (Объединенные функции) -->
+        <div id="tab-settings" class="tab-content">
             
-            <div style="position: relative; width: 100%;">
-                <button class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;" id="import-trigger-btn">
-                    <ion-icon name="cloud-upload-outline" style="font-size: 24px !important;"></ion-icon>
-                    Импорт данных
-                </button>
-                <input type="file" id="import-file" accept=".json" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;" onchange="importData(event)">
-            </div>
-            <button class="btn btn-danger" onclick="resetAllData()" style="width: 100%;">
-                <ion-icon name="trash-outline" style="font-size: 24px !important; margin-right: 6px;"></ion-icon>
-                Полный сброс данных
-            </button>
-        </div>
-        <p class="hint-text" style="margin-top: 20px; text-align: center;">
-            При сбросе удаляются локальные данные. Данные в Firebase (если подключено) сохраняются.
-        </p>
-    </div>
-</div>
+            <!-- Карточка 1: Экспорт данных -->
+            <div class="card">
+                <h2>
+                    <ion-icon name="cloud-download-outline" style="vertical-align: middle; margin-right: 8px; font-size: 28px !important; color: var(--ios-success);"></ion-icon>
+                    Экспорт данных
+                </h2>
+                <p class="hint-text" style="margin-bottom: 20px; text-align: left;">
+                    Выгрузите вашу статистику в удобном формате для печати, отчетов или анализа в Excel.
+                </p>
+                <div class="form-actions" style="flex-direction: column; gap: 12px;">
+                    <!-- Экспорт в Excel -->
+                    <button class="btn btn-primary" onclick="exportToExcel()" style="width: 100%; justify-content: flex-start;">
+                        <ion-icon name="grid-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
+                        Экспорт в Excel (.xlsx)
+                    </button>
+                    
+                    <!-- Экспорт в PDF -->
+                    <button class="btn btn-success" onclick="exportToPDF()" style="width: 100%; justify-content: flex-start;">
+                        <ion-icon name="print-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
+                        Экспорт в PDF (Полная таблица)
+                    </button>
 
+                    <!-- Резервная копия JSON -->
+                    <button class="btn btn-secondary" onclick="exportData()" style="width: 100%; justify-content: flex-start;">
+                        <ion-icon name="save-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
+                        Резервная копия (JSON)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Карточка 2: Управление и восстановление -->
+            <div class="card">
+                <h2>
+                    <ion-icon name="settings-outline" style="vertical-align: middle; margin-right: 8px; font-size: 28px !important; color: var(--ios-accent);"></ion-icon>
+                    Управление и восстановление
+                </h2>
+                <div class="form-actions" style="flex-direction: column; gap: 12px;">
+                    <!-- Импорт данных -->
+                    <div style="position: relative; width: 100%;">
+                        <button class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: flex-start; gap: 10px;" id="import-trigger-btn">
+                            <ion-icon name="cloud-upload-outline" style="font-size: 24px !important;"></ion-icon>
+                            Импорт из резервной копии (JSON)
+                        </button>
+                        <input type="file" id="import-file" accept=".json" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;" onchange="importData(event)">
+                    </div>
+
+                    <!-- Полный сброс -->
+                    <button class="btn btn-danger" onclick="resetAllData()" style="width: 100%; justify-content: flex-start;">
+                        <ion-icon name="trash-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
+                        Полный сброс локальных данных
+                    </button>
+                </div>
+                <p class="hint-text" style="margin-top: 20px; text-align: center; color: var(--ios-danger); font-weight: 500;">
+                    ⚠️ При сбросе удаляются локальные данные. Данные в Firebase (если подключено) сохраняются.
+                </p>
+            </div>
+
+        </div>
     </main>
 </div>
 
