@@ -98,18 +98,27 @@ auth.onAuthStateChanged(async (user) => {
     if (user) {
         // Пользователь вошел
         currentUser = user;
-        authScreen.classList.add('hidden');
-        logoutBtn.style.display = 'inline-flex';
+        
+        // Проверяем существование элементов перед изменением
+        if (authScreen) authScreen.classList.add('hidden');
+        if (logoutBtn) logoutBtn.style.display = 'inline-flex';
         
         console.log('✅ Пользователь вошел:', user.email);
         
-        // Загружаем данные пользователя
-        await loadUserData();
+        // Загружаем данные пользователя с обработкой ошибок
+        try {
+            await loadUserData();
+        } catch (error) {
+            console.error('❌ Ошибка загрузки данных пользователя:', error);
+            alert('Ошибка загрузки данных: ' + error.message);
+        }
     } else {
         // Пользователь вышел
         currentUser = null;
-        authScreen.classList.remove('hidden');
-        logoutBtn.style.display = 'none';
+        
+        // Проверяем существование элементов
+        if (authScreen) authScreen.classList.remove('hidden');
+        if (logoutBtn) logoutBtn.style.display = 'none';
         
         // Очищаем данные
         records = [];
@@ -286,47 +295,53 @@ let filterState = {
     weekday: { type: 'checkbox', values: [] },
     type: { type: 'checkbox', values: [] },
     hours: { type: 'range', min: '', max: '' },
-    pickup: { type: 'range', min: '', max: '' },
-    delivery: { type: 'range', min: '', max: '' },
-    income: { type: 'range', min: '', max: '' },
-    expenses: { type: 'range', min: '', max: '' },
-    profit: { type: 'range', min: '', max: '' }
+    ordersPickup: { type: 'range', min: '', max: '' },
+    payPickup: { type: 'range', min: '', max: '' },
+    ordersDelivery: { type: 'range', min: '', max: '' },
+    payDelivery: { type: 'range', min: '', max: '' },
+    distance: { type: 'range', min: '', max: '' },
+    payDistance: { type: 'range', min: '', max: '' },
+    weight: { type: 'range', min: '', max: '' },
+    payWeight: { type: 'range', min: '', max: '' },
+    loadPay: { type: 'range', min: '', max: '' },
+    bonusPay: { type: 'range', min: '', max: '' },
+    rating: { type: 'range', min: '', max: '' },
+    tips: { type: 'range', min: '', max: '' },
+    fuelCost: { type: 'range', min: '', max: '' },
+    repairCost: { type: 'range', min: '', max: '' },
+    tax: { type: 'range', min: '', max: '' },
+    totalIncome: { type: 'range', min: '', max: '' },
+    totalExpenses: { type: 'range', min: '', max: '' },
+    netProfit: { type: 'range', min: '', max: '' }
 };
 
 // ===== СОРТИРОВКА =====
 let sortState = {
-    column: null, // Текущая колонка сортировки
-    direction: null // 'asc' или 'desc'
+    column: null,
+    direction: null
 };
-
-let currentFilterColumn = null; // Текущая открытая колонка фильтра
+let currentFilterColumn = null;
 
 // ===== ФУНКЦИИ ФИЛЬТРАЦИИ =====
 function toggleFilter(column) {
     const filterRow = document.getElementById('filter-row');
     if (!filterRow) return;
-    
-    // Если панель закрыта — открываем и показываем фильтр этой колонки
+
     if (filterRow.style.display === 'none' || filterRow.style.display === '') {
         filterRow.style.display = 'table-row';
         currentFilterColumn = column;
         showFilterForColumn(column);
-    } 
-    // Если панель открыта и клик по той же колонке — закрываем
-    else if (currentFilterColumn === column) {
+    } else if (currentFilterColumn === column) {
         filterRow.style.display = 'none';
         currentFilterColumn = null;
-    } 
-    // Если панель открыта и клик по другой колонке — переключаем фильтр
-    else {
+    } else {
         currentFilterColumn = column;
         showFilterForColumn(column);
     }
 }
 
-// Показывает фильтр только для указанной колонки, остальные скрывает
 function showFilterForColumn(column) {
-    const columns = ['date', 'weekday', 'type', 'hours', 'pickup', 'delivery', 'income', 'expenses', 'profit'];
+    const columns = Object.keys(filterState);
     columns.forEach(col => {
         const cell = document.getElementById('filter-' + col);
         if (cell) {
@@ -334,7 +349,8 @@ function showFilterForColumn(column) {
                 cell.style.display = 'table-cell';
                 renderFilter(col);
             } else {
-                cell.style.display = 'none';                cell.innerHTML = '';
+                cell.style.display = 'none';
+                cell.innerHTML = '';
             }
         }
     });
@@ -343,11 +359,9 @@ function showFilterForColumn(column) {
 function renderFilter(column) {
     const container = document.getElementById('filter-' + column);
     if (!container) return;
-    
     container.innerHTML = '';
-    // ВАЖНО: останавливаем всплытие клика, чтобы панель не закрывалась
     container.onclick = (e) => e.stopPropagation();
-    
+
     if (column === 'date') {
         const months = getUniqueMonths();
         const select = document.createElement('select');
@@ -359,168 +373,128 @@ function renderFilter(column) {
             if (filterState.date.values.includes(m.value)) option.selected = true;
             select.appendChild(option);
         });
-        // Останавливаем всплытие
         select.onclick = (e) => e.stopPropagation();
         select.onchange = (e) => {
-            if (e.target.value) {
-                filterState.date.values = [e.target.value];
-            } else {
-                filterState.date.values = [];
-            }
+            filterState.date.values = e.target.value ? [e.target.value] : [];
             renderTable();
         };
         container.appendChild(select);
-    }
+    } 
     else if (column === 'weekday') {
         const days = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
         const wrapper = document.createElement('div');
         wrapper.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;';
-        // Останавливаем всплытие на контейнере
         wrapper.onclick = (e) => e.stopPropagation();
-        
         days.forEach(day => {
             const label = document.createElement('label');
             label.style.cssText = 'display:flex;align-items:center;font-size:11px;cursor:pointer;';
-            // Останавливаем всплытие на каждом label
             label.onclick = (e) => e.stopPropagation();
-                        const checkbox = document.createElement('input');
+            const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.value = day;
             checkbox.checked = filterState.weekday.values.includes(day);
-            // Останавливаем всплытие на чекбоксе
             checkbox.onclick = (e) => e.stopPropagation();
             checkbox.onchange = updateWeekdayFilter;
-            
             label.appendChild(checkbox);
             label.appendChild(document.createTextNode(day.slice(0, 3)));
             wrapper.appendChild(label);
         });
         container.appendChild(wrapper);
-    }
+    } 
     else if (column === 'type') {
-    const types = [
-        { value: 'work', label: '<ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px; color: #007AFF;"></ion-icon>Работа' },
-        { value: 'bonus', label: '<ion-icon name="gift-outline" style="vertical-align: middle; margin-right: 4px; color: #AF52DE;"></ion-icon>Бонус' },
-        { value: 'expense', label: '<ion-icon name="remove-circle-outline" style="vertical-align: middle; margin-right: 4px; color: #FF3B30;"></ion-icon>Расход' }
-    ];
-    const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
-    wrapper.onclick = (e) => e.stopPropagation();
-
-    types.forEach(t => {
-        const label = document.createElement('label');
-        label.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;';
-        label.onclick = (e) => e.stopPropagation();
-        
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.value = t.value;
-        checkbox.checked = filterState.type.values.includes(t.value);
-        checkbox.onclick = (e) => e.stopPropagation();
-        checkbox.onchange = () => {
-            if (checkbox.checked) {
-                if (!filterState.type.values.includes(t.value)) {
-                    filterState.type.values.push(t.value);
+        const types = [
+            { value: 'work', label: '<ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px; color: #007AFF;"></ion-icon>Работа' },
+            { value: 'bonus', label: '<ion-icon name="gift-outline" style="vertical-align: middle; margin-right: 4px; color: #AF52DE;"></ion-icon>Бонус' },
+            { value: 'expense', label: '<ion-icon name="remove-circle-outline" style="vertical-align: middle; margin-right: 4px; color: #FF3B30;"></ion-icon>Расход' }
+        ];
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
+        wrapper.onclick = (e) => e.stopPropagation();
+        types.forEach(t => {
+            const label = document.createElement('label');
+            label.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;';
+            label.onclick = (e) => e.stopPropagation();
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = t.value;
+            checkbox.checked = filterState.type.values.includes(t.value);
+            checkbox.onclick = (e) => e.stopPropagation();
+            checkbox.onchange = () => {
+                if (checkbox.checked) {
+                    if (!filterState.type.values.includes(t.value)) filterState.type.values.push(t.value);
+                } else {
+                    filterState.type.values = filterState.type.values.filter(v => v !== t.value);
                 }
-            } else {
-                filterState.type.values = filterState.type.values.filter(v => v !== t.value);
-            }
-            console.log('🔍 Фильтр по типу:', filterState.type.values);
-            renderTable();
-        };
+                renderTable();
+            };
+            label.appendChild(checkbox);
+            const span = document.createElement('span');
+            span.innerHTML = t.label;
+            label.appendChild(span);
+            wrapper.appendChild(label);
+        });
+        container.appendChild(wrapper);
+    } 
+    else if (filterState[column] && filterState[column].type === 'range') {
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+        wrapper.onclick = (e) => e.stopPropagation();
+
+        // Поля ввода для диапазона
+        const inputsWrapper = document.createElement('div');
+        inputsWrapper.style.cssText = 'display:flex;gap:4px;align-items:center;';
         
-        label.appendChild(checkbox);
-        // ВАЖНО: используем innerHTML вместо createTextNode для иконок
-        const span = document.createElement('span');
-        span.innerHTML = t.label;
-        label.appendChild(span);
-        wrapper.appendChild(label);
-    });
+        const minInput = document.createElement('input');
+        minInput.type = 'number';
+        minInput.placeholder = 'От';
+        minInput.style.cssText = 'width:60px;padding:4px;font-size:11px;border:1px solid #ccc;border-radius:4px;';
+        minInput.value = filterState[column].min;
+        minInput.onclick = (e) => e.stopPropagation();
+        minInput.onchange = (e) => { filterState[column].min = e.target.value; renderTable(); };
 
-    // Добавляем кнопку "Выбрать все"
-    const selectAll = document.createElement('button');
-    selectAll.textContent = 'Выбрать все';
-    selectAll.style.cssText = 'margin-top:8px;padding:4px 8px;font-size:11px;cursor:pointer;';
-    selectAll.onclick = (e) => {
-        e.stopPropagation();
-        filterState.type.values = ['work', 'bonus', 'expense'];
-        wrapper.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
-        renderTable();
-    };
-    wrapper.appendChild(selectAll);
+        const maxInput = document.createElement('input');
+        maxInput.type = 'number';
+        maxInput.placeholder = 'До';
+        maxInput.style.cssText = 'width:60px;padding:4px;font-size:11px;border:1px solid #ccc;border-radius:4px;';
+        maxInput.value = filterState[column].max;
+        maxInput.onclick = (e) => e.stopPropagation();
+        maxInput.onchange = (e) => { filterState[column].max = e.target.value; renderTable(); };
 
-    container.appendChild(wrapper);
-}
-    else if (['hours','pickup','delivery','income','expenses','profit'].includes(column)) {
-    const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'display:flex;gap:8px;align-items:center;';
-    wrapper.onclick = (e) => e.stopPropagation();
-    
-    // Кнопка сортировки А→Я (по возрастанию)
-    const btnAsc = document.createElement('button');
-    btnAsc.innerHTML = '<ion-icon name="arrow-up-outline" style="font-size:16px;vertical-align:middle;"></ion-icon> А→Я';
-    btnAsc.style.cssText = `
-        padding:6px 10px;
-        font-size:11px;
-        cursor:pointer;
-        border:1px solid #ccc;
-        border-radius:6px;
-        background:${sortState.column === column && sortState.direction === 'asc' ? '#007AFF' : '#fff'};
-        color:${sortState.column === column && sortState.direction === 'asc' ? '#fff' : '#333'};
-        display:flex;
-        align-items:center;
-        gap:4px;
-    `;
-    btnAsc.onclick = (e) => {
-        e.stopPropagation();
-        if (sortState.column === column && sortState.direction === 'asc') {
-            // Повторный клик - сброс
-            sortState.column = null;
-            sortState.direction = null;
-        } else {
-            sortState.column = column;
-            sortState.direction = 'asc';
-        }
-        renderTable();
-        renderFilter(column); // Обновляем стили кнопок
-    };
-    
-    // Кнопка сортировки Я→А (по убыванию)
-    const btnDesc = document.createElement('button');
-    btnDesc.innerHTML = '<ion-icon name="arrow-down-outline" style="font-size:16px;vertical-align:middle;"></ion-icon> Я→А';
-    btnDesc.style.cssText = `
-        padding:6px 10px;
-        font-size:11px;
-        cursor:pointer;
-        border:1px solid #ccc;
-        border-radius:6px;
-        background:${sortState.column === column && sortState.direction === 'desc' ? '#007AFF' : '#fff'};
-        color:${sortState.column === column && sortState.direction === 'desc' ? '#fff' : '#333'};
-        display:flex;
-        align-items:center;
-        gap:4px;
-    `;
-    btnDesc.onclick = (e) => {
-        e.stopPropagation();
-        if (sortState.column === column && sortState.direction === 'desc') {
-            // Повторный клик - сброс
-            sortState.column = null;
-            sortState.direction = null;
-        } else {
-            sortState.column = column;
-            sortState.direction = 'desc';
-        }
-        renderTable();
-        renderFilter(column); // Обновляем стили кнопок
-    };
-    
-    wrapper.appendChild(btnAsc);
-    wrapper.appendChild(btnDesc);
-    container.appendChild(wrapper);
-}
+        inputsWrapper.appendChild(minInput);
+        inputsWrapper.appendChild(maxInput);
+        wrapper.appendChild(inputsWrapper);
+
+        // Кнопки сортировки
+        const sortWrapper = document.createElement('div');
+        sortWrapper.style.cssText = 'display:flex;gap:4px;';
+        
+        const btnAsc = document.createElement('button');
+        btnAsc.innerHTML = '↑ А→Я';
+        btnAsc.style.cssText = `padding:4px 8px;font-size:11px;cursor:pointer;border:1px solid #ccc;border-radius:6px;background:${sortState.column === column && sortState.direction === 'asc' ? '#007AFF' : '#fff'};color:${sortState.column === column && sortState.direction === 'asc' ? '#fff' : '#333'};`;
+        btnAsc.onclick = (e) => {
+            e.stopPropagation();
+            if (sortState.column === column && sortState.direction === 'asc') { sortState.column = null; sortState.direction = null; } 
+            else { sortState.column = column; sortState.direction = 'asc'; }
+            renderTable(); renderFilter(column);
+        };
+
+        const btnDesc = document.createElement('button');
+        btnDesc.innerHTML = '↓ Я→А';
+        btnDesc.style.cssText = `padding:4px 8px;font-size:11px;cursor:pointer;border:1px solid #ccc;border-radius:6px;background:${sortState.column === column && sortState.direction === 'desc' ? '#007AFF' : '#fff'};color:${sortState.column === column && sortState.direction === 'desc' ? '#fff' : '#333'};`;
+        btnDesc.onclick = (e) => {
+            e.stopPropagation();
+            if (sortState.column === column && sortState.direction === 'desc') { sortState.column = null; sortState.direction = null; } 
+            else { sortState.column = column; sortState.direction = 'desc'; }
+            renderTable(); renderFilter(column);
+        };
+
+        sortWrapper.appendChild(btnAsc);
+        sortWrapper.appendChild(btnDesc);
+        wrapper.appendChild(sortWrapper);
+        container.appendChild(wrapper);
+    }
 }
 
-// Оставь только ПЕРВУЮ версию updateWeekdayFilter (строка ~260):
 function updateWeekdayFilter(e) {
     if (e) e.stopPropagation();
     const checkboxes = document.querySelectorAll('#filter-weekday input[type="checkbox"]');
@@ -528,15 +502,6 @@ function updateWeekdayFilter(e) {
     renderTable();
 }
 
-// Оставь только ПЕРВУЮ версию updateTypeFilter (строка ~266):
-function updateTypeFilter(e) {
-    if (e) e.stopPropagation();
-    const checkboxes = document.querySelectorAll('#filter-type input[type="checkbox"]');
-    filterState.type.values = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
-    renderTable();
-}
-
-// Оставь только ПЕРВУЮ версию getUniqueMonths (строка ~272):
 function getUniqueMonths() {
     const monthsMap = new Map();
     records.forEach(r => {
@@ -544,141 +509,265 @@ function getUniqueMonths() {
         const d = new Date(r.date);
         const monthKey = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
         const monthLabel = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][d.getMonth()] + ' ' + d.getFullYear();
-        if (!monthsMap.has(monthKey)) {
-            monthsMap.set(monthKey, { value: monthKey, label: monthLabel });
-        }
+        if (!monthsMap.has(monthKey)) monthsMap.set(monthKey, { value: monthKey, label: monthLabel });
     });
     return Array.from(monthsMap.values()).sort((a,b) => b.value.localeCompare(a.value));
 }
 
-// Оставь только ПЕРВУЮ версию clearAllFilters (строка ~284):
 function clearAllFilters() {
     filterState = {
         date: { type: 'month', values: [] },
         weekday: { type: 'checkbox', values: [] },
         type: { type: 'checkbox', values: [] },
         hours: { type: 'range', min: '', max: '' },
-        pickup: { type: 'range', min: '', max: '' },
-        delivery: { type: 'range', min: '', max: '' },
-        income: { type: 'range', min: '', max: '' },
-        expenses: { type: 'range', min: '', max: '' },
-        profit: { type: 'range', min: '', max: '' }
+        ordersPickup: { type: 'range', min: '', max: '' },
+        payPickup: { type: 'range', min: '', max: '' },
+        ordersDelivery: { type: 'range', min: '', max: '' },
+        payDelivery: { type: 'range', min: '', max: '' },
+        distance: { type: 'range', min: '', max: '' },
+        payDistance: { type: 'range', min: '', max: '' },
+        weight: { type: 'range', min: '', max: '' },
+        payWeight: { type: 'range', min: '', max: '' },
+        loadPay: { type: 'range', min: '', max: '' },
+        bonusPay: { type: 'range', min: '', max: '' },
+        rating: { type: 'range', min: '', max: '' },
+        tips: { type: 'range', min: '', max: '' },
+        fuelCost: { type: 'range', min: '', max: '' },
+        repairCost: { type: 'range', min: '', max: '' },
+        tax: { type: 'range', min: '', max: '' },
+        totalIncome: { type: 'range', min: '', max: '' },
+        totalExpenses: { type: 'range', min: '', max: '' },
+        netProfit: { type: 'range', min: '', max: '' }
     };
+    
+    sortState = { column: null, direction: null };
+
     const filterRow = document.getElementById('filter-row');
     if (filterRow) {
         filterRow.style.display = 'none';
         const cells = filterRow.querySelectorAll('td');
-        cells.forEach(cell => {
-            if (cell.id && cell.id.startsWith('filter-')) {
-                cell.innerHTML = '';
-            }
-        });
+        cells.forEach(cell => { if (cell.id && cell.id.startsWith('filter-')) cell.innerHTML = ''; });
     }
     currentFilterColumn = null;
     renderTable();
 }
 
-// Оставь только ПЕРВУЮ версию applyFilters (строка ~298):
 function applyFilters(data) {
     return data.filter(r => {
         if (filterState.date.values.length > 0) {
             const recordMonth = r.date ? r.date.substring(0, 7) : '';
             if (!filterState.date.values.includes(recordMonth)) return false;
         }
-        
         if (filterState.weekday.values.length > 0) {
-            const recordWeekday = r.weekday ? 
-                r.weekday.trim().charAt(0).toUpperCase() + r.weekday.trim().slice(1).toLowerCase() : '';
+            const recordWeekday = r.weekday ? r.weekday.trim().charAt(0).toUpperCase() + r.weekday.trim().slice(1).toLowerCase() : '';
             if (!filterState.weekday.values.includes(recordWeekday)) return false;
         }
-        
         if (filterState.type.values.length > 0) {
             if (!filterState.type.values.includes(r.recordType)) return false;
         }
         
-        const ranges = [
-            { field: 'hours', value: r.hours || 0 },
-            { field: 'pickup', value: r.ordersPickup || 0 },
-            { field: 'delivery', value: r.ordersDelivery || 0 },
-            { field: 'income', value: r.totalIncome || 0 },
-            { field: 'expenses', value: r.totalExpenses || 0 },
-            { field: 'profit', value: r.netProfit || 0 }
-        ];
-        
-        for (const range of ranges) {
-            const filter = filterState[range.field];
-            if (filter.min !== '' && range.value < parseFloat(filter.min)) return false;
-            if (filter.max !== '' && range.value > parseFloat(filter.max)) return false;
+        const rangeFields = Object.keys(filterState).filter(k => filterState[k].type === 'range');
+        for (const field of rangeFields) {
+            const filter = filterState[field];
+            const value = parseFloat(r[field]) || 0;
+            if (filter.min !== '' && value < parseFloat(filter.min)) return false;
+            if (filter.max !== '' && value > parseFloat(filter.max)) return false;
         }
-        
         return true;
     });
 }
 
-// ===== СОРТИРОВКА ДАННЫХ =====
 function applySorting(data) {
-    if (!sortState.column || !sortState.direction) {
-        return data; // Сортировка не применена
-    }
-    
-    const fieldMap = {
-        'hours': 'hours',
-        'pickup': 'ordersPickup',
-        'delivery': 'ordersDelivery',
-        'income': 'totalIncome',
-        'expenses': 'totalExpenses',
-        'profit': 'netProfit'
-    };
-    
-    const field = fieldMap[sortState.column];
-    if (!field) return data;
+    if (!sortState.column || !sortState.direction) return data;
+    const field = sortState.column;
+    if (data.length === 0 || !(field in data[0])) return data;
     
     return [...data].sort((a, b) => {
         const valA = parseFloat(a[field]) || 0;
         const valB = parseFloat(b[field]) || 0;
-        
-        if (sortState.direction === 'asc') {
-            return valA - valB; // По возрастанию
-        } else {
-            return valB - valA; // По убыванию
-        }
+        return sortState.direction === 'asc' ? valA - valB : valB - valA;
     });
 }
 
-function clearAllFilters() {
-    // Сброс фильтров
-    filterState = {
-        date: { type: 'month', values: [] },
-        weekday: { type: 'checkbox', values: [] },
-        type: { type: 'checkbox', values: [] },
-        hours: { type: 'range', min: '', max: '' },
-        pickup: { type: 'range', min: '', max: '' },
-        delivery: { type: 'range', min: '', max: '' },
-        income: { type: 'range', min: '', max: '' },
-        expenses: { type: 'range', min: '', max: '' },
-        profit: { type: 'range', min: '', max: '' }
-    };
+// ===== ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ РЕНДЕРА СТРОКИ (ГАРАНТИЯ ВЫРАВНИВАНИЯ) =====
+function getRecordRowHTML(r) {
+    const typeLabel = r.recordType === 'bonus'
+        ? '<ion-icon name="gift-outline" style="vertical-align: middle; margin-right: 4px; color: #AF52DE;"></ion-icon>Бонус'
+        : r.recordType === 'expense'
+        ? '<ion-icon name="remove-circle-outline" style="vertical-align: middle; margin-right: 4px; color: #FF3B30;"></ion-icon>Расход'
+        : '<ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px; color: #007AFF;"></ion-icon>Работа';
+
+    return `
+        <td>${formatDate(r.date)}</td>
+        <td>${r.weekday || '-'}</td>
+        <td>${typeLabel}</td>
+        <td>${r.hours || '-'}</td>
+        <td>${r.ordersPickup || '-'}</td>
+        <td>${r.payPickup ? formatMoney(r.payPickup) : '-'}</td>
+        <td>${r.ordersDelivery || '-'}</td>
+        <td>${r.payDelivery ? formatMoney(r.payDelivery) : '-'}</td>
+        <td>${r.distance ? r.distance.toFixed(1) : '-'}</td>
+        <td>${r.payDistance ? formatMoney(r.payDistance) : '-'}</td>
+        <td>${r.weight ? r.weight.toFixed(1) : '-'}</td>
+        <td>${r.payWeight ? formatMoney(r.payWeight) : '-'}</td>
+        <td>${r.loadPay ? formatMoney(r.loadPay) : '-'}</td>
+        <td>${r.bonusPay ? formatMoney(r.bonusPay) : '-'}</td>
+        <td>${r.rating ? formatMoney(r.rating) : '-'}</td>
+        <td>${r.tips ? formatMoney(r.tips) : '-'}</td>
+        <td>${r.fuelCost ? formatMoney(r.fuelCost) : '-'}</td>
+        <td>${r.repairCost ? formatMoney(r.repairCost) : '-'}</td>
+        <td>${r.tax ? formatMoney(r.tax) : '-'}</td>
+        <td>${formatMoney(r.totalIncome)}</td>
+        <td>${formatMoney(r.totalExpenses)}</td>
+        <td style="color:${r.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">${formatMoney(r.netProfit)}</td>
+        <td>
+            <button class="btn btn-success" onclick="editRecord('${r.id}')"><ion-icon name="create-outline"></ion-icon></button>
+            <button class="btn btn-danger" onclick="deleteRecord('${r.id}')"><ion-icon name="trash-outline"></ion-icon></button>
+        </td>
+    `;
+}
+
+function renderTable() {
+    const tbody = document.getElementById('records-body');
     
-    // ⭐ Сброс сортировки
-    sortState = {
-        column: null,
-        direction: null
-    };
+    // ✅ ПРОВЕРКА: существует ли tbody
+    if (!tbody) {
+        console.error(' Элемент <tbody id="records-body"> не найден в HTML');
+        return; // Выходим из функции, чтобы избежать ошибки
+    }
     
+    tbody.innerHTML = '';
     
-    const filterRow = document.getElementById('filter-row');
-    if (filterRow) {
-        filterRow.style.display = 'none';
-        // Очищаем все ячейки фильтров
-        const cells = filterRow.querySelectorAll('td');
-        cells.forEach(cell => {
-            if (cell.id && cell.id.startsWith('filter-')) {
-                cell.innerHTML = '';
-            }
+    // ... остальной код функции
+
+    let filteredRecords = [...records];
+    filteredRecords = applyFilters(filteredRecords);
+
+    const hasActiveFilters = Object.keys(filterState).some(key => {
+        const filter = filterState[key];
+        if (filter.type === 'checkbox' || filter.type === 'month') return filter.values && filter.values.length > 0;
+        else if (filter.type === 'range') return filter.min !== '' || filter.max !== '';
+        return false;
+    });
+
+    const hasActiveSorting = sortState.column !== null && sortState.direction !== null;
+    const shouldHideWeeklySummary = hasActiveFilters || hasActiveSorting;
+
+    if (sortState.column && sortState.direction) {
+        filteredRecords = applySorting(filteredRecords);
+    } else {
+        filteredRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+    }
+
+    if (!shouldHideWeeklySummary) {
+        renderTableWithWeeklySummary(tbody, filteredRecords);
+    } else {
+        filteredRecords.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = getRecordRowHTML(r);
+            tbody.appendChild(tr);
         });
     }
-    currentFilterColumn = null;
-    renderTable();
+
+    let infoEl = document.getElementById('filter-info');
+    if (!infoEl) {
+        infoEl = document.createElement('div');
+        infoEl.id = 'filter-info';
+        infoEl.style.cssText = 'padding:15px;background:#dbeafe;border-radius:8px;margin:10px 0;text-align:center;color:#1e40af;font-weight:600;';
+        tbody.parentElement.appendChild(infoEl);
+    }
+
+    const count = filteredRecords.length;
+    const total = records.length;
+    if (count < total || count === 0) {
+        infoEl.style.display = 'block';
+        infoEl.textContent = `Показано ${count} из ${total} записей`;
+    } else {
+        infoEl.style.display = 'none';
+    }
+}
+
+// ===== РЕНДЕР ТАБЛИЦЫ С ПОНЕДЕЛЬНЫМИ ИТОГАМИ =====
+function renderTableWithWeeklySummary(tbody, records) {
+    const weeksMap = new Map();
+    records.forEach(r => {
+        if (!r.date) return;
+        const weekKey = getISOWeek(r.date);
+        if (!weeksMap.has(weekKey)) weeksMap.set(weekKey, []);
+        weeksMap.get(weekKey).push(r);
+    });
+
+    const sortedWeeks = Array.from(weeksMap.keys()).sort((a, b) => b.localeCompare(a));
+
+    sortedWeeks.forEach(weekKey => {
+        const weekRecords = weeksMap.get(weekKey);
+        const weekRange = getWeekDateRange(weekKey);
+
+        const summary = weekRecords.reduce((acc, r) => {
+            acc.hours += r.hours || 0;
+            acc.ordersPickup += r.ordersPickup || 0;
+            acc.payPickup += r.payPickup || 0;
+            acc.ordersDelivery += r.ordersDelivery || 0;
+            acc.payDelivery += r.payDelivery || 0;
+            acc.distance += r.distance || 0;
+            acc.payDistance += r.payDistance || 0;
+            acc.weight += r.weight || 0;
+            acc.payWeight += r.payWeight || 0;
+            acc.loadPay += r.loadPay || 0;
+            acc.bonusPay += r.bonusPay || 0;
+            acc.rating += r.rating || 0;
+            acc.tips += r.tips || 0;
+            acc.fuelCost += r.fuelCost || 0;
+            acc.repairCost += r.repairCost || 0;
+            acc.tax += r.tax || 0;
+            acc.totalIncome += r.totalIncome || 0;
+            acc.totalExpenses += r.totalExpenses || 0;
+            acc.netProfit += r.netProfit || 0;
+            if (r.recordType === 'work') acc.workingDays += 1;
+            return acc;
+        }, { hours: 0, ordersPickup: 0, payPickup: 0, ordersDelivery: 0, payDelivery: 0, distance: 0, payDistance: 0, weight: 0, payWeight: 0, loadPay: 0, bonusPay: 0, rating: 0, tips: 0, fuelCost: 0, repairCost: 0, tax: 0, totalIncome: 0, totalExpenses: 0, netProfit: 0, workingDays: 0 });
+
+        // Заголовок недели
+        const headerRow = document.createElement('tr');
+        headerRow.className = 'week-summary-header';
+        headerRow.innerHTML = `<td colspan="23"><ion-icon name="calendar-outline" class="week-header-icon"></ion-icon> Неделя ${weekKey.split('-W')[1]} (${weekRange.label}) — ${summary.workingDays} ${summary.workingDays === 1 ? 'день' : (summary.workingDays >= 2 && summary.workingDays <= 4 ? 'дня' : 'дней')}</td>`;
+        tbody.appendChild(headerRow);
+
+        // Записи недели
+        weekRecords.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = getRecordRowHTML(r);
+            tbody.appendChild(tr);
+        });
+
+        // Итоговая строка недели (ровно 23 ячейки: 3 объединенные + 19 числовых + 1 пустая)
+        const summaryRow = document.createElement('tr');
+        summaryRow.className = 'week-summary-row';
+        summaryRow.innerHTML = `
+            <td colspan="3"><strong><ion-icon name="bar-chart-outline" class="week-summary-icon"></ion-icon> ИТОГО:</strong></td>
+            <td><strong>${summary.hours.toFixed(1)}</strong></td>
+            <td><strong>${summary.ordersPickup}</strong></td>
+            <td><strong>${formatMoney(summary.payPickup)}</strong></td>
+            <td><strong>${summary.ordersDelivery}</strong></td>
+            <td><strong>${formatMoney(summary.payDelivery)}</strong></td>
+            <td><strong>${summary.distance.toFixed(1)}</strong></td>
+            <td><strong>${formatMoney(summary.payDistance)}</strong></td>
+            <td><strong>${summary.weight.toFixed(1)}</strong></td>
+            <td><strong>${formatMoney(summary.payWeight)}</strong></td>
+            <td><strong>${formatMoney(summary.loadPay)}</strong></td>
+            <td><strong>${formatMoney(summary.bonusPay)}</strong></td>
+            <td><strong>${formatMoney(summary.rating)}</strong></td>
+            <td><strong>${formatMoney(summary.tips)}</strong></td>
+            <td><strong>${formatMoney(summary.fuelCost)}</strong></td>
+            <td><strong>${formatMoney(summary.repairCost)}</strong></td>
+            <td><strong>${formatMoney(summary.tax)}</strong></td>
+            <td><strong>${formatMoney(summary.totalIncome)}</strong></td>
+            <td><strong>${formatMoney(summary.totalExpenses)}</strong></td>
+            <td style="color:${summary.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold"><strong>${formatMoney(summary.netProfit)}</strong></td>
+            <td></td>
+        `;
+        tbody.appendChild(summaryRow);
+    });
 }
 
 
@@ -1713,92 +1802,119 @@ function populateFilters() {    const months = new Set(), years = new Set();
     ms.value = cm; ys.value = cy;
 }
 
+function getRecordRowHTML(r) {
+    const typeLabel = r.recordType === 'bonus'
+        ? '<ion-icon name="gift-outline" style="vertical-align: middle; margin-right: 4px; color: #AF52DE;"></ion-icon>Бонус'
+        : r.recordType === 'expense'
+        ? '<ion-icon name="remove-circle-outline" style="vertical-align: middle; margin-right: 4px; color: #FF3B30;"></ion-icon>Расход'
+        : '<ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px; color: #007AFF;"></ion-icon>Работа';
+
+    return `
+        <td>${formatDate(r.date)}</td>
+        <td>${r.weekday || '-'}</td>
+        <td>${typeLabel}</td>
+        <td>${r.hours || '-'}</td>
+        <td>${r.ordersPickup || '-'}</td>
+        <td>${r.payPickup ? formatMoney(r.payPickup) : '-'}</td>
+        <td>${r.ordersDelivery || '-'}</td>
+        <td>${r.payDelivery ? formatMoney(r.payDelivery) : '-'}</td>
+        <td>${r.distance ? r.distance.toFixed(1) : '-'}</td>
+        <td>${r.payDistance ? formatMoney(r.payDistance) : '-'}</td>
+        <td>${r.weight ? r.weight.toFixed(1) : '-'}</td>
+        <td>${r.payWeight ? formatMoney(r.payWeight) : '-'}</td>
+        <td>${r.loadPay ? formatMoney(r.loadPay) : '-'}</td>
+        <td>${r.bonusPay ? formatMoney(r.bonusPay) : '-'}</td>
+        <td>${r.rating ? formatMoney(r.rating) : '-'}</td>
+        <td>${r.tips ? formatMoney(r.tips) : '-'}</td>
+        <td>${r.fuelCost ? formatMoney(r.fuelCost) : '-'}</td>
+        <td>${r.repairCost ? formatMoney(r.repairCost) : '-'}</td>
+        <td>${r.tax ? formatMoney(r.tax) : '-'}</td>
+        <td>${formatMoney(r.totalIncome)}</td>
+        <td>${formatMoney(r.totalExpenses)}</td>
+        <td style="color:${r.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">${formatMoney(r.netProfit)}</td>
+        <td>
+            <button class="btn btn-success" onclick="editRecord('${r.id}')"><ion-icon name="create-outline"></ion-icon></button>
+            <button class="btn btn-danger" onclick="deleteRecord('${r.id}')"><ion-icon name="trash-outline"></ion-icon></button>
+        </td>
+    `;
+}
+
 function renderTable() {
     const tbody = document.getElementById('records-body');
+    
+    // ✅ ПРОВЕРКА: существует ли tbody
+    if (!tbody) {
+        console.error('❌ Элемент <tbody id="records-body"> не найден в HTML');
+        return;
+    }
+    
     tbody.innerHTML = '';
     
     // Применяем фильтры
     let filteredRecords = [...records];
     filteredRecords = applyFilters(filteredRecords);
-    
-    // Определяем, применены ли фильтры
-const hasActiveFilters = Object.keys(filterState).some(key => {
-    const filter = filterState[key];
-    if (filter.type === 'checkbox' || filter.type === 'month') {
-        return filter.values && filter.values.length > 0;
-    } else if (filter.type === 'range') {
-        return filter.min !== '' || filter.max !== '';
-    }
-    return false;
-});
 
-// ⭐ Проверяем, применена ли сортировка
-const hasActiveSorting = sortState.column !== null && sortState.direction !== null;
-
-// Если есть фильтры ИЛИ сортировка — скрываем недельные итоги
-const shouldHideWeeklySummary = hasActiveFilters || hasActiveSorting;
-    
-    // Применяем сортировку (если есть) или сортируем по дате
-if (sortState.column && sortState.direction) {
-    filteredRecords = applySorting(filteredRecords);
-} else {
-    // По умолчанию сортируем по дате (новые сверху)
-    filteredRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
-}
-    
-    // Если фильтры И сортировка НЕ применены — добавляем понедельные итоги
-if (!shouldHideWeeklySummary) {
-    renderTableWithWeeklySummary(tbody, filteredRecords);
-} else {
-    // При фильтрах ИЛИ сортировке показываем только записи без итогов
-    filteredRecords.forEach(r => {
-        const typeLabel = r.recordType === 'bonus' 
-            ? '<ion-icon name="gift-outline" style="vertical-align: middle; margin-right: 4px; color: #AF52DE;"></ion-icon>Бонус'
-            : r.recordType === 'expense' 
-            ? '<ion-icon name="remove-circle-outline" style="vertical-align: middle; margin-right: 4px; color: #FF3B30;"></ion-icon>Расход'
-            : '<ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px; color: #007AFF;"></ion-icon>Работа';
-        
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${formatDate(r.date)}</td>
-            <td>${r.weekday || '-'}</td>
-            <td>${typeLabel}</td>
-            <td>${r.hours || '-'}</td>
-            <td>${r.ordersPickup || '-'}</td>
-            <td>${r.ordersDelivery || '-'}</td>
-            <td>${formatMoney(r.totalIncome)}</td>
-            <td>${formatMoney(r.totalExpenses)}</td>
-            <td style="color:${r.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">${formatMoney(r.netProfit)}</td>
-            <td>
-                <button class="btn btn-success" onclick="editRecord('${r.id}')">
-                    <ion-icon name="create-outline"></ion-icon>
-                </button>
-                <button class="btn btn-danger" onclick="deleteRecord('${r.id}')">
-                    <ion-icon name="trash-outline"></ion-icon>
-                </button>
-            </td>
-        `;
-        tbody.appendChild(tr);
+    const hasActiveFilters = Object.keys(filterState).some(key => {
+        const filter = filterState[key];
+        if (filter.type === 'checkbox' || filter.type === 'month') return filter.values && filter.values.length > 0;
+        else if (filter.type === 'range') return filter.min !== '' || filter.max !== '';
+        return false;
     });
-}
-    
-    // Обновляем счетчик отфильтрованных записей
-    let infoEl = document.getElementById('filter-info');
-    if (!infoEl) {
-        infoEl = document.createElement('div');
-        infoEl.id = 'filter-info';
-        infoEl.style.cssText = 'padding:15px;background:#dbeafe;border-radius:8px;margin:10px 0;text-align:center;color:#1e40af;font-weight:600;';
-        tbody.parentElement.appendChild(infoEl);
-    }
-    const count = filteredRecords.length;
-    const total = records.length;
-    if (count < total || count === 0) {
-        infoEl.style.display = 'block';
-        infoEl.textContent = `Показано ${count} из ${total} записей`;
+
+    const hasActiveSorting = sortState.column !== null && sortState.direction !== null;
+    const shouldHideWeeklySummary = hasActiveFilters || hasActiveSorting;
+
+    if (sortState.column && sortState.direction) {
+        filteredRecords = applySorting(filteredRecords);
     } else {
-        infoEl.style.display = 'none';
+        filteredRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+    }
+
+    if (!shouldHideWeeklySummary) {
+        renderTableWithWeeklySummary(tbody, filteredRecords);
+    } else {
+        filteredRecords.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = getRecordRowHTML(r);
+            tbody.appendChild(tr);
+        });
+    }
+
+    // ✅ БЕЗОПАСНОЕ ДОБАВЛЕНИЕ ИНФОРМАЦИОННОГО БЛОКА
+    // Ищем контейнер таблицы
+    let tableContainer = tbody.closest('.table-container');
+    if (!tableContainer) {
+        tableContainer = tbody.closest('table');
+    }
+    if (!tableContainer) {
+        tableContainer = tbody.parentElement;
+    }
+    
+    if (tableContainer) {
+        let infoEl = document.getElementById('filter-info');
+        if (!infoEl) {
+            infoEl = document.createElement('div');
+            infoEl.id = 'filter-info';
+            infoEl.style.cssText = 'padding:15px;background:#dbeafe;border-radius:8px;margin:10px 0;text-align:center;color:#1e40af;font-weight:600;';
+            // Вставляем после таблицы
+            if (tableContainer.tagName === 'TABLE') {
+                tableContainer.parentElement.insertBefore(infoEl, tableContainer.nextSibling);
+            } else {
+                tableContainer.appendChild(infoEl);
+            }
+        }
+
+        const count = filteredRecords.length;
+        const total = records.length;
+        if (count < total || count === 0) {
+            infoEl.style.display = 'block';
+            infoEl.textContent = `Показано ${count} из ${total} записей`;
+        } else {
+            infoEl.style.display = 'none';
+        }
     }
 }
+
 
 // ===== ПОЛУЧЕНИЕ ISO НЕДЕЛИ ИЗ ДАТЫ =====
 function getISOWeek(dateStr) {
@@ -1842,105 +1958,114 @@ function getWeekDateRange(weekKey) {
 }
 
 // ===== РЕНДЕР ТАБЛИЦЫ С ПОНЕДЕЛЬНЫМИ ИТОГАМИ =====
+// ===== РЕНДЕР ТАБЛИЦЫ С ПОНЕДЕЛЬНЫМИ ИТОГАМИ =====
 function renderTableWithWeeklySummary(tbody, records) {
-    // Группируем записи по неделям
-    const weeksMap = new Map();
+    // Определяем реальное количество колонок из thead
+    const headerCells = document.querySelectorAll('thead tr:first-child th');
+    const totalColumns = headerCells.length; // Динамически получаем число колонок!
     
+    const weeksMap = new Map();
     records.forEach(r => {
         if (!r.date) return;
         const weekKey = getISOWeek(r.date);
-        if (!weeksMap.has(weekKey)) {
-            weeksMap.set(weekKey, []);
-        }
+        if (!weeksMap.has(weekKey)) weeksMap.set(weekKey, []);
         weeksMap.get(weekKey).push(r);
     });
-    
-    // Сортируем недели по убыванию (новые сверху)
+
     const sortedWeeks = Array.from(weeksMap.keys()).sort((a, b) => b.localeCompare(a));
-    
+
     sortedWeeks.forEach(weekKey => {
         const weekRecords = weeksMap.get(weekKey);
         const weekRange = getWeekDateRange(weekKey);
+
+        const summary = weekRecords.reduce((acc, r) => {
+            acc.hours += r.hours || 0;
+            acc.ordersPickup += r.ordersPickup || 0;
+            acc.payPickup += r.payPickup || 0;
+            acc.ordersDelivery += r.ordersDelivery || 0;
+            acc.payDelivery += r.payDelivery || 0;
+            acc.distance += r.distance || 0;
+            acc.payDistance += r.payDistance || 0;
+            acc.weight += r.weight || 0;
+            acc.payWeight += r.payWeight || 0;
+            acc.loadPay += r.loadPay || 0;
+            acc.bonusPay += r.bonusPay || 0;
+            acc.rating += r.rating || 0;
+            acc.tips += r.tips || 0;
+            acc.fuelCost += r.fuelCost || 0;
+            acc.repairCost += r.repairCost || 0;
+            acc.tax += r.tax || 0;
+            acc.totalIncome += r.totalIncome || 0;
+            acc.totalExpenses += r.totalExpenses || 0;
+            acc.netProfit += r.netProfit || 0;
+            if (r.recordType === 'work') acc.workingDays += 1;
+            return acc;
+        }, { 
+            hours: 0, ordersPickup: 0, payPickup: 0, 
+            ordersDelivery: 0, payDelivery: 0, 
+            distance: 0, payDistance: 0, 
+            weight: 0, payWeight: 0, 
+            loadPay: 0, bonusPay: 0, rating: 0, tips: 0,
+            fuelCost: 0, repairCost: 0, tax: 0,
+            totalIncome: 0, totalExpenses: 0, netProfit: 0, 
+            workingDays: 0 
+        });
+
+        // ✅ Заголовок недели — colspan = ВСЕМ колонкам
+        const headerRow = document.createElement('tr');
+        headerRow.className = 'week-summary-header';
+        headerRow.innerHTML = `
+            <td colspan="${totalColumns}">
+                <ion-icon name="calendar-outline" class="week-header-icon"></ion-icon>
+                Неделя ${weekKey.split('-W')[1]} (${weekRange.label}) — 
+                ${summary.workingDays} ${summary.workingDays === 1 ? 'день' : (summary.workingDays >= 2 && summary.workingDays <= 4 ? 'дня' : 'дней')}
+            </td>
+        `;
+        tbody.appendChild(headerRow);
+
+        // Записи недели
+        weekRecords.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = getRecordRowHTML(r);
+            tbody.appendChild(tr);
+        });
+
+        // ✅ Итоговая строка — ровно totalColumns ячеек
+        const summaryRow = document.createElement('tr');
+        summaryRow.className = 'week-summary-row';
         
-        // Считаем итоги по неделе
-const summary = weekRecords.reduce((acc, r) => {
-    acc.income += r.totalIncome || 0;
-    acc.expenses += r.totalExpenses || 0;
-    acc.profit += r.netProfit || 0;
-    acc.hours += r.hours || 0;
-    acc.ordersPickup += r.ordersPickup || 0;
-    acc.ordersDelivery += r.ordersDelivery || 0;
-    // Считаем только рабочие дни (не бонусы и не расходы)
-    if (r.recordType === 'work') {
-        acc.workingDays += 1;
-    }
-    return acc;
-}, { income: 0, expenses: 0, profit: 0, hours: 0, ordersPickup: 0, ordersDelivery: 0, workingDays: 0 });
+        // Собираем все значения в массив в правильном порядке
+        const values = [
+            summary.hours.toFixed(1),           // Часы
+            summary.ordersPickup,               // Забор (шт)
+            formatMoney(summary.payPickup),     // Забор (₽)
+            summary.ordersDelivery,             // Выдача (шт)
+            formatMoney(summary.payDelivery),   // Выдача (₽)
+            summary.distance.toFixed(1),        // Км
+            formatMoney(summary.payDistance),   // Км (₽)
+            summary.weight.toFixed(1),          // Вес (кг)
+            formatMoney(summary.payWeight),     // Вес (₽)
+            formatMoney(summary.loadPay),       // Нагрузка (₽)
+            formatMoney(summary.bonusPay),      // Бонус (₽)
+            formatMoney(summary.rating),        // Рейтинг (₽)
+            formatMoney(summary.tips),          // Чаевые (₽)
+            formatMoney(summary.fuelCost),      // Бензин (₽)
+            formatMoney(summary.repairCost),    // Ремонт (₽)
+            formatMoney(summary.tax),           // Налог (₽)
+            formatMoney(summary.totalIncome),   // Доход (₽)
+            formatMoney(summary.totalExpenses), // Расход (₽)
+            `<span style="color:${summary.netProfit >= 0 ? '#10b981' : '#ef4444'}">${formatMoney(summary.netProfit)}</span>` // Прибыль
+        ];
         
-        // Рендерим заголовок недели
-const headerRow = document.createElement('tr');
-headerRow.className = 'week-summary-header';
-headerRow.innerHTML = `
-    <td colspan="10">
-        <ion-icon name="calendar-outline" class="week-header-icon"></ion-icon>
-        Неделя ${weekKey.split('-W')[1]} (${weekRange.label}) — ${summary.workingDays} ${summary.workingDays === 1 ? 'день' : (summary.workingDays >= 2 && summary.workingDays <= 4 ? 'дня' : 'дней')}
-    </td>
-`;        
-tbody.appendChild(headerRow);
+        // Формируем HTML: 3 объединённые ячейки (Дата, День, Тип) + все значения + пустая для действий
+        let summaryHTML = `<td colspan="3"><strong><ion-icon name="bar-chart-outline" class="week-summary-icon"></ion-icon> ИТОГО:</strong></td>`;
+        values.forEach(v => {
+            summaryHTML += `<td><strong>${v}</strong></td>`;
+        });
+        summaryHTML += `<td></td>`; // Пустая ячейка для колонки "Действия"
         
-        // Рендерим записи недели
-        // Рендерим записи недели
-weekRecords.forEach(r => {
-    const typeLabel = r.recordType === 'bonus' 
-        ? '<ion-icon name="gift-outline" style="vertical-align: middle; margin-right: 4px; color: #AF52DE;"></ion-icon>Бонус'
-        : r.recordType === 'expense' 
-        ? '<ion-icon name="remove-circle-outline" style="vertical-align: middle; margin-right: 4px; color: #FF3B30;"></ion-icon>Расход'
-        : '<ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px; color: #007AFF;"></ion-icon>Работа';
-    
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-        <td>${formatDate(r.date)}</td>
-        <td>${r.weekday || '-'}</td>
-        <td>${typeLabel}</td>
-        <td>${r.hours || '-'}</td>
-        <td>${r.ordersPickup || '-'}</td>
-        <td>${r.ordersDelivery || '-'}</td>
-        <td>${formatMoney(r.totalIncome)}</td>
-        <td>${formatMoney(r.totalExpenses)}</td>
-        <td style="color:${r.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">${formatMoney(r.netProfit)}</td>
-        <td>
-            <button class="btn btn-success" onclick="editRecord('${r.id}')">
-                <ion-icon name="create-outline"></ion-icon>
-            </button>
-            <button class="btn btn-danger" onclick="deleteRecord('${r.id}')">
-                <ion-icon name="trash-outline"></ion-icon>
-            </button>
-        </td>
-    `;
-    tbody.appendChild(tr);
-});
-        
-        // Рендерим итоговую строку недели
-const summaryRow = document.createElement('tr');
-summaryRow.className = 'week-summary-row';
-summaryRow.innerHTML = `
-    <td colspan="3">
-        <strong>
-            <ion-icon name="bar-chart-outline" class="week-summary-icon"></ion-icon>
-            ИТОГО ЗА НЕДЕЛЮ:
-        </strong>
-    </td>
-    <td><strong>${summary.hours.toFixed(1)} ч</strong></td>
-    <td><strong>${summary.ordersPickup}</strong></td>
-    <td><strong>${summary.ordersDelivery}</strong></td>
-    <td><strong>${formatMoney(summary.income)}</strong></td>
-    <td><strong>${formatMoney(summary.expenses)}</strong></td>
-    <td style="color:${summary.profit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">
-        <strong>${formatMoney(summary.profit)}</strong>
-    </td>
-    <td><strong>${summary.workingDays} дн.</strong></td>
-`;
-tbody.appendChild(summaryRow);
+        summaryRow.innerHTML = summaryHTML;
+        tbody.appendChild(summaryRow);
     });
 }
 

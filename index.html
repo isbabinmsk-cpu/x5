@@ -61,7 +61,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.3.0" defer></script>
+    <script src="script.js?v=2.3.1" defer></script>
 </head>
 <body>
 
@@ -574,93 +574,70 @@
             </div>
         </div>
 
-        <!-- Вкладка: История -->
+      <!-- Вкладка: История -->
 <div id="tab-history" class="tab-content">
     <div class="card">
         <h2>История записей</h2>
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>
-                            Дата 
-                            <button onclick="toggleFilter('date')" class="filter-btn">
-                                <ion-icon name="caret-down-outline"></ion-icon>
-                            </button>
-                        </th>
-                        <th>
-                            День 
-                            <button onclick="toggleFilter('weekday')" class="filter-btn">
-                                <ion-icon name="caret-down-outline"></ion-icon>
-                            </button>
-                        </th>
-                        <th>
-                            Тип 
-                            <button onclick="toggleFilter('type')" class="filter-btn">
-                                <ion-icon name="caret-down-outline"></ion-icon>
-                            </button>
-                        </th>
-                        <th>
-                            Часы 
-                            <button onclick="toggleFilter('hours')" class="filter-btn">
-                                <ion-icon name="caret-down-outline"></ion-icon>
-                            </button>
-                        </th>
-                        <th>
-                            Забор 
-                            <button onclick="toggleFilter('pickup')" class="filter-btn">
-                                <ion-icon name="caret-down-outline"></ion-icon>
-                            </button>
-                        </th>
-                        <th>
-                            Выдача 
-                            <button onclick="toggleFilter('delivery')" class="filter-btn">
-                                <ion-icon name="caret-down-outline"></ion-icon>
-                            </button>
-                        </th>
-                        <th>
-                            Доход 
-                            <button onclick="toggleFilter('income')" class="filter-btn">
-                                <ion-icon name="caret-down-outline"></ion-icon>
-                            </button>
-                        </th>
-                        <th>
-                            Расходы 
-                            <button onclick="toggleFilter('expenses')" class="filter-btn">
-                                <ion-icon name="caret-down-outline"></ion-icon>
-                            </button>
-                        </th>
-                        <th>
-                            Прибыль 
-                            <button onclick="toggleFilter('profit')" class="filter-btn">
-                                <ion-icon name="caret-down-outline"></ion-icon>
-                            </button>
-                        </th>
-                        <th>Действия</th>
-                    </tr>
-                    <!-- Строка фильтров -->
-                    <tr id="filter-row" style="display:none; background:#f8f9fa;">
-                        <td id="filter-date"></td>
-                        <td id="filter-weekday"></td>
-                        <td id="filter-type"></td>
-                        <td id="filter-hours"></td>
-                        <td id="filter-pickup"></td>
-                        <td id="filter-delivery"></td>
-                        <td id="filter-income"></td>
-                        <td id="filter-expenses"></td>
-                        <td id="filter-profit"></td>
-                        <td><button onclick="clearAllFilters()" style="font-size:11px;padding:4px 8px;">Сбросить</button></td>
-                    </tr>
-                </thead>
-            
- 
-                        <tbody id="records-body">
-                            <!-- Данные загружаются через JS -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+        <!-- Замените существующую таблицу истории на эту -->
+<div class="table-container" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
+    <table style="min-width: 1800px;">
+        <thead>
+            <tr>
+                <th>Дата <button class="filter-btn" onclick="toggleFilter('date')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>День <button class="filter-btn" onclick="toggleFilter('weekday')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Тип <button class="filter-btn" onclick="toggleFilter('type')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Часы <button class="filter-btn" onclick="toggleFilter('hours')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Забор<br>(шт) <button class="filter-btn" onclick="toggleFilter('ordersPickup')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Забор<br>(₽) <button class="filter-btn" onclick="toggleFilter('payPickup')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Выдача<br>(шт) <button class="filter-btn" onclick="toggleFilter('ordersDelivery')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Выдача<br>(₽) <button class="filter-btn" onclick="toggleFilter('payDelivery')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Км <button class="filter-btn" onclick="toggleFilter('distance')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Км<br>(₽) <button class="filter-btn" onclick="toggleFilter('payDistance')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Вес<br>(кг) <button class="filter-btn" onclick="toggleFilter('weight')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Вес<br>(₽) <button class="filter-btn" onclick="toggleFilter('payWeight')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Нагрузка<br>(₽) <button class="filter-btn" onclick="toggleFilter('loadPay')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Бонус<br>(₽) <button class="filter-btn" onclick="toggleFilter('bonusPay')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Рейтинг<br>(₽) <button class="filter-btn" onclick="toggleFilter('rating')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Чаевые<br>(₽) <button class="filter-btn" onclick="toggleFilter('tips')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Бензин<br>(₽) <button class="filter-btn" onclick="toggleFilter('fuelCost')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Ремонт<br>(₽) <button class="filter-btn" onclick="toggleFilter('repairCost')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Налог<br>(₽) <button class="filter-btn" onclick="toggleFilter('tax')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Доход<br>(₽) <button class="filter-btn" onclick="toggleFilter('totalIncome')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Расход<br>(₽) <button class="filter-btn" onclick="toggleFilter('totalExpenses')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Прибыль<br>(₽) <button class="filter-btn" onclick="toggleFilter('netProfit')"><ion-icon name="funnel-outline"></ion-icon></button></th>
+                <th>Действия</th>
+            </tr>
+            <tr id="filter-row" style="display:none;">
+                <td id="filter-date"></td>
+                <td id="filter-weekday"></td>
+                <td id="filter-type"></td>
+                <td id="filter-hours"></td>
+                <td id="filter-ordersPickup"></td>
+                <td id="filter-payPickup"></td>
+                <td id="filter-ordersDelivery"></td>
+                <td id="filter-payDelivery"></td>
+                <td id="filter-distance"></td>
+                <td id="filter-payDistance"></td>
+                <td id="filter-weight"></td>
+                <td id="filter-payWeight"></td>
+                <td id="filter-loadPay"></td>
+                <td id="filter-bonusPay"></td>
+                <td id="filter-rating"></td>
+                <td id="filter-tips"></td>
+                <td id="filter-fuelCost"></td>
+                <td id="filter-repairCost"></td>
+                <td id="filter-tax"></td>
+                <td id="filter-totalIncome"></td>
+                <td id="filter-totalExpenses"></td>
+                <td id="filter-netProfit"></td>
+                <td><button class="btn btn-secondary btn-small" onclick="clearAllFilters()">Сбросить</button></td>
+            </tr>
+        </thead>
+        <tbody id="records-body"></tbody>
+    </table>
+</div>
+    </div>
+</div>
 
         <!-- Вкладка: Тарифы -->
         <div id="tab-tariffs" class="tab-content">
