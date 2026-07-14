@@ -91,39 +91,50 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
 });
 
 // Слушатель состояния аутентификации
+// Слушатель состояния аутентификации
 auth.onAuthStateChanged(async (user) => {
-    const authScreen = document.getElementById('auth-screen');
     const logoutBtn = document.getElementById('logout-btn');
     
     if (user) {
         // Пользователь вошел
         currentUser = user;
         
-        // Проверяем существование элементов перед изменением
-        if (authScreen) authScreen.classList.add('hidden');
+        // Сохраняем состояние в localStorage
+        localStorage.setItem('driverAuthState', 'true');
+        
+        // Добавляем класс authenticated на body
+        document.body.classList.add('authenticated');
+        
+        // Показываем кнопку выхода
         if (logoutBtn) logoutBtn.style.display = 'inline-flex';
         
         console.log('✅ Пользователь вошел:', user.email);
         
-        // Загружаем данные пользователя с обработкой ошибок
+        // Загружаем данные пользователя
         try {
             await loadUserData();
         } catch (error) {
             console.error('❌ Ошибка загрузки данных пользователя:', error);
-            alert('Ошибка загрузки данных: ' + error.message);
         }
     } else {
         // Пользователь вышел
         currentUser = null;
         
-        // Проверяем существование элементов
-        if (authScreen) authScreen.classList.remove('hidden');
+        // Удаляем состояние
+        localStorage.removeItem('driverAuthState');
+        
+        // Удаляем класс authenticated
+        document.body.classList.remove('authenticated');
+        
+        // Скрываем кнопку выхода
         if (logoutBtn) logoutBtn.style.display = 'none';
         
         // Очищаем данные
         records = [];
         tariffs = [];
         saveData();
+        
+        console.log('👤 Пользователь вышел');
     }
 });
 
@@ -2557,3 +2568,434 @@ function exportToPDF() {
     
     alert('💡 Откроется окно для сохранения PDF\n\nВыберите "Сохранить как PDF" в диалоге печати');
 }
+
+// ============================================
+// ФИЛЬТРАЦИЯ ИСТОРИИ ПО МЕСЯЦУ И ГОДУ
+// ============================================
+
+let currentHistoryMonth = null;
+let currentHistoryYear = null;
+let showAllHistoryMode = false;
+let currentHistoryPage = 1;
+const RECORDS_PER_PAGE = 50;
+
+// Заполняем фильтры при загрузке
+function initHistoryFilters() {
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    
+    // Устанавливаем текущий месяц
+    const monthSelect = document.getElementById('history-month');
+    if (monthSelect) {
+        monthSelect.value = currentMonth;
+    }
+    
+    // Заполняем список годов
+    const yearSelect = document.getElementById('history-year');
+    if (yearSelect) {
+        yearSelect.innerHTML = '';
+        for (let year = 2020; year <= currentYear + 2; year++) {
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year;
+            if (year === currentYear) {
+                option.selected = true;
+            }
+            yearSelect.appendChild(option);
+        }
+    }
+    
+    // Устанавливаем текущие значения
+    currentHistoryMonth = currentMonth;
+    currentHistoryYear = currentYear;
+    showAllHistoryMode = false;
+    currentHistoryPage = 1;
+}
+
+// Вызываем инициализацию при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+    initHistoryFilters();
+});
+
+// Перехватываем переключение вкладок
+const originalSwitchTab = window.switchTab;
+if (typeof originalSwitchTab === 'function') {
+    window.switchTab = function(tabName) {
+        originalSwitchTab(tabName);
+        if (tabName === 'history') {
+            setTimeout(function() {
+                initHistoryFilters();
+                filterHistoryByMonth();
+            }, 100);
+        }
+    };
+}
+
+// Фильтрация по месяцу и году
+function filterHistoryByMonth() {
+    const monthSelect = document.getElementById('history-month');
+    const yearSelect = document.getElementById('history-year');
+    
+    if (!monthSelect || !yearSelect) return;
+    
+    currentHistoryMonth = parseInt(monthSelect.value);
+    currentHistoryYear = parseInt(yearSelect.value);
+    showAllHistoryMode = false;
+    currentHistoryPage = 1;
+    
+    // Обновляем информацию
+    updateHistoryInfo();
+    
+    // Перерисовываем таблицу
+    renderTableWithMonthFilter();
+}
+
+// Показать все записи
+function showAllHistory() {
+    showAllHistoryMode = true;
+    currentHistoryPage = 1;
+    updateHistoryInfo();
+    renderTableWithMonthFilter();
+}
+
+// Обновление информации
+function updateHistoryInfo() {
+    const infoDiv = document.getElementById('history-info');
+    if (!infoDiv) return;
+    
+    const totalRecords = records.length;
+    
+    if (showAllHistoryMode) {
+        infoDiv.textContent = 'Показаны все записи: ' + totalRecords + ' шт.';
+    } else {
+        const monthName = getMonthName(currentHistoryMonth);
+        
+        // Считаем количество записей за выбранный период
+        const filteredCount = records.filter(function(r) {
+            if (!r.date) return false;
+            const d = new Date(r.date);
+            return (d.getMonth() + 1) === currentHistoryMonth && d.getFullYear() === currentHistoryYear;
+        }).length;
+        
+        infoDiv.textContent = 'Показано: ' + filteredCount + ' записей за ' + monthName + ' ' + currentHistoryYear + ' г. (всего: ' + totalRecords + ')';
+    }
+}
+
+// Название месяца
+function getMonthName(month) {
+    const months = [
+        'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+        'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+    ];
+    return months[month - 1] || '';
+}
+
+// Рендер таблицы с учётом фильтра
+function renderTableWithMonthFilter() {
+    const tbody = document.getElementById('records-body');
+    if (!tbody) return;
+    
+    // Фильтруем записи
+    let filteredRecords = [...records];
+    
+    if (!showAllHistoryMode && currentHistoryMonth && currentHistoryYear) {
+        filteredRecords = filteredRecords.filter(function(r) {
+            if (!r.date) return false;
+            const d = new Date(r.date);
+            return (d.getMonth() + 1) === currentHistoryMonth && d.getFullYear() === currentHistoryYear;
+        });
+    }
+    
+    // Сортируем по дате (новые сверху)
+    filteredRecords.sort(function(a, b) {
+        return new Date(b.date) - new Date(a.date);
+    });
+    
+    // Применяем пагинацию
+    const totalPages = Math.ceil(filteredRecords.length / RECORDS_PER_PAGE);
+    const startIndex = (currentHistoryPage - 1) * RECORDS_PER_PAGE;
+    const endIndex = Math.min(startIndex + RECORDS_PER_PAGE, filteredRecords.length);
+    const pageRecords = filteredRecords.slice(startIndex, endIndex);
+    
+    // Очищаем таблицу
+    tbody.innerHTML = '';
+    
+    // Если нет записей
+    if (pageRecords.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="23" style="text-align: center; padding: 40px; color: var(--ios-text-tertiary);">' +
+            '<ion-icon name="document-text-outline" style="font-size: 48px; display: block; margin: 0 auto 12px;"></ion-icon>' +
+            'Нет записей за выбранный период</td></tr>';
+        
+        const paginationDiv = document.getElementById('history-pagination');
+        if (paginationDiv) paginationDiv.innerHTML = '';
+        return;
+    }
+    
+    // Используем существующую функцию рендеринга с недельными итогами
+    renderTableWithWeeklySummary(tbody, pageRecords);
+    
+    // Обновляем пагинацию
+    renderPagination(totalPages);
+}
+
+// Пагинация
+function renderPagination(totalPages) {
+    const paginationDiv = document.getElementById('history-pagination');
+    if (!paginationDiv) return;
+    
+    if (totalPages <= 1) {
+        paginationDiv.innerHTML = '';
+        return;
+    }
+    
+    let html = '';
+    
+    // Кнопка "Назад"
+    if (currentHistoryPage > 1) {
+        html += '<button class="btn btn-secondary btn-small" onclick="goToPage(' + (currentHistoryPage - 1) + ')">' +
+                '<ion-icon name="chevron-back-outline"></ion-icon></button>';
+    }
+    
+    // Номера страниц
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === currentHistoryPage) {
+            html += '<button class="btn btn-primary btn-small" style="min-width: 40px;">' + i + '</button>';
+        } else if (Math.abs(i - currentHistoryPage) <= 2 || i === 1 || i === totalPages) {
+            html += '<button class="btn btn-secondary btn-small" onclick="goToPage(' + i + ')" style="min-width: 40px;">' + i + '</button>';
+        } else if (Math.abs(i - currentHistoryPage) === 3) {
+            html += '<span style="margin: 0 4px;">...</span>';
+        }
+    }
+    
+    // Кнопка "Вперёд"
+    if (currentHistoryPage < totalPages) {
+        html += '<button class="btn btn-secondary btn-small" onclick="goToPage(' + (currentHistoryPage + 1) + ')">' +
+                '<ion-icon name="chevron-forward-outline"></ion-icon></button>';
+    }
+    
+    // Информация о страницах
+    html += '<span style="margin-left: 12px; font-size: 13px; color: var(--ios-text-tertiary); align-self: center;">' +
+            'Стр. ' + currentHistoryPage + ' из ' + totalPages + '</span>';
+    
+    paginationDiv.innerHTML = html;
+}
+
+// Переход на страницу
+function goToPage(page) {
+    const filteredRecords = getFilteredRecords();
+    const totalPages = Math.ceil(filteredRecords.length / RECORDS_PER_PAGE);
+    
+    if (page < 1 || page > totalPages) return;
+    
+    currentHistoryPage = page;
+    renderTableWithMonthFilter();
+    
+    const tableContainer = document.querySelector('.table-container');
+    if (tableContainer) {
+        tableContainer.scrollTop = 0;
+    }
+}
+
+// Получить отфильтрованные записи
+function getFilteredRecords() {
+    let filteredRecords = [...records];
+    
+    if (!showAllHistoryMode && currentHistoryMonth && currentHistoryYear) {
+        filteredRecords = filteredRecords.filter(function(r) {
+            if (!r.date) return false;
+            const d = new Date(r.date);
+            return (d.getMonth() + 1) === currentHistoryMonth && d.getFullYear() === currentHistoryYear;
+        });
+    }
+    
+    filteredRecords.sort(function(a, b) {
+        return new Date(b.date) - new Date(a.date);
+    });
+    
+    return filteredRecords;
+}
+
+// Модифицируем существующую renderTable для совместимости
+const originalRenderTable = window.renderTable;
+if (typeof originalRenderTable === 'function') {
+    window.renderTable = function() {
+        // Если мы на вкладке истории и есть фильтр — используем фильтрованную версию
+        const historyTab = document.getElementById('tab-history');
+        if (historyTab && historyTab.classList.contains('active')) {
+            if (showAllHistoryMode || (currentHistoryMonth && currentHistoryYear)) {
+                updateHistoryInfo();
+                renderTableWithMonthFilter();
+                return;
+            }
+        }
+        
+        // Иначе используем оригинальную функцию
+        originalRenderTable();
+    };
+}
+
+// Инициализация при загрузке
+console.log('✅ Модуль фильтрации истории загружен');
+
+// ============================================
+// ИНДИКАТОР СТАТУСА ПОДКЛЮЧЕНИЯ
+// ============================================
+
+let connectionMode = 'checking'; // 'firebase', 'local', 'checking'
+let firebaseErrorReason = '';
+
+// Функция обновления индикатора
+function updateConnectionIndicator() {
+    const dot = document.getElementById('connection-dot');
+    const text = document.getElementById('connection-text');
+    const icon = document.getElementById('connection-icon');
+    const container = document.getElementById('connection-status');
+    
+    if (!dot || !text || !container) return;
+    
+    switch(connectionMode) {
+        case 'firebase':
+            dot.style.background = '#34C759';
+            dot.style.boxShadow = '0 0 8px rgba(52, 199, 89, 0.5)';
+            text.textContent = 'Firebase';
+            text.style.color = '#1a7f3a';
+            icon.textContent = '☁️';
+            container.style.background = 'rgba(52, 199, 89, 0.12)';
+            container.style.border = '1px solid rgba(52, 199, 89, 0.3)';
+            break;
+            
+        case 'local':
+            dot.style.background = '#FF9500';
+            dot.style.boxShadow = '0 0 8px rgba(255, 149, 0, 0.5)';
+            text.textContent = 'Локально';
+            text.style.color = '#8a4f00';
+            icon.textContent = '💾';
+            container.style.background = 'rgba(255, 149, 0, 0.12)';
+            container.style.border = '1px solid rgba(255, 149, 0, 0.3)';
+            break;
+            
+        default:
+            dot.style.background = '#8E8E93';
+            dot.style.boxShadow = '0 0 8px rgba(142, 142, 147, 0.3)';
+            text.textContent = 'Проверка...';
+            text.style.color = '#636366';
+            icon.textContent = '⏳';
+            container.style.background = 'rgba(142, 142, 147, 0.1)';
+            container.style.border = '1px solid rgba(142, 142, 147, 0.2)';
+    }
+}
+
+// Функция показа подробностей
+function showConnectionDetails() {
+    let message = '';
+    
+    if (connectionMode === 'firebase') {
+        message = '✅ Подключено к Firebase\n\n' +
+                  '• Данные синхронизируются с облаком\n' +
+                  '• Доступны с любого устройства\n' +
+                  '• Пользователь: ' + (currentUser ? currentUser.email : 'Неизвестно');
+    } else if (connectionMode === 'local') {
+        message = '⚠️ Работа в локальном режиме\n\n' +
+                  '• Данные сохраняются только в браузере\n' +
+                  '• Не синхронизируются с облаком\n' +
+                  '• Доступны только на этом устройстве\n\n' +
+                  (firebaseErrorReason ? 'Причина: ' + firebaseErrorReason : '');
+    } else {
+        message = '⏳ Проверка подключения к Firebase...';
+    }
+    
+    alert(message);
+}
+
+// Проверка подключения к Firebase
+// Проверка подключения к Firebase (упрощённая версия)
+async function checkFirebaseConnection() {
+    try {
+        // Проверяем, что Firebase загружен
+        if (typeof firebase === 'undefined') {
+            connectionMode = 'local';
+            firebaseErrorReason = 'Firebase SDK не загружен';
+            updateConnectionIndicator();
+            return;
+        }
+        
+        // Проверяем, что пользователь авторизован
+        if (!currentUser) {
+            connectionMode = 'local';
+            firebaseErrorReason = 'Войдите в аккаунт для синхронизации';
+            updateConnectionIndicator();
+            return;
+        }
+        
+        // Проверяем, были ли загружены данные
+        if (records.length > 0 || tariffs.length > 0) {
+            connectionMode = 'firebase';
+            firebaseErrorReason = '';
+            updateConnectionIndicator();
+            console.log('✅ Firebase активен, данные загружены');
+        } else {
+            // Пробуем загрузить хотя бы одну запись
+            const testSnapshot = await db.collection('users')
+                .doc(currentUser.uid)
+                .collection('records')
+                .limit(1)
+                .get();
+            
+            connectionMode = 'firebase';
+            firebaseErrorReason = '';
+            updateConnectionIndicator();
+            console.log('✅ Firebase доступен, записей:', testSnapshot.size);
+        }
+        
+    } catch (error) {
+        connectionMode = 'local';
+        
+        if (error.code === 'permission-denied') {
+            firebaseErrorReason = 'Проверьте правила безопасности Firestore';
+        } else if (!navigator.onLine) {
+            firebaseErrorReason = 'Отсутствует интернет-соединение';
+        } else {
+            firebaseErrorReason = error.message;
+        }
+        
+        updateConnectionIndicator();
+        console.warn('⚠️ Firebase недоступен:', error.message);
+    }
+}
+
+// Запускаем проверку после загрузки данных
+document.addEventListener('DOMContentLoaded', function() {
+    updateConnectionIndicator();
+    
+    // Ждём авторизацию и загрузку данных
+    setTimeout(function() {
+        checkFirebaseConnection();
+    }, 3000); // Увеличиваем задержку до 3 секунд
+});
+// Запускаем проверку при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+    // Начальное состояние
+    updateConnectionIndicator();
+    
+    // Проверяем подключение через 2 секунды (даём время на инициализацию)
+    setTimeout(function() {
+        checkFirebaseConnection();
+    }, 2000);
+});
+
+// Обновляем при изменении состояния аутентификации
+const originalOnAuthStateChanged = window.onAuthStateChanged;
+auth.onAuthStateChanged(function(user) {
+    if (user) {
+        // Пользователь вошёл — проверяем Firebase
+        setTimeout(checkFirebaseConnection, 500);
+    }
+    
+    // Вызываем оригинальный обработчик если есть
+    if (typeof originalOnAuthStateChanged === 'function') {
+        originalOnAuthStateChanged(user);
+    }
+});
+
+console.log('✅ Индикатор подключения загружен');
