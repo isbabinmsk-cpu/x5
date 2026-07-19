@@ -93,42 +93,7 @@
     <script src="script.js?v=2.4.0" defer></script>
 </head>
 <body>
-<!-- Индикатор статуса подключения -->
-<div id="connection-status" style="
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    z-index: 10000;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-    transition: all 0.3s ease;
-    cursor: pointer;
-" onclick="showConnectionDetails()" title="Нажмите для подробностей">
-    <span id="connection-dot" style="
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        display: inline-block;
-        animation: pulse 2s infinite;
-    "></span>
-    <span id="connection-text">Проверка...</span>
-    <span id="connection-icon" style="font-size: 16px;"></span>
-</div>
 
-<style>
-    @keyframes pulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.6; transform: scale(0.8); }
-    }
-</style>
 <!-- ============================================ -->
 <!-- ПАРЯЩИЕ ЧАСТИЦЫ ДЛЯ ФОНА -->
 <!-- ============================================ -->
@@ -265,21 +230,328 @@
 <div class="container">
     <!-- Верхняя шапка только с заголовком -->
 <header class="top-header gradient-flow">
-    <h1>
-        <ion-icon name="car-sport-outline" class="header-icon"></ion-icon>
-        Журнал работы водителя
-    </h1>
+    <!-- Верхняя строка: заголовок и кнопка выхода -->
+    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 12px;">
+        <h1 style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
+            <ion-icon name="car-sport-outline" class="header-icon" style="flex-shrink: 0;"></ion-icon>
+            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: clamp(20px, 4vw, 34px);">Журнал работы водителя</span>
+        </h1>
+        
+        <button id="logout-btn" class="btn btn-secondary btn-small magnetic" style="display: none; flex-shrink: 0;">
+            <ion-icon name="log-out-outline"></ion-icon> Выйти
+        </button>
+    </div>
     
-    <button id="logout-btn" class="btn btn-secondary btn-small magnetic" style="display: none; margin-left: auto;">
-    <ion-icon name="log-out-outline"></ion-icon> Выйти
-</button>
+    <!-- Нижняя строка: индикатор статуса по центру -->
+    <!-- ИНДИКАТОР СТАТУСА (в хедере под заголовком по центру) -->
+<div id="connection-status-wrapper" style="
+    display: none;
+    justify-content: center;
+    width: 100%;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 0.5px solid rgba(0,0,0,0.06);
+">
+    <div id="connection-status" style="
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 20px;
+        border-radius: 24px;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        background: rgba(255,255,255,0.5);
+        border: 1px solid rgba(0,0,0,0.06);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        max-width: 90%;
+    " onclick="showConnectionDetails()" title="Нажмите для подробностей">
+        <span id="connection-dot" style="
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            flex-shrink: 0;
+            background: #8E8E93;
+            transition: all 0.3s ease;
+        "></span>
+        <span id="connection-text" style="
+            font-size: 13px;
+            white-space: nowrap;
+            color: #3C3C43;
+            font-weight: 500;
+        ">Проверка подключения...</span>
+    </div>
+</div>
 </header>
 
     <!-- Основной контент вкладок -->
-    <main id="main-content">
+    <main id="main-content" class="tabs-container">
+        
+<!-- Вкладка: Главная (Мой профиль) -->
+<div id="tab-home" class="tab-content active">
+    
+    <!-- Профиль пользователя -->
+    <div class="card float-in texture-grain" style="text-align: center; background: linear-gradient(135deg, #007AFF08 0%, #5856D608 100%);">
+        <div style="position: relative; display: inline-block; margin-bottom: 12px; cursor: pointer;" id="profile-avatar-container" onclick="document.getElementById('avatar-input').click()">
+            <div id="profile-avatar" style="width: 200px; height: 200px; border-radius: 50%; background: var(--ios-accent-light); display: flex; align-items: center; justify-content: center; font-size: 56px; color: var(--ios-accent); border: 3px solid var(--ios-accent); overflow: hidden; transition: all 0.3s ease; position: relative; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.1));">
+                <ion-icon name="person-circle-outline" id="avatar-icon" style="font-size: 72px; color: var(--ios-accent);"></ion-icon>
+                <img id="avatar-image" src="" alt="Фото профиля" style="display: none; width: 100%; height: 100%; object-fit: cover;">
+            </div>
+            <input type="file" id="avatar-input" accept="image/*" style="display: none;" onchange="uploadAvatar(event)">
+        </div>
+        
+        <h2 id="profile-name" style="font-size: 24px; margin-bottom: 4px; color: var(--ios-text-primary);">Загрузка...</h2>
+        <p style="color: var(--ios-text-tertiary); font-size: 15px; margin-bottom: 4px;" id="profile-email">email@example.com</p>
+        
+        <!-- Статус синхронизации -->
+        <div style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 14px; border-radius: 12px; background: var(--ios-success-light); font-size: 13px; color: var(--ios-success); font-weight: 600; margin-top: 4px;">
+            <ion-icon name="cloud-outline" style="font-size: 16px;"></ion-icon>
+            <span id="profile-sync-status">Синхронизация активна</span>
+        </div>
+    </div>
+    
+    <!-- Статистика профиля -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px;">
+        <div class="stat-card" style="background: var(--ios-accent-light); border-color: var(--ios-accent);">
+            <h3 style="color: var(--ios-accent);">📅 Рабочих дней</h3>
+            <div class="stat-value" id="profile-total-days" style="color: var(--ios-accent);">0</div>
+        </div>
+        <div class="stat-card" style="background: var(--ios-success-light); border-color: var(--ios-success);">
+            <h3 style="color: var(--ios-success);">💰 Всего заработано</h3>
+            <div class="stat-value" id="profile-total-profit" style="color: var(--ios-success);">0 ₽</div>
+        </div>
+        <div class="stat-card" style="background: var(--ios-warning-light); border-color: var(--ios-warning);">
+            <h3 style="color: var(--ios-warning);">📊 Средний доход в день</h3>
+            <div class="stat-value" id="profile-avg-per-day" style="color: var(--ios-warning);">0 ₽</div>
+        </div>
+        <div class="stat-card" style="background: var(--ios-purple); border-color: var(--ios-purple);">
+            <h3 style="color: white;">🚀 Эффективность</h3>
+            <div class="stat-value" id="profile-efficiency" style="color: white;">0%</div>
+        </div>
+    </div>
+    
+    <!-- Лучший день -->
+    <div class="card float-in texture-grain" style="background: linear-gradient(135deg, #FFD70008 0%, #FFA50008 100%); border-color: #FFD70030;">
+        <h3 style="display: flex; align-items: center; gap: 8px; font-size: 18px; margin-bottom: 16px;">
+            <ion-icon name="star-outline" style="font-size: 28px; color: var(--ios-gold);"></ion-icon>
+            Лучший день
+        </h3>
+        <div style="text-align: center; padding: 10px 0;">
+            <div style="font-size: 32px; font-weight: 700; color: var(--ios-gold);" id="best-day-income">0 ₽</div>
+            <div style="color: var(--ios-text-tertiary); font-size: 15px; margin-top: 4px;" id="best-day-date">Нет данных</div>
+            <div style="display: flex; justify-content: center; gap: 20px; margin-top: 12px; font-size: 14px; color: var(--ios-text-secondary);">
+                <span>📦 <strong id="best-day-orders">0</strong> заказов</span>
+                <span>⏱ <strong id="best-day-hours">0</strong> часов</span>
+                <span>📊 <strong id="best-day-efficiency">0%</strong> эффективность</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Тренды -->
+<div class="card float-in texture-grain">
+    <h3 style="display: flex; align-items: center; gap: 8px; font-size: 18px; margin-bottom: 16px;">
+        <ion-icon name="trending-up-outline" style="font-size: 28px; color: var(--ios-success);"></ion-icon>
+        Тренды за месяц
+    </h3>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px;">
+        <div style="text-align: center; padding: 12px; background: var(--ios-bg-secondary); border-radius: var(--ios-radius-lg); border: 1px solid var(--ios-border);">
+            <div style="font-size: 12px; color: var(--ios-text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Доход</div>
+            <div style="font-size: 20px; font-weight: 700; color: var(--ios-success);" id="trend-income">+0%</div>
+        </div>
+        <div style="text-align: center; padding: 12px; background: var(--ios-bg-secondary); border-radius: var(--ios-radius-lg); border: 1px solid var(--ios-border);">
+            <div style="font-size: 12px; color: var(--ios-text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Заказы</div>
+            <div style="font-size: 20px; font-weight: 700; color: var(--ios-accent);" id="trend-orders">+0%</div>
+        </div>
+        <div style="text-align: center; padding: 12px; background: var(--ios-bg-secondary); border-radius: var(--ios-radius-lg); border: 1px solid var(--ios-border);">
+            <div style="font-size: 12px; color: var(--ios-text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Часы</div>
+            <div style="font-size: 20px; font-weight: 700; color: var(--ios-warning);" id="trend-hours">+0%</div>
+        </div>
+        <div style="text-align: center; padding: 12px; background: var(--ios-bg-secondary); border-radius: var(--ios-radius-lg); border: 1px solid var(--ios-border);">
+            <div style="font-size: 12px; color: var(--ios-text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Эффективность</div>
+            <div style="font-size: 20px; font-weight: 700; color: var(--ios-purple);" id="trend-efficiency">+0%</div>
+        </div>
+    </div>
+</div>
+    
+<!-- Цели и прогресс -->
+<div class="card float-in texture-grain">
+    <h3 style="display: flex; align-items: center; gap: 8px; font-size: 18px; margin-bottom: 16px;">
+        <ion-icon name="flag-outline" style="font-size: 28px; color: var(--ios-warning);"></ion-icon>
+        Мои цели
+    </h3>
+    
+    <div style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px;">
+            <span style="color: var(--ios-text-secondary);">💰 Доход за месяц</span>
+            <span style="font-weight: 600;">
+                <span id="goal-income-current">0</span> ₽ / <span id="goal-income-target">100 000</span> ₽
+            </span>
+        </div>
+        <div style="width: 100%; height: 8px; background: var(--ios-border); border-radius: 4px; overflow: hidden;">
+            <div id="goal-income-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--ios-success), var(--ios-accent)); border-radius: 4px; transition: width 0.8s cubic-bezier(0.32, 0.72, 0, 1);"></div>
+        </div>
+    </div>
+    
+    <div style="margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px;">
+            <span style="color: var(--ios-text-secondary);">📦 Заказов за месяц</span>
+            <span style="font-weight: 600;">
+                <span id="goal-orders-current">0</span> / <span id="goal-orders-target">500</span>
+            </span>
+        </div>
+        <div style="width: 100%; height: 8px; background: var(--ios-border); border-radius: 4px; overflow: hidden;">
+            <div id="goal-orders-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--ios-accent), var(--ios-purple)); border-radius: 4px; transition: width 0.8s cubic-bezier(0.32, 0.72, 0, 1);"></div>
+        </div>
+    </div>
+    
+    <div>
+        <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px;">
+            <span style="color: var(--ios-text-secondary);">⏱ Часов за месяц</span>
+            <span style="font-weight: 600;">
+                <span id="goal-hours-current">0</span> ч / <span id="goal-hours-target">200</span> ч
+            </span>
+        </div>
+        <div style="width: 100%; height: 8px; background: var(--ios-border); border-radius: 4px; overflow: hidden;">
+            <div id="goal-hours-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--ios-warning), var(--ios-danger)); border-radius: 4px; transition: width 0.8s cubic-bezier(0.32, 0.72, 0, 1);"></div>
+        </div>
+    </div>
+    
+    <!-- ===== КНОПКА НАСТРОЙКИ ЦЕЛЕЙ ===== -->
+    <button onclick="showGoalSettings()" style="
+        margin-top: 20px;
+        background: var(--ios-accent);
+        color: white;
+        border: none;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 14px 20px;
+        border-radius: 14px;
+        width: 100%;
+        transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+    " onmouseover="this.style.background='var(--ios-accent-hover)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 24px rgba(0, 122, 255, 0.4)'" 
+       onmouseout="this.style.background='var(--ios-accent)'; this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 16px rgba(0, 122, 255, 0.3)'">
+        <ion-icon name="settings-outline" style="font-size: 20px;"></ion-icon>
+        Настроить цели
+    </button>
+</div>
+    
+    <!-- Достижения -->
+    <div class="card float-in texture-grain">
+        <h3 style="display: flex; align-items: center; gap: 8px; font-size: 18px; margin-bottom: 16px;">
+            <ion-icon name="medal-outline" style="font-size: 28px; color: var(--ios-gold);"></ion-icon>
+            Мои достижения
+        </h3>
+        <div id="profile-achievements" style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; min-height: 60px;">
+            <!-- Заполняется через JavaScript -->
+        </div>
+    </div>
+    
+    <!-- Детальная статистика -->
+    <div class="card float-in texture-grain">
+        <h3 style="display: flex; align-items: center; gap: 8px; font-size: 18px; margin-bottom: 16px;">
+            <ion-icon name="stats-chart-outline" style="font-size: 28px; color: var(--ios-accent);"></ion-icon>
+            Детальная статистика
+        </h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
+            <div style="padding: 16px; background: var(--ios-bg-secondary); border-radius: var(--ios-radius-lg); border: 1px solid var(--ios-border); text-align: center;">
+                <div style="font-size: 12px; color: var(--ios-text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Всего записей</div>
+                <div style="font-size: 24px; font-weight: 700; color: var(--ios-text-primary);" id="profile-total-records">0</div>
+            </div>
+            <div style="padding: 16px; background: var(--ios-bg-secondary); border-radius: var(--ios-radius-lg); border: 1px solid var(--ios-border); text-align: center;">
+                <div style="font-size: 12px; color: var(--ios-text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Всего км</div>
+                <div style="font-size: 24px; font-weight: 700; color: var(--ios-text-primary);" id="profile-total-km">0</div>
+            </div>
+            <div style="padding: 16px; background: var(--ios-bg-secondary); border-radius: var(--ios-radius-lg); border: 1px solid var(--ios-border); text-align: center;">
+                <div style="font-size: 12px; color: var(--ios-text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Средний чек</div>
+                <div style="font-size: 24px; font-weight: 700; color: var(--ios-text-primary);" id="profile-avg-check">0 ₽</div>
+            </div>
+            <div style="padding: 16px; background: var(--ios-bg-secondary); border-radius: var(--ios-radius-lg); border: 1px solid var(--ios-border); text-align: center;">
+                <div style="font-size: 12px; color: var(--ios-text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Часов отработано</div>
+                <div style="font-size: 24px; font-weight: 700; color: var(--ios-text-primary);" id="profile-total-hours">0</div>
+            </div>
+            <div style="padding: 16px; background: var(--ios-bg-secondary); border-radius: var(--ios-radius-lg); border: 1px solid var(--ios-border); text-align: center;">
+                <div style="font-size: 12px; color: var(--ios-text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Всего заказов</div>
+                <div style="font-size: 24px; font-weight: 700; color: var(--ios-text-primary);" id="profile-total-orders">0</div>
+            </div>
+            <div style="padding: 16px; background: var(--ios-bg-secondary); border-radius: var(--ios-radius-lg); border: 1px solid var(--ios-border); text-align: center;">
+                <div style="font-size: 12px; color: var(--ios-text-tertiary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">₽/час</div>
+                <div style="font-size: 24px; font-weight: 700; color: var(--ios-text-primary);" id="profile-per-hour">0 ₽</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Последние записи -->
+    <div class="card float-in texture-grain">
+        <h3 style="display: flex; align-items: center; gap: 8px; font-size: 18px; margin-bottom: 16px;">
+            <ion-icon name="time-outline" style="font-size: 28px; color: var(--ios-accent);"></ion-icon>
+            Последние записи
+            <span style="margin-left: auto; font-size: 13px; font-weight: 400; color: var(--ios-text-tertiary);">
+                <span id="recent-count">0</span> записей
+            </span>
+        </h3>
+        <div id="recent-records-list" style="max-height: 300px; overflow-y: auto;">
+            <!-- Заполняется через JavaScript -->
+        </div>
+        <button onclick="switchTab('history')" style="
+            margin-top: 12px;
+            background: none;
+            border: none;
+            color: var(--ios-accent);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            width: 100%;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        " onmouseover="this.style.background='var(--ios-accent-light)'" onmouseout="this.style.background='none'">
+            <ion-icon name="arrow-forward-outline"></ion-icon>
+            Все записи
+        </button>
+    </div>
+    
+    <!-- Быстрые действия -->
+    <div class="card float-in texture-grain">
+        <h3 style="display: flex; align-items: center; gap: 8px; font-size: 18px; margin-bottom: 16px;">
+            <ion-icon name="flash-outline" style="font-size: 28px; color: var(--ios-accent);"></ion-icon>
+            Быстрые действия
+        </h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+            <button class="btn btn-primary glossy ripple magnetic" onclick="openEntryTab()" style="width: 100%;">
+                <ion-icon name="add-circle-outline"></ion-icon>
+                Заполнить день
+            </button>
+            <button class="btn btn-success glossy ripple magnetic" onclick="switchTab('analytics')" style="width: 100%;">
+                <ion-icon name="stats-chart-outline"></ion-icon>
+                Аналитика
+            </button>
+            <button class="btn btn-secondary glossy ripple magnetic" onclick="switchTab('history')" style="width: 100%;">
+                <ion-icon name="clipboard-outline"></ion-icon>
+                История
+            </button>
+            <button class="btn btn-secondary glossy ripple magnetic" onclick="switchTab('tariffs')" style="width: 100%;">
+                <ion-icon name="settings-outline"></ion-icon>
+                Тарифы
+            </button>
+        </div>
+    </div>
+</div>
         
         <!-- Вкладка: Ввод -->
-        <div id="tab-entry" class="tab-content active">
+        <div id="tab-entry" class="tab-content ">
             <div class="card float-in texture-grain">
                 <h2>Ввод данных за день</h2>
                 
@@ -718,7 +990,7 @@
 
 <!-- Вкладка: История -->
 <div id="tab-history" class="tab-content">
-    <div class="card">
+    <div class="card glass-heavy">
         <h2>
             <ion-icon name="clipboard-outline" class="section-icon"></ion-icon>
             История записей
@@ -990,29 +1262,181 @@
     </main>
 </div>
 
-<!-- Нижняя панель навигации (iOS Tab Bar) -->
-<nav class="bottom-nav">
-    <button class="nav-item active magnetic" data-tab="entry" onclick="switchTab('entry')">
-        <ion-icon name="create-outline"></ion-icon>
-        <span class="label">Ввод</span>
+<!-- Нижняя панель навигации (iOS Tab Bar) с горизонтальным скроллом -->
+<nav class="bottom-nav" style="
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 32px);
+    max-width: 600px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 28px;
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    z-index: 1000;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 4px;
+">
+    <!-- Стили для скрытия скроллбара -->
+    <style>
+        .bottom-nav::-webkit-scrollbar {
+            display: none;
+        }
+        .bottom-nav {
+            -ms-overflow-style: none;
+        }
+    </style>
+    
+    <button class="nav-item active magnetic" data-tab="home" onclick="switchTab('home')" style="
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        padding: 8px 14px;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+        min-width: 60px;
+        border-radius: 16px;
+        position: relative;
+    ">
+        <ion-icon name="person-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
+        <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">Профиль</span>
     </button>
-    <button class="nav-item magnetic" data-tab="analytics" onclick="switchTab('analytics')">
-        <ion-icon name="stats-chart-outline"></ion-icon>
-        <span class="label">Аналитика</span>
+    
+    <button class="nav-item magnetic" data-tab="analytics" onclick="switchTab('analytics')" style="
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        padding: 8px 14px;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+        min-width: 60px;
+        border-radius: 16px;
+        position: relative;
+    ">
+        <ion-icon name="stats-chart-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
+        <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">Аналитика</span>
     </button>
-    <button class="nav-item magnetic" data-tab="history" onclick="switchTab('history')">
-        <ion-icon name="clipboard-outline"></ion-icon>
-        <span class="label">История</span>
+    
+    <button class="nav-item magnetic" data-tab="history" onclick="switchTab('history')" style="
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        padding: 8px 14px;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+        min-width: 60px;
+        border-radius: 16px;
+        position: relative;
+    ">
+        <ion-icon name="clipboard-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
+        <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">История</span>
     </button>
-    <button class="nav-item magnetic" data-tab="tariffs" onclick="switchTab('tariffs')">
-        <ion-icon name="settings-outline"></ion-icon>
-        <span class="label">Тарифы</span>
+    
+    <button class="nav-item magnetic" data-tab="tariffs" onclick="switchTab('tariffs')" style="
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        padding: 8px 14px;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+        min-width: 60px;
+        border-radius: 16px;
+        position: relative;
+    ">
+        <ion-icon name="settings-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
+        <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">Тарифы</span>
     </button>
-    <button class="nav-item magnetic" data-tab="settings" onclick="switchTab('settings')">
-        <ion-icon name="ellipsis-horizontal-outline"></ion-icon>
-        <span class="label">Ещё</span>
+    
+    <button class="nav-item magnetic" data-tab="settings" onclick="switchTab('settings')" style="
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        padding: 8px 14px;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+        min-width: 60px;
+        border-radius: 16px;
+        position: relative;
+    ">
+        <ion-icon name="ellipsis-horizontal-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
+        <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">Ещё</span>
     </button>
 </nav>
+
+<!-- Плавающая кнопка для быстрого добавления записи -->
+<button id="fab-add" onclick="openEntryTab()" style="
+    position: fixed;
+    bottom: 100px;
+    right: 24px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
+    border: none;
+    box-shadow: 0 4px 20px rgba(0, 122, 255, 0.4);
+    cursor: pointer;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    color: white;
+">
+    <ion-icon name="add-outline" style="font-size: 32px; color: white;"></ion-icon>
+</button>
+
+<!-- Текст подсказки для кнопки -->
+<div id="fab-tooltip" style="
+    position: fixed;
+    bottom: 105px;
+    right: 90px;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 998;
+    opacity: 0;
+    transform: translateX(10px) scale(0.9);
+    transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+">
+    Добавить запись
+</div>
 
 <script>
     document.querySelectorAll('.nav-item').forEach(btn => {

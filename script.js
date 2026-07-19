@@ -86,55 +86,170 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
 // Обработчик выхода
 document.getElementById('logout-btn').addEventListener('click', async () => {
     if (confirm('Выйти из аккаунта?')) {
-        await auth.signOut();
+        // 1. СНАЧАЛА показываем экран авторизации
+        const authScreen = document.getElementById('auth-screen');
+        const container = document.querySelector('.container');
+        const bottomNav = document.querySelector('.bottom-nav');
+        const logoutBtn = document.getElementById('logout-btn');
+        
+        // Скрываем интерфейс приложения
+        if (container) {
+            container.style.display = 'none';
+        }
+        if (bottomNav) {
+            bottomNav.style.display = 'none';
+        }
+        if (logoutBtn) {
+            logoutBtn.style.display = 'none';
+        }
+        
+        // Убираем класс authenticated
+        document.body.classList.remove('authenticated');
+        
+        // Показываем экран авторизации
+        if (authScreen) {
+            authScreen.classList.remove('hidden');
+            authScreen.style.display = 'flex';
+        }
+        
+        // 2. Очищаем localStorage
+        localStorage.removeItem('driverAuthState');
+        
+        // 3. Очищаем данные
+        records = [];
+        tariffs = [];
+        saveData();
+        
+        // 4. Очищаем формы авторизации
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        const loginError = document.getElementById('login-error');
+        const registerError = document.getElementById('register-error');
+        
+        if (loginForm) loginForm.reset();
+        if (registerForm) registerForm.reset();
+        if (loginError) loginError.textContent = '';
+        if (registerError) registerError.textContent = '';
+        
+        // 5. Переключаем на вкладку входа
+        if (typeof switchAuthTab === 'function') {
+            switchAuthTab('login');
+        }
+        
+        // 6. Выходим из Firebase
+        try {
+            await auth.signOut();
+            console.log('✅ Вы вышли из аккаунта');
+        } catch (error) {
+            console.error('Ошибка выхода:', error);
+        }
+        
+        // 7. Очищаем текущего пользователя
+        currentUser = null;
     }
 });
 
-// Слушатель состояния аутентификации
-// Слушатель состояния аутентификации
+// ============================================
+// СЛУШАТЕЛЬ СОСТОЯНИЯ АУТЕНТИФИКАЦИИ
+// ============================================
 auth.onAuthStateChanged(async (user) => {
     const logoutBtn = document.getElementById('logout-btn');
+    const authScreen = document.getElementById('auth-screen');
+    const container = document.querySelector('.container');
+    const bottomNav = document.querySelector('.bottom-nav');
+    const statusWrapper = document.getElementById('connection-status-wrapper');
     
     if (user) {
-        // Пользователь вошел
+        // ===== ПОЛЬЗОВАТЕЛЬ ВОШЕЛ =====
         currentUser = user;
-        
-        // Сохраняем состояние в localStorage
         localStorage.setItem('driverAuthState', 'true');
-        
-        // Добавляем класс authenticated на body
         document.body.classList.add('authenticated');
         
-        // Показываем кнопку выхода
+        // Показываем интерфейс
+        if (authScreen) {
+            authScreen.classList.add('hidden');
+            authScreen.style.display = 'none';
+        }
+        if (container) container.style.display = 'block';
+        if (bottomNav) bottomNav.style.display = 'flex';
         if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+        
+        // Показываем индикатор статуса
+        if (statusWrapper) {
+            statusWrapper.style.display = 'flex';
+        }
         
         console.log('✅ Пользователь вошел:', user.email);
         
-        // Загружаем данные пользователя
+        // Обновляем индикатор статуса
+        connectionMode = 'checking';
+        firebaseErrorReason = '';
+        updateConnectionIndicator();
+        
         try {
             await loadUserData();
+            
+            // После загрузки данных проверяем подключение к Firebase
+            setTimeout(function() {
+                checkFirebaseConnection();
+            }, 1000);
+            
         } catch (error) {
-            console.error('❌ Ошибка загрузки данных пользователя:', error);
+            console.error('❌ Ошибка загрузки данных:', error);
+            connectionMode = 'local';
+            firebaseErrorReason = 'Ошибка загрузки данных: ' + error.message;
+            updateConnectionIndicator();
         }
+        
     } else {
-        // Пользователь вышел
+        // ===== ПОЛЬЗОВАТЕЛЬ ВЫШЕЛ =====
         currentUser = null;
-        
-        // Удаляем состояние
         localStorage.removeItem('driverAuthState');
-        
-        // Удаляем класс authenticated
         document.body.classList.remove('authenticated');
         
-        // Скрываем кнопку выхода
+        // Скрываем интерфейс
+        if (container) container.style.display = 'none';
+        if (bottomNav) bottomNav.style.display = 'none';
         if (logoutBtn) logoutBtn.style.display = 'none';
+        
+        // Скрываем индикатор статуса
+        if (statusWrapper) {
+            statusWrapper.style.display = 'none';
+        }
+        
+        // Показываем экран авторизации
+        if (authScreen) {
+            authScreen.classList.remove('hidden');
+            authScreen.style.display = 'flex';
+        }
         
         // Очищаем данные
         records = [];
         tariffs = [];
         saveData();
         
-        console.log('👤 Пользователь вышел');
+        // Обновляем статус
+        connectionMode = 'local';
+        firebaseErrorReason = 'Пользователь не авторизован';
+        
+        // Очищаем формы
+        const loginForm = document.getElementById('login-form');
+        const registerForm = document.getElementById('register-form');
+        if (loginForm) loginForm.reset();
+        if (registerForm) registerForm.reset();
+        
+        // Сбрасываем ошибки
+        const loginError = document.getElementById('login-error');
+        const registerError = document.getElementById('register-error');
+        if (loginError) loginError.textContent = '';
+        if (registerError) registerError.textContent = '';
+        
+        // Переключаем на вкладку входа
+        if (typeof switchAuthTab === 'function') {
+            switchAuthTab('login');
+        }
+        
+        console.log('👤 Пользователь вышел, показан экран авторизации');
     }
 });
 
@@ -156,19 +271,21 @@ function getAuthErrorMessage(errorCode) {
 async function loadUserData() {
     if (!currentUser) return;
     
-    // В функции loadUserData(), в самом начале, добавьте:
-const mainContainer = document.querySelector('.container');
-const bottomNav = document.querySelector('.bottom-nav');
-const authScreen = document.getElementById('auth-screen');
-
-if (authScreen) authScreen.classList.add('hidden');
-if (mainContainer) mainContainer.style.display = 'block';
-if (bottomNav) bottomNav.style.display = 'flex';
+    // Показываем интерфейс
+    const mainContainer = document.querySelector('.container');
+    const bottomNav = document.querySelector('.bottom-nav');
+    const authScreen = document.getElementById('auth-screen');
+    const statusWrapper = document.getElementById('connection-status-wrapper');
+    
+    if (authScreen) authScreen.classList.add('hidden');
+    if (mainContainer) mainContainer.style.display = 'block';
+    if (bottomNav) bottomNav.style.display = 'flex';
+    if (statusWrapper) statusWrapper.style.display = 'flex';
     
     try {
         console.log('🔄 Загрузка данных пользователя...');
         
-        // Загружаем записи пользователя
+        // ===== 1. ЗАГРУЗКА ЗАПИСЕЙ =====
         const recordsSnapshot = await db.collection('users')
             .doc(currentUser.uid)
             .collection('records')
@@ -181,7 +298,7 @@ if (bottomNav) bottomNav.style.display = 'flex';
         
         console.log('✅ Загружено записей:', records.length);
         
-        // Загружаем тарифы пользователя
+        // ===== 2. ЗАГРУЗКА ТАРИФОВ =====
         const tariffsSnapshot = await db.collection('users')
             .doc(currentUser.uid)
             .collection('tariffs')
@@ -208,19 +325,173 @@ if (bottomNav) bottomNav.style.display = 'flex';
                 .collection('tariffs')
                 .add(defaultTariff);
             tariffs.push(normalizeTariff({ id: docRef.id, ...defaultTariff }));
+            console.log('✅ Создан стандартный тариф');
         }
         
-        saveData();
+        // ===== 3. ЗАГРУЗКА АВАТАРА =====
+        console.log('🔄 Загрузка аватара...');
+        await loadAvatarFromFirebase();
+        console.log('✅ Аватар загружен');
         
-        // Обновляем интерфейс
+        // ===== 4. ЗАГРУЗКА ЦЕЛЕЙ =====
+        console.log('🔄 Загрузка целей из Firebase...');
+        await loadGoalsFromFirebase();
+        console.log('✅ Цели загружены');
+        
+        // ===== 5. СОХРАНЕНИЕ В LOCALSTORAGE =====
+        saveData();
+        console.log('✅ Данные сохранены в localStorage');
+        
+        // ===== 6. ОБНОВЛЕНИЕ ИНТЕРФЕЙСА =====
+        console.log('🔄 Обновление интерфейса...');
+        
+        // Обновляем таблицу
+        renderTable();
+        console.log('✅ Таблица обновлена');
+        
+        // Обновляем тарифы
+        renderTariffs();
+        console.log('✅ Тарифы обновлены');
+        
+        // Обновляем фильтры
+        populateFilters();
+        console.log('✅ Фильтры обновлены');
+        
+        // Обновляем аналитику
+        updateAnalytics();
+        console.log('✅ Аналитика обновлена');
+        
+        // Обновляем цели
+        await updateGoals();
+        console.log('✅ Цели обновлены');
+        
+        // Обновляем главную страницу
+        updateHomeTab();
+        console.log('✅ Главная страница обновлена');
+        
+        // Обновляем статус синхронизации
+        connectionMode = 'firebase';
+        firebaseErrorReason = '';
+        updateConnectionIndicator();
+        
+        console.log('✅ Все данные успешно загружены!');
+        
+    } catch (error) {
+        console.error('❌ Ошибка загрузки данных:', error);
+        
+        // Пробуем загрузить из localStorage
+        console.log('🔄 Пытаемся загрузить данные из localStorage...');
+        await loadData();
+        
+        // Обновляем статус
+        connectionMode = 'local';
+        firebaseErrorReason = error.message || 'Ошибка загрузки данных';
+        updateConnectionIndicator();
+        
+        // Обновляем интерфейс из локальных данных
         renderTable();
         renderTariffs();
         populateFilters();
         updateAnalytics();
+        await updateGoals();
+        updateHomeTab();
         
+        alert('⚠️ Ошибка загрузки данных: ' + error.message + '\nДанные загружены из локального кэша.');
+    }
+}
+
+// ============================================
+// ЗАГРУЗКА ЦЕЛЕЙ ИЗ FIREBASE
+// ============================================
+
+async function loadGoalsFromFirebase() {
+    if (!currentUser || typeof db === 'undefined') {
+        console.log('⚠️ Firebase не доступен, загружаем из localStorage');
+        // Пробуем загрузить из localStorage
+        const localGoals = localStorage.getItem(GOALS_STORAGE_KEY);
+        if (localGoals) {
+            try {
+                const goals = JSON.parse(localGoals);
+                if (goals && typeof goals === 'object') {
+                    console.log('📊 Цели загружены из localStorage:', goals);
+                    return goals;
+                }
+            } catch (e) {
+                console.warn('⚠️ Ошибка парсинга целей из localStorage:', e);
+            }
+        }
+        // Создаем дефолтные цели
+        const defaultGoals = { income: 100000, orders: 500, hours: 200 };
+        localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(defaultGoals));
+        console.log('📊 Созданы дефолтные цели в localStorage');
+        return defaultGoals;
+    }
+    
+    try {
+        console.log('🔄 Загрузка целей из Firebase...');
+        
+        const doc = await db.collection('users')
+            .doc(currentUser.uid)
+            .get();
+        
+        // Проверяем, есть ли цели в Firebase
+        if (doc.exists && doc.data().goals) {
+            const goals = doc.data().goals;
+            
+            // Проверяем, что цели имеют правильную структуру
+            if (goals && typeof goals === 'object' && 
+                typeof goals.income === 'number' && 
+                typeof goals.orders === 'number' && 
+                typeof goals.hours === 'number') {
+                
+                // Сохраняем в localStorage для кэша
+                localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(goals));
+                console.log('✅ Цели загружены из Firebase:', goals);
+                return goals;
+            } else {
+                console.warn('⚠️ Структура целей в Firebase повреждена, создаем новые');
+                // Создаем правильную структуру
+                const defaultGoals = { income: 100000, orders: 500, hours: 200 };
+                localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(defaultGoals));
+                await saveGoalsToFirebase(defaultGoals);
+                console.log('📊 Созданы и сохранены дефолтные цели в Firebase');
+                return defaultGoals;
+            }
+        } else {
+            // Если в Firebase нет целей, создаем дефолтные и сохраняем
+            console.log('📊 В Firebase нет целей, создаем дефолтные...');
+            const defaultGoals = { income: 100000, orders: 500, hours: 200 };
+            localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(defaultGoals));
+            await saveGoalsToFirebase(defaultGoals);
+            console.log('✅ Созданы и сохранены дефолтные цели в Firebase');
+            return defaultGoals;
+        }
     } catch (error) {
-        console.error('❌ Ошибка загрузки данных:', error);
-        alert('Ошибка загрузки данных: ' + error.message);
+        console.error('❌ Ошибка загрузки целей из Firebase:', error);
+        
+        // Пробуем загрузить из localStorage
+        console.log('🔄 Пытаемся загрузить цели из localStorage...');
+        const localGoals = localStorage.getItem(GOALS_STORAGE_KEY);
+        if (localGoals) {
+            try {
+                const goals = JSON.parse(localGoals);
+                if (goals && typeof goals === 'object' && 
+                    typeof goals.income === 'number' && 
+                    typeof goals.orders === 'number' && 
+                    typeof goals.hours === 'number') {
+                    console.log('📊 Цели загружены из localStorage:', goals);
+                    return goals;
+                }
+            } catch (e) {
+                console.warn('⚠️ Ошибка парсинга целей из localStorage:', e);
+            }
+        }
+        
+        // Если ничего не получилось, создаем дефолтные
+        const defaultGoals = { income: 100000, orders: 500, hours: 200 };
+        localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(defaultGoals));
+        console.log('📊 Созданы дефолтные цели (после ошибки)');
+        return defaultGoals;
     }
 }
 
@@ -785,30 +1056,54 @@ function renderTableWithWeeklySummary(tbody, records) {
 
 
 // ===== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК =====
+// Обновленная функция переключения вкладок
 function switchTab(tabName) {
-    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-    // ИСПРАВЛЕНО: используем .nav-item вместо .nav-btn
-    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+    // Скрываем все вкладки
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
     
+    // Убираем активный класс со всех кнопок навигации
+    document.querySelectorAll('.nav-item').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Показываем нужную вкладку
     const targetTab = document.getElementById('tab-' + tabName);
-    if (targetTab) targetTab.classList.add('active');
+    if (targetTab) {
+        targetTab.classList.add('active');
+    }
     
-    // ИСПРАВЛЕНО: используем .nav-item
+    // Активируем кнопку в навигации (если есть)
     const activeBtn = document.querySelector('.nav-item[data-tab="' + tabName + '"]');
-    if (activeBtn) activeBtn.classList.add('active');
+    if (activeBtn) {
+        activeBtn.classList.add('active');
+    }
     
+    // Обновляем аналитику, если нужно
     if (tabName === 'analytics') {
         updateAnalytics();
         initComparisonSelectors();
         updateComparison();
     }
-    if (tabName === 'history') renderTable();
-    if (tabName === 'tariffs') renderTariffs();
     
-    // Сохраняем состояние ТОЛЬКО если это не восстановление
-    if (!isRestoringState) {
-        saveState();
+    // Обновляем историю
+    if (tabName === 'history') {
+        renderTable();
     }
+    
+    // Обновляем тарифы
+    if (tabName === 'tariffs') {
+        renderTariffs();
+    }
+    
+    // Обновляем профиль
+    if (tabName === 'home') {
+        setTimeout(updateHomeTab, 100);
+    }
+    
+    // Сохраняем состояние
+    saveState();
 }
 
 // ===== СБРОС ДАННЫХ (только localStorage, Firebase не трогаем!) =====
@@ -2849,67 +3144,122 @@ let firebaseErrorReason = '';
 function updateConnectionIndicator() {
     const dot = document.getElementById('connection-dot');
     const text = document.getElementById('connection-text');
-    const icon = document.getElementById('connection-icon');
     const container = document.getElementById('connection-status');
+    const wrapper = document.getElementById('connection-status-wrapper');
     
-    if (!dot || !text || !container) return;
+    if (!dot || !text || !container) {
+        console.warn('⚠️ Элементы индикатора не найдены');
+        return;
+    }
     
-    switch(connectionMode) {
-        case 'firebase':
-            dot.style.background = '#34C759';
-            dot.style.boxShadow = '0 0 8px rgba(52, 199, 89, 0.5)';
-            text.textContent = 'Firebase';
-            text.style.color = '#1a7f3a';
-            icon.textContent = '☁️';
-            container.style.background = 'rgba(52, 199, 89, 0.12)';
-            container.style.border = '1px solid rgba(52, 199, 89, 0.3)';
-            break;
-            
-        case 'local':
-            dot.style.background = '#FF9500';
-            dot.style.boxShadow = '0 0 8px rgba(255, 149, 0, 0.5)';
-            text.textContent = 'Локально';
-            text.style.color = '#8a4f00';
-            icon.textContent = '💾';
-            container.style.background = 'rgba(255, 149, 0, 0.12)';
-            container.style.border = '1px solid rgba(255, 149, 0, 0.3)';
-            break;
-            
-        default:
-            dot.style.background = '#8E8E93';
-            dot.style.boxShadow = '0 0 8px rgba(142, 142, 147, 0.3)';
-            text.textContent = 'Проверка...';
-            text.style.color = '#636366';
-            icon.textContent = '⏳';
-            container.style.background = 'rgba(142, 142, 147, 0.1)';
-            container.style.border = '1px solid rgba(142, 142, 147, 0.2)';
+    // Определяем, авторизован ли пользователь
+    const isAuthenticated = document.body.classList.contains('authenticated');
+    
+    // Показываем/скрываем индикатор в зависимости от авторизации
+    if (wrapper) {
+        wrapper.style.display = isAuthenticated ? 'flex' : 'none';
+    }
+    
+    // Настройки для разных состояний (ПОЛНЫЙ ТЕКСТ)
+    let settings = {
+        text: 'Проверка подключения...',
+        dotColor: '#8E8E93',
+        dotShadow: '0 0 8px rgba(142, 142, 147, 0.3)',
+        bgColor: 'rgba(255,255,255,0.5)',
+        borderColor: 'rgba(0,0,0,0.06)',
+        textColor: '#3C3C43'
+    };
+    
+    if (isAuthenticated) {
+        switch (connectionMode) {
+            case 'firebase':
+                settings = {
+                    text: '☁️ Firebase',
+                    dotColor: '#34C759',
+                    dotShadow: '0 0 12px rgba(52, 199, 89, 0.5)',
+                    bgColor: 'rgba(52, 199, 89, 0.12)',
+                    borderColor: 'rgba(52, 199, 89, 0.25)',
+                    textColor: '#1a7f3a'
+                };
+                break;
+                
+            case 'local':
+                settings = {
+                    text: '💾 Локальный режим',
+                    dotColor: '#FF9500',
+                    dotShadow: '0 0 12px rgba(255, 149, 0, 0.5)',
+                    bgColor: 'rgba(255, 149, 0, 0.12)',
+                    borderColor: 'rgba(255, 149, 0, 0.25)',
+                    textColor: '#8a4f00'
+                };
+                break;
+                
+            default:
+                settings = {
+                    text: '⏳ Проверка подключения к Firebase...',
+                    dotColor: '#8E8E93',
+                    dotShadow: '0 0 8px rgba(142, 142, 147, 0.3)',
+                    bgColor: 'rgba(255,255,255,0.5)',
+                    borderColor: 'rgba(0,0,0,0.06)',
+                    textColor: '#3C3C43'
+                };
+        }
+    } else {
+        settings = {
+            text: '🔒 Войдите в аккаунт для синхронизации с Firebase',
+            dotColor: '#8E8E93',
+            dotShadow: '0 0 8px rgba(142, 142, 147, 0.3)',
+            bgColor: 'rgba(255,255,255,0.5)',
+            borderColor: 'rgba(0,0,0,0.06)',
+            textColor: '#3C3C43'
+        };
+    }
+    
+    // Применяем стили
+    dot.style.background = settings.dotColor;
+    dot.style.boxShadow = settings.dotShadow;
+    text.textContent = settings.text;
+    text.style.color = settings.textColor;
+    container.style.background = settings.bgColor;
+    container.style.borderColor = settings.borderColor;
+    
+    // Добавляем/убираем анимацию пульсации
+    if (connectionMode === 'checking' || !isAuthenticated) {
+        dot.classList.add('pulse');
+    } else {
+        dot.classList.remove('pulse');
     }
 }
 
 // Функция показа подробностей
 function showConnectionDetails() {
+    const isAuthenticated = document.body.classList.contains('authenticated');
     let message = '';
     
-    if (connectionMode === 'firebase') {
+    if (!isAuthenticated) {
+        message = '🔒 Не авторизован\n\n' +
+            'Войдите в аккаунт для синхронизации данных.\n' +
+            'Данные хранятся локально до входа.';
+    } else if (connectionMode === 'firebase') {
         message = '✅ Подключено к Firebase\n\n' +
-                  '• Данные синхронизируются с облаком\n' +
-                  '• Доступны с любого устройства\n' +
-                  '• Пользователь: ' + (currentUser ? currentUser.email : 'Неизвестно');
+            '• Данные синхронизируются с облаком\n' +
+            '• Доступны с любого устройства\n' +
+            '• Пользователь: ' + (currentUser ? currentUser.email : 'Неизвестно');
     } else if (connectionMode === 'local') {
         message = '⚠️ Работа в локальном режиме\n\n' +
-                  '• Данные сохраняются только в браузере\n' +
-                  '• Не синхронизируются с облаком\n' +
-                  '• Доступны только на этом устройстве\n\n' +
-                  (firebaseErrorReason ? 'Причина: ' + firebaseErrorReason : '');
+            '• Данные сохраняются только в браузере\n' +
+            '• Не синхронизируются с облаком\n' +
+            '• Доступны только на этом устройстве\n\n' +
+            (firebaseErrorReason ? 'Причина: ' + firebaseErrorReason : 'Проверьте подключение к интернету');
     } else {
-        message = '⏳ Проверка подключения к Firebase...';
+        message = '⏳ Проверка подключения к Firebase...\n\n' +
+            'Пожалуйста, подождите...';
     }
     
     alert(message);
 }
 
 // Проверка подключения к Firebase
-// Проверка подключения к Firebase (упрощённая версия)
 async function checkFirebaseConnection() {
     try {
         // Проверяем, что Firebase загружен
@@ -2964,38 +3314,1254 @@ async function checkFirebaseConnection() {
     }
 }
 
-// Запускаем проверку после загрузки данных
+// Запускаем проверку после загрузки страницы
 document.addEventListener('DOMContentLoaded', function() {
+    // Инициализируем индикатор
     updateConnectionIndicator();
     
-    // Ждём авторизацию и загрузку данных
+    // Запускаем проверку через 3 секунды
     setTimeout(function() {
         checkFirebaseConnection();
-    }, 3000); // Увеличиваем задержку до 3 секунд
-});
-// Запускаем проверку при загрузке
-document.addEventListener('DOMContentLoaded', function() {
-    // Начальное состояние
-    updateConnectionIndicator();
+    }, 3000);
     
-    // Проверяем подключение через 2 секунды (даём время на инициализацию)
-    setTimeout(function() {
-        checkFirebaseConnection();
-    }, 2000);
+    // Повторная проверка каждые 30 секунд
+    setInterval(function() {
+        if (document.body.classList.contains('authenticated')) {
+            checkFirebaseConnection();
+        }
+    }, 30000);
 });
 
-// Обновляем при изменении состояния аутентификации
+// Обновляем индикатор при изменении статуса авторизации
 const originalOnAuthStateChanged = window.onAuthStateChanged;
-auth.onAuthStateChanged(function(user) {
-    if (user) {
-        // Пользователь вошёл — проверяем Firebase
-        setTimeout(checkFirebaseConnection, 500);
-    }
-    
-    // Вызываем оригинальный обработчик если есть
-    if (typeof originalOnAuthStateChanged === 'function') {
-        originalOnAuthStateChanged(user);
-    }
-});
+if (typeof auth !== 'undefined' && auth.onAuthStateChanged) {
+    auth.onAuthStateChanged(function(user) {
+        if (user) {
+            // Пользователь вошёл — проверяем Firebase через секунду
+            setTimeout(checkFirebaseConnection, 1000);
+        } else {
+            // Пользователь вышел
+            connectionMode = 'local';
+            firebaseErrorReason = 'Пользователь не авторизован';
+            updateConnectionIndicator();
+        }
+        
+        // Вызываем оригинальный обработчик если есть
+        if (typeof originalOnAuthStateChanged === 'function') {
+            originalOnAuthStateChanged(user);
+        }
+    });
+}
 
 console.log('✅ Индикатор подключения загружен');
+
+// ============================================
+// ВКЛАДКА "ГЛАВНАЯ" - МОЙ ПРОФИЛЬ
+// ============================================
+
+// Обновление данных на вкладке "Главная"
+function updateHomeTab() {
+    // Проверяем, активна ли вкладка
+    const homeTab = document.getElementById('tab-home');
+    if (!homeTab || !homeTab.classList.contains('active')) return;
+    
+    // Обновляем информацию о пользователе
+    if (currentUser) {
+        const nameEl = document.getElementById('profile-name');
+        const emailEl = document.getElementById('profile-email');
+        const syncEl = document.getElementById('profile-sync-status');
+        
+        // ПОЛУЧАЕМ РЕАЛЬНОЕ ИМЯ ПОЛЬЗОВАТЕЛЯ
+        // Сначала проверяем displayName из Firebase Auth
+        let userName = currentUser.displayName;
+        
+        // Если displayName не задан, пробуем взять из email (до @)
+        if (!userName || userName === '') {
+            userName = currentUser.email ? currentUser.email.split('@')[0] : 'Водитель';
+        }
+        
+        // Если имя все еще пустое, ставим "Водитель"
+        if (!userName || userName === '') {
+            userName = 'Водитель';
+        }
+        
+        // Обновляем имя на странице с анимацией
+        if (nameEl) {
+            nameEl.textContent = userName;
+            // Добавляем анимацию появления
+            nameEl.style.animation = 'none';
+            setTimeout(() => {
+                nameEl.style.animation = 'textFadeIn 0.5s var(--ios-spring) forwards';
+            }, 10);
+        }
+        
+        // Обновляем email
+        if (emailEl) {
+            emailEl.textContent = currentUser.email || 'email@example.com';
+        }
+        
+        // Статус синхронизации
+        if (syncEl) {
+            if (connectionMode === 'firebase') {
+                syncEl.innerHTML = '<ion-icon name="cloud-done-outline" style="font-size: 16px;"></ion-icon> Синхронизация активна';
+                syncEl.style.color = 'var(--ios-success)';
+                syncEl.parentElement.style.background = 'var(--ios-success-light)';
+            } else if (connectionMode === 'local') {
+                syncEl.innerHTML = '<ion-icon name="cloud-offline-outline" style="font-size: 16px;"></ion-icon> Локальный режим';
+                syncEl.style.color = 'var(--ios-warning)';
+                syncEl.parentElement.style.background = 'var(--ios-warning-light)';
+            } else {
+                syncEl.innerHTML = '<ion-icon name="sync-outline" style="font-size: 16px;"></ion-icon> Проверка...';
+                syncEl.style.color = 'var(--ios-text-tertiary)';
+                syncEl.parentElement.style.background = 'var(--ios-border)';
+            }
+        }
+    }
+    
+    // Общая статистика (остается без изменений)
+    const totalDays = new Set(records.filter(r => r.recordType === 'work' || r.hours > 0).map(r => r.date)).size;
+    const totalProfit = records.reduce((sum, r) => sum + (r.netProfit || 0), 0);
+    const avgPerDay = totalDays > 0 ? totalProfit / totalDays : 0;
+    const totalIncome = records.reduce((sum, r) => sum + (r.totalIncome || 0), 0);
+    const totalEfficiency = totalIncome > 0 ? (totalProfit / totalIncome) * 100 : 0;
+    const totalOrders = records.reduce((sum, r) => sum + (r.ordersDelivery || 0), 0);
+    const totalKm = records.reduce((sum, r) => sum + (r.distance || 0), 0);
+    const totalHours = records.reduce((sum, r) => sum + (r.hours || 0), 0);
+    const avgCheck = totalOrders > 0 ? totalIncome / totalOrders : 0;
+    const perHour = totalHours > 0 ? totalProfit / totalHours : 0;
+    
+    // Функция для установки значения
+    const setEl = (id, value, suffix = '') => {
+        const el = document.getElementById(id);
+        if (el) {
+            if (typeof value === 'number' && value % 1 !== 0 && id !== 'profile-efficiency') {
+                el.textContent = value.toFixed(2) + suffix;
+            } else {
+                el.textContent = value + suffix;
+            }
+        }
+    };
+    
+    setEl('profile-total-days', totalDays);
+    setEl('profile-total-profit', formatMoney(totalProfit));
+    setEl('profile-avg-per-day', formatMoney(avgPerDay));
+    setEl('profile-efficiency', totalEfficiency.toFixed(1) + '%');
+    setEl('profile-total-records', records.length);
+    setEl('profile-total-km', totalKm.toFixed(1));
+    setEl('profile-avg-check', formatMoney(avgCheck));
+    setEl('profile-total-hours', totalHours.toFixed(1));
+    setEl('profile-total-orders', totalOrders);
+    setEl('profile-per-hour', formatMoney(perHour));
+    
+    // Обновляем достижения
+    renderAchievements();
+    
+    // Загружаем аватар
+    loadProfileAvatar();
+}
+
+// ============================================
+// ОБНОВЛЕНИЕ ИМЕНИ ПОЛЬЗОВАТЕЛЯ
+// ============================================
+
+// Функция для обновления имени пользователя
+async function updateUserName(newName) {
+    if (!currentUser) {
+        alert('❌ Пользователь не авторизован');
+        return;
+    }
+    
+    if (!newName || newName.trim() === '') {
+        alert('❌ Имя не может быть пустым');
+        return;
+    }
+    
+    try {
+        // Обновляем displayName в Firebase Auth
+        await currentUser.updateProfile({
+            displayName: newName.trim()
+        });
+        
+        // Обновляем имя в Firestore
+        if (typeof db !== 'undefined') {
+            await db.collection('users')
+                .doc(currentUser.uid)
+                .set({
+                    name: newName.trim(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+        }
+        
+        // Обновляем отображение
+        const nameEl = document.getElementById('profile-name');
+        if (nameEl) {
+            nameEl.textContent = newName.trim();
+        }
+        
+        showToast('✅ Имя обновлено!');
+        
+        // Перезагружаем данные пользователя
+        await loadUserData();
+        
+    } catch (error) {
+        console.error('❌ Ошибка обновления имени:', error);
+        alert('❌ Ошибка при обновлении имени: ' + error.message);
+    }
+}
+
+// Функция для показа диалога изменения имени
+function showEditNameDialog() {
+    const currentName = document.getElementById('profile-name')?.textContent || '';
+    const newName = prompt('Введите ваше имя:', currentName);
+    
+    if (newName !== null && newName.trim() !== '') {
+        updateUserName(newName);
+    }
+}
+
+// Добавляем возможность изменить имя по двойному клику на имя
+document.addEventListener('DOMContentLoaded', function() {
+    const nameEl = document.getElementById('profile-name');
+    if (nameEl) {
+        nameEl.addEventListener('dblclick', showEditNameDialog);
+        nameEl.style.cursor = 'pointer';
+        nameEl.title = 'Двойной клик для изменения имени';
+    }
+});
+
+// Рендер достижений
+function renderAchievements() {
+    const container = document.getElementById('profile-achievements');
+    if (!container) return;
+    
+    const totalIncome = records.reduce((sum, r) => sum + (r.totalIncome || 0), 0);
+    const totalOrders = records.reduce((sum, r) => sum + (r.ordersDelivery || 0), 0);
+    const totalDays = new Set(records.filter(r => r.recordType === 'work' || r.hours > 0).map(r => r.date)).size;
+    const totalKm = records.reduce((sum, r) => sum + (r.distance || 0), 0);
+    const totalHours = records.reduce((sum, r) => sum + (r.hours || 0), 0);
+    
+    const achievements = [];
+    
+    // Достижения по доходу
+    if (totalIncome >= 100000) {
+        achievements.push({ icon: '👑', label: 'Золотой доход (100 000 ₽)', class: 'gold' });
+    } else if (totalIncome >= 50000) {
+        achievements.push({ icon: '🥈', label: 'Серебряный доход (50 000 ₽)', class: 'silver' });
+    } else if (totalIncome >= 10000) {
+        achievements.push({ icon: '🥉', label: 'Бронзовый доход (10 000 ₽)', class: 'bronze' });
+    }
+    
+    // Достижения по заказам
+    if (totalOrders >= 1000) {
+        achievements.push({ icon: '📦', label: '1000+ заказов', class: 'gold' });
+    } else if (totalOrders >= 500) {
+        achievements.push({ icon: '📦', label: '500+ заказов', class: 'silver' });
+    } else if (totalOrders >= 100) {
+        achievements.push({ icon: '📦', label: '100+ заказов', class: 'bronze' });
+    }
+    
+    // Достижения по дням
+    if (totalDays >= 100) {
+        achievements.push({ icon: '📅', label: '100+ рабочих дней', class: 'gold' });
+    } else if (totalDays >= 50) {
+        achievements.push({ icon: '📅', label: '50+ рабочих дней', class: 'silver' });
+    } else if (totalDays >= 10) {
+        achievements.push({ icon: '📅', label: '10+ рабочих дней', class: 'bronze' });
+    }
+    
+    // Достижения по километрам
+    if (totalKm >= 10000) {
+        achievements.push({ icon: '🏃', label: '10 000+ км', class: 'gold' });
+    } else if (totalKm >= 5000) {
+        achievements.push({ icon: '🏃', label: '5 000+ км', class: 'silver' });
+    } else if (totalKm >= 1000) {
+        achievements.push({ icon: '🏃', label: '1 000+ км', class: 'bronze' });
+    }
+    
+    // Достижения по часам
+    if (totalHours >= 500) {
+        achievements.push({ icon: '⏱', label: '500+ часов', class: 'gold' });
+    } else if (totalHours >= 200) {
+        achievements.push({ icon: '⏱', label: '200+ часов', class: 'silver' });
+    } else if (totalHours >= 50) {
+        achievements.push({ icon: '⏱', label: '50+ часов', class: 'bronze' });
+    }
+    
+    // Первое достижение
+    if (achievements.length === 0 && records.length > 0) {
+        achievements.push({ icon: '🌟', label: 'Первая запись!', class: 'bronze' });
+    }
+    
+    if (achievements.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: var(--ios-text-tertiary); width: 100%;">
+                <ion-icon name="trophy-outline" style="font-size: 36px; display: block; margin: 0 auto 8px;"></ion-icon>
+                <span style="font-size: 14px;">Добавьте первые записи, чтобы получать достижения!</span>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = achievements.map(a => `
+        <div class="achievement-badge ${a.class}">
+            <span style="font-size: 18px;">${a.icon}</span>
+            ${a.label}
+        </div>
+    `).join('');
+}
+
+// Переопределяем switchTab для обновления вкладки "Главная"
+const originalSwitchTabHome = window.switchTab;
+window.switchTab = function(tabName) {
+    originalSwitchTabHome(tabName);
+    if (tabName === 'home') {
+        setTimeout(updateHomeTab, 150);
+    }
+};
+
+// Обновляем при загрузке данных
+function updateHomeOnLoad() {
+    const homeTab = document.getElementById('tab-home');
+    if (homeTab && homeTab.classList.contains('active')) {
+        setTimeout(updateHomeTab, 200);
+    }
+}
+
+// Добавляем в loadUserData
+const originalLoadUserDataHome = window.loadUserData;
+if (typeof originalLoadUserDataHome === 'function') {
+    window.loadUserData = async function() {
+        await originalLoadUserDataHome();
+        updateHomeOnLoad();
+    };
+}
+
+// Обновляем при изменении статуса синхронизации
+const originalCheckFirebase = window.checkFirebaseConnection;
+if (typeof originalCheckFirebase === 'function') {
+    window.checkFirebaseConnection = async function() {
+        await originalCheckFirebase();
+        updateHomeOnLoad();
+    };
+}
+
+// Первоначальная инициализация
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(updateHomeTab, 500);
+});
+
+console.log('✅ Вкладка "Мой профиль" загружена');
+
+// ============================================
+// ЗАГРУЗКА ФОТО ПРОФИЛЯ
+// ============================================
+
+// Ключ для хранения аватара в localStorage
+const AVATAR_STORAGE_KEY = 'driverProfileAvatar';
+
+// Загрузка аватара при открытии профиля
+function loadProfileAvatar() {
+    const avatarImg = document.getElementById('avatar-image');
+    const avatarIcon = document.getElementById('avatar-icon');
+    const avatarContainer = document.getElementById('profile-avatar');
+    
+    if (!avatarImg || !avatarIcon) return;
+    
+    // Проверяем localStorage
+    const savedAvatar = localStorage.getItem(AVATAR_STORAGE_KEY);
+    
+    if (savedAvatar) {
+        try {
+            // Показываем фото
+            avatarImg.src = savedAvatar;
+            avatarImg.style.display = 'block';
+            avatarIcon.style.display = 'none';
+            avatarContainer.style.background = 'none';
+            avatarContainer.style.borderColor = 'var(--ios-success)';
+            
+            // Обновляем кнопку загрузки
+            const uploadBtn = document.getElementById('avatar-upload-btn');
+            if (uploadBtn) {
+                uploadBtn.style.background = 'var(--ios-success)';
+            }
+        } catch (e) {
+            console.error('❌ Ошибка загрузки аватара:', e);
+        }
+    } else {
+        // Показываем иконку
+        avatarImg.style.display = 'none';
+        avatarIcon.style.display = 'block';
+        avatarContainer.style.background = 'var(--ios-accent-light)';
+        avatarContainer.style.borderColor = 'var(--ios-accent)';
+        
+        const uploadBtn = document.getElementById('avatar-upload-btn');
+        if (uploadBtn) {
+            uploadBtn.style.background = 'var(--ios-accent)';
+        }
+    }
+}
+
+// Загрузка фото через input
+function uploadAvatar(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    // Проверяем размер файла (максимум 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+        alert('❌ Файл слишком большой! Максимальный размер: 5MB');
+        event.target.value = '';
+        return;
+    }
+    
+    // Проверяем тип файла
+    if (!file.type.startsWith('image/')) {
+        alert('❌ Пожалуйста, выберите изображение!');
+        event.target.value = '';
+        return;
+    }
+    
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        const imageData = e.target.result;
+        
+        // Сохраняем в localStorage
+        try {
+            localStorage.setItem(AVATAR_STORAGE_KEY, imageData);
+            console.log('✅ Аватар сохранён в localStorage');
+        } catch (error) {
+            console.error('❌ Ошибка сохранения аватара:', error);
+            alert('❌ Не удалось сохранить фото. Возможно, файл слишком большой.');
+            event.target.value = '';
+            return;
+        }
+        
+        // Обновляем отображение
+        const avatarImg = document.getElementById('avatar-image');
+        const avatarIcon = document.getElementById('avatar-icon');
+        const avatarContainer = document.getElementById('profile-avatar');
+        
+        if (avatarImg && avatarIcon) {
+            avatarImg.src = imageData;
+            avatarImg.style.display = 'block';
+            avatarIcon.style.display = 'none';
+            avatarContainer.style.background = 'none';
+            avatarContainer.style.borderColor = 'var(--ios-success)';
+            
+            // Обновляем кнопку
+            const uploadBtn = document.getElementById('avatar-upload-btn');
+            if (uploadBtn) {
+                uploadBtn.style.background = 'var(--ios-success)';
+            }
+        }
+        
+        // Если есть Firebase - сохраняем туда
+        if (currentUser && typeof db !== 'undefined') {
+            saveAvatarToFirebase(imageData);
+        }
+        
+        // Показываем уведомление
+        showToast('✅ Фото профиля обновлено!');
+        
+        // Очищаем input
+        event.target.value = '';
+    };
+    
+    reader.onerror = function() {
+        alert('❌ Ошибка чтения файла. Попробуйте ещё раз.');
+        event.target.value = '';
+    };
+    
+    reader.readAsDataURL(file);
+}
+
+// Сохранение аватара в Firebase
+async function saveAvatarToFirebase(imageData) {
+    if (!currentUser) return;
+    
+    try {
+        // Сохраняем в Firestore (в поле avatar)
+        await db.collection('users')
+            .doc(currentUser.uid)
+            .set({
+                avatar: imageData,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        
+        console.log('✅ Аватар сохранён в Firebase');
+    } catch (error) {
+        console.error('❌ Ошибка сохранения аватара в Firebase:', error);
+    }
+}
+
+// Загрузка аватара из Firebase
+async function loadAvatarFromFirebase() {
+    if (!currentUser || typeof db === 'undefined') return;
+    
+    try {
+        const doc = await db.collection('users')
+            .doc(currentUser.uid)
+            .get();
+        
+        if (doc.exists && doc.data().avatar) {
+            const avatarData = doc.data().avatar;
+            
+            // Сохраняем в localStorage
+            localStorage.setItem(AVATAR_STORAGE_KEY, avatarData);
+            
+            // Обновляем отображение
+            const avatarImg = document.getElementById('avatar-image');
+            const avatarIcon = document.getElementById('avatar-icon');
+            const avatarContainer = document.getElementById('profile-avatar');
+            
+            if (avatarImg && avatarIcon) {
+                avatarImg.src = avatarData;
+                avatarImg.style.display = 'block';
+                avatarIcon.style.display = 'none';
+                avatarContainer.style.background = 'none';
+                avatarContainer.style.borderColor = 'var(--ios-success)';
+                
+                const uploadBtn = document.getElementById('avatar-upload-btn');
+                if (uploadBtn) {
+                    uploadBtn.style.background = 'var(--ios-success)';
+                }
+            }
+            
+            console.log('✅ Аватар загружен из Firebase');
+        }
+    } catch (error) {
+        console.error('❌ Ошибка загрузки аватара из Firebase:', error);
+    }
+}
+
+// Удаление аватара (контекстное меню или долгое нажатие)
+function removeAvatar() {
+    if (!confirm('Удалить фото профиля?')) return;
+    
+    // Удаляем из localStorage
+    localStorage.removeItem(AVATAR_STORAGE_KEY);
+    
+    // Удаляем из Firebase
+    if (currentUser && typeof db !== 'undefined') {
+        db.collection('users')
+            .doc(currentUser.uid)
+            .update({
+                avatar: firebase.firestore.FieldValue.delete()
+            })
+            .then(() => console.log('✅ Аватар удалён из Firebase'))
+            .catch(err => console.error('❌ Ошибка удаления:', err));
+    }
+    
+    // Обновляем отображение
+    const avatarImg = document.getElementById('avatar-image');
+    const avatarIcon = document.getElementById('avatar-icon');
+    const avatarContainer = document.getElementById('profile-avatar');
+    
+    if (avatarImg && avatarIcon) {
+        avatarImg.src = '';
+        avatarImg.style.display = 'none';
+        avatarIcon.style.display = 'block';
+        avatarContainer.style.background = 'var(--ios-accent-light)';
+        avatarContainer.style.borderColor = 'var(--ios-accent)';
+        
+        const uploadBtn = document.getElementById('avatar-upload-btn');
+        if (uploadBtn) {
+            uploadBtn.style.background = 'var(--ios-accent)';
+        }
+    }
+    
+    showToast('🗑️ Фото профиля удалено');
+}
+
+// Добавляем обработчик долгого нажатия для удаления фото
+document.addEventListener('DOMContentLoaded', function() {
+    const avatarContainer = document.getElementById('profile-avatar-container');
+    if (avatarContainer) {
+        let pressTimer = null;
+        
+        avatarContainer.addEventListener('mousedown', function(e) {
+            pressTimer = setTimeout(function() {
+                removeAvatar();
+            }, 1000);
+        });
+        
+        avatarContainer.addEventListener('mouseup', function() {
+            clearTimeout(pressTimer);
+        });
+        
+        avatarContainer.addEventListener('mouseleave', function() {
+            clearTimeout(pressTimer);
+        });
+        
+        // Для мобильных устройств
+        avatarContainer.addEventListener('touchstart', function(e) {
+            pressTimer = setTimeout(function() {
+                removeAvatar();
+            }, 1000);
+        });
+        
+        avatarContainer.addEventListener('touchend', function() {
+            clearTimeout(pressTimer);
+        });
+        
+        avatarContainer.addEventListener('touchmove', function() {
+            clearTimeout(pressTimer);
+        });
+    }
+});
+
+// Показываем уведомление (Toast)
+function showToast(message) {
+    // Проверяем, есть ли уже тост
+    let toast = document.getElementById('custom-toast');
+    if (toast) {
+        toast.remove();
+    }
+    
+    toast = document.createElement('div');
+    toast.id = 'custom-toast';
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 120px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 14px;
+        font-size: 15px;
+        font-weight: 600;
+        z-index: 99999;
+        opacity: 0;
+        transition: all 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        max-width: 90%;
+        text-align: center;
+        pointer-events: none;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    // Показываем
+    setTimeout(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateX(-50%) translateY(0)';
+    }, 10);
+    
+    // Скрываем через 2.5 секунды
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(-50%) translateY(20px)';
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, 400);
+    }, 2500);
+}
+
+// Переопределяем updateHomeTab для загрузки аватара
+const originalUpdateHomeTab = window.updateHomeTab;
+if (typeof originalUpdateHomeTab === 'function') {
+    window.updateHomeTab = function() {
+        originalUpdateHomeTab();
+        loadProfileAvatar();
+    };
+}
+
+// Загружаем аватар из Firebase при входе
+const originalLoadUserDataAvatar = window.loadUserData;
+if (typeof originalLoadUserDataAvatar === 'function') {
+    window.loadUserData = async function() {
+        await originalLoadUserDataAvatar();
+        await loadAvatarFromFirebase();
+        loadProfileAvatar();
+    };
+}
+
+console.log('✅ Функция загрузки фото профиля загружена');
+
+// ============================================
+// ПЛАВАЮЩАЯ КНОПКА "+" ДЛЯ ДОБАВЛЕНИЯ
+// ============================================
+
+// Функция открытия вкладки "Ввод"
+function openEntryTab() {
+    // Переключаемся на вкладку "Ввод"
+    switchTab('entry');
+    
+    // Устанавливаем сегодняшнюю дату
+    const dateInput = document.getElementById('date');
+    if (dateInput) {
+        dateInput.valueAsDate = new Date();
+        // Обновляем день недели
+        if (typeof onDateChange === 'function') {
+            onDateChange();
+        }
+    }
+    
+    // Прокручиваем к форме
+    setTimeout(() => {
+        const form = document.getElementById('daily-form');
+        if (form) {
+            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 300);
+    
+    // Анимируем кнопку
+    const fab = document.getElementById('fab-add');
+    if (fab) {
+        fab.style.transform = 'scale(0.8) rotate(45deg)';
+        setTimeout(() => {
+            fab.style.transform = 'scale(1) rotate(0deg)';
+        }, 300);
+    }
+}
+
+// Показываем/скрываем подсказку при наведении
+document.addEventListener('DOMContentLoaded', function() {
+    const fab = document.getElementById('fab-add');
+    const tooltip = document.getElementById('fab-tooltip');
+    
+    if (fab && tooltip) {
+        fab.addEventListener('mouseenter', function() {
+            tooltip.style.opacity = '1';
+            tooltip.style.transform = 'translateX(0) scale(1)';
+        });
+        
+        fab.addEventListener('mouseleave', function() {
+            tooltip.style.opacity = '0';
+            tooltip.style.transform = 'translateX(10px) scale(0.9)';
+        });
+        
+        // Для мобильных - показываем подсказку при первом касании
+        let tooltipShown = false;
+        fab.addEventListener('touchstart', function() {
+            if (!tooltipShown) {
+                tooltip.style.opacity = '1';
+                tooltip.style.transform = 'translateX(0) scale(1)';
+                tooltipShown = true;
+                setTimeout(() => {
+                    tooltip.style.opacity = '0';
+                    tooltip.style.transform = 'translateX(10px) scale(0.9)';
+                }, 2000);
+            }
+        });
+    }
+});
+
+// Убираем пульсацию после первого использования
+let fabPulseRemoved = false;
+
+function removeFabPulse() {
+    if (fabPulseRemoved) return;
+    const fab = document.getElementById('fab-add');
+    if (fab) {
+        fab.classList.remove('pulse');
+        fabPulseRemoved = true;
+    }
+}
+
+// Добавляем обработчик клика для удаления пульсации
+document.addEventListener('click', function(e) {
+    const fab = document.getElementById('fab-add');
+    if (fab && fab.contains(e.target)) {
+        removeFabPulse();
+    }
+});
+
+// Убираем пульсацию через 10 секунд (если пользователь не нажал)
+setTimeout(removeFabPulse, 10000);
+
+// Быстрый доступ через клавишу "N" (New)
+document.addEventListener('keydown', function(e) {
+    // Ctrl+N или Cmd+N для открытия ввода
+    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+        e.preventDefault();
+        openEntryTab();
+    }
+    
+    // Escape для закрытия, если нужно
+    if (e.key === 'Escape' && document.getElementById('tab-entry')?.classList.contains('active')) {
+        switchTab('home');
+    }
+});
+
+// ============================================
+// УПРАВЛЕНИЕ ЦЕЛЯМИ С СИНХРОНИЗАЦИЕЙ FIREBASE
+// ============================================
+
+// Ключ для хранения целей в localStorage
+const GOALS_STORAGE_KEY = 'driverGoals';
+
+// Получение целей (сначала из localStorage, потом из Firebase)
+async function getGoals() {
+    // Сначала проверяем localStorage
+    let goals = null;
+    try {
+        const saved = localStorage.getItem(GOALS_STORAGE_KEY);
+        if (saved) {
+            goals = JSON.parse(saved);
+            console.log('📊 Цели из localStorage:', goals);
+        }
+    } catch (e) {
+        console.warn('⚠️ Ошибка чтения целей из localStorage:', e);
+    }
+    
+    // Если в localStorage нет, пробуем загрузить из Firebase
+    if (!goals && currentUser && typeof db !== 'undefined') {
+        try {
+            const doc = await db.collection('users')
+                .doc(currentUser.uid)
+                .get();
+            
+            if (doc.exists && doc.data().goals) {
+                goals = doc.data().goals;
+                // Сохраняем в localStorage для кэша
+                localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(goals));
+                console.log('✅ Цели загружены из Firebase:', goals);
+                return goals;
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки целей из Firebase:', error);
+        }
+    }
+    
+    // Если ничего нет, создаем дефолтные
+    if (!goals) {
+        goals = { income: 100000, orders: 500, hours: 200 };
+        localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(goals));
+        console.log('📊 Созданы дефолтные цели:', goals);
+        
+        // Сохраняем в Firebase
+        if (currentUser && typeof db !== 'undefined') {
+            await saveGoalsToFirebase(goals);
+        }
+    }
+    
+    return goals;
+}
+
+// Сохранение целей в Firebase
+async function saveGoalsToFirebase(goals) {
+    if (!currentUser || typeof db === 'undefined') {
+        console.log('⚠️ Firebase не доступен, цели сохранены только локально');
+        return false;
+    }
+    
+    try {
+        await db.collection('users')
+            .doc(currentUser.uid)
+            .set({
+                goals: goals,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        console.log('✅ Цели сохранены в Firebase');
+        return true;
+    } catch (error) {
+        console.error('❌ Ошибка сохранения целей в Firebase:', error);
+        return false;
+    }
+}
+
+// Показать диалог настройки целей
+async function showGoalSettings() {
+    console.log('⚙️ Открытие настроек целей');
+    
+    // Проверяем авторизацию
+    if (!currentUser) {
+        alert('❌ Пожалуйста, войдите в аккаунт для настройки целей');
+        return;
+    }
+    
+    // Загружаем текущие цели
+    const goals = await getGoals();
+    if (!goals) {
+        alert('❌ Ошибка загрузки целей');
+        return;
+    }
+    
+    console.log('📊 Текущие цели:', goals);
+    
+    // Запрашиваем новые значения
+    const incomeInput = prompt('💰 Цель по доходу за месяц (₽):', goals.income);
+    if (incomeInput === null) {
+        console.log('❌ Пользователь отменил ввод');
+        return;
+    }
+    
+    const income = parseFloat(incomeInput);
+    if (isNaN(income) || income <= 0) {
+        alert('❌ Введите корректное число для дохода (больше 0)');
+        return;
+    }
+    
+    const ordersInput = prompt('📦 Цель по заказам за месяц:', goals.orders);
+    if (ordersInput === null) {
+        console.log('❌ Пользователь отменил ввод');
+        return;
+    }
+    
+    const orders = parseInt(ordersInput);
+    if (isNaN(orders) || orders <= 0) {
+        alert('❌ Введите корректное число для заказов (больше 0)');
+        return;
+    }
+    
+    const hoursInput = prompt('⏱ Цель по часам за месяц:', goals.hours);
+    if (hoursInput === null) {
+        console.log('❌ Пользователь отменил ввод');
+        return;
+    }
+    
+    const hours = parseFloat(hoursInput);
+    if (isNaN(hours) || hours <= 0) {
+        alert('❌ Введите корректное число для часов (больше 0)');
+        return;
+    }
+    
+    // Обновляем цели
+    const newGoals = { income, orders, hours };
+    
+    // Сохраняем в localStorage
+    try {
+        localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(newGoals));
+        console.log('✅ Цели сохранены в localStorage:', newGoals);
+    } catch (e) {
+        console.error('❌ Ошибка сохранения в localStorage:', e);
+        alert('❌ Ошибка сохранения целей');
+        return;
+    }
+    
+    // Сохраняем в Firebase
+    const saved = await saveGoalsToFirebase(newGoals);
+    
+    // Обновляем отображение
+    await updateGoals();
+    
+    if (saved) {
+        showToast('✅ Цели обновлены и сохранены в облаке!');
+    } else {
+        showToast('⚠️ Цели сохранены локально (ошибка синхронизации)');
+    }
+}
+
+// Обновление отображения целей
+async function updateGoals() {
+    console.log('🎯 Обновление отображения целей');
+    
+    // Проверяем наличие элементов
+    const elements = {
+        incomeCurrent: document.getElementById('goal-income-current'),
+        incomeTarget: document.getElementById('goal-income-target'),
+        incomeBar: document.getElementById('goal-income-bar'),
+        ordersCurrent: document.getElementById('goal-orders-current'),
+        ordersTarget: document.getElementById('goal-orders-target'),
+        ordersBar: document.getElementById('goal-orders-bar'),
+        hoursCurrent: document.getElementById('goal-hours-current'),
+        hoursTarget: document.getElementById('goal-hours-target'),
+        hoursBar: document.getElementById('goal-hours-bar')
+    };
+    
+    // Проверяем, что все элементы существуют
+    for (const [key, el] of Object.entries(elements)) {
+        if (!el) {
+            console.warn(`⚠️ Элемент ${key} не найден в DOM`);
+            return;
+        }
+    }
+    
+    // Загружаем цели
+    const goals = await getGoals();
+    if (!goals) {
+        console.error('❌ Не удалось загрузить цели');
+        return;
+    }
+    
+    console.log('📊 Загружены цели:', goals);
+    
+    // Данные за текущий месяц
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    const monthRecords = records.filter(r => {
+        if (!r.date) return false;
+        const d = new Date(r.date);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+    
+    const monthIncome = monthRecords.reduce((sum, r) => sum + (r.totalIncome || 0), 0);
+    const monthOrders = monthRecords.reduce((sum, r) => sum + (r.ordersDelivery || 0), 0);
+    const monthHours = monthRecords.reduce((sum, r) => sum + (r.hours || 0), 0);
+    
+    console.log('📊 Данные за месяц:', { monthIncome, monthOrders, monthHours });
+    
+    // Обновляем тексты
+    elements.incomeCurrent.textContent = Math.round(monthIncome);
+    elements.incomeTarget.textContent = goals.income;
+    elements.ordersCurrent.textContent = monthOrders;
+    elements.ordersTarget.textContent = goals.orders;
+    elements.hoursCurrent.textContent = monthHours.toFixed(1);
+    elements.hoursTarget.textContent = goals.hours;
+    
+    // Обновляем прогресс-бары
+    const incomePercent = goals.income > 0 ? Math.min((monthIncome / goals.income) * 100, 100) : 0;
+    const ordersPercent = goals.orders > 0 ? Math.min((monthOrders / goals.orders) * 100, 100) : 0;
+    const hoursPercent = goals.hours > 0 ? Math.min((monthHours / goals.hours) * 100, 100) : 0;
+    
+    elements.incomeBar.style.width = incomePercent + '%';
+    elements.ordersBar.style.width = ordersPercent + '%';
+    elements.hoursBar.style.width = hoursPercent + '%';
+    
+    console.log('📊 Прогресс:', { incomePercent, ordersPercent, hoursPercent });
+}
+
+// ============================================
+// ТРЕНДЫ
+// ============================================
+
+// Обновление трендов
+function updateTrends() {
+    console.log('📈 Обновление трендов');
+    
+    // Проверяем наличие всех элементов
+    const elements = {
+        income: document.getElementById('trend-income'),
+        orders: document.getElementById('trend-orders'),
+        hours: document.getElementById('trend-hours'),
+        efficiency: document.getElementById('trend-efficiency')
+    };
+    
+    // Проверяем, что все элементы существуют
+    for (const [key, el] of Object.entries(elements)) {
+        if (!el) {
+            console.warn(`⚠️ Элемент trend-${key} не найден в DOM`);
+            return;
+        }
+    }
+    
+    if (records.length === 0) {
+        elements.income.textContent = '0%';
+        elements.orders.textContent = '0%';
+        elements.hours.textContent = '0%';
+        elements.efficiency.textContent = '0%';
+        return;
+    }
+    
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    
+    const currentRecords = records.filter(r => {
+        const d = new Date(r.date);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+    
+    const prevRecords = records.filter(r => {
+        const d = new Date(r.date);
+        return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
+    });
+    
+    const calc = (arr) => {
+        const totalIncome = arr.reduce((sum, r) => sum + (r.totalIncome || 0), 0);
+        const totalOrders = arr.reduce((sum, r) => sum + (r.ordersDelivery || 0), 0);
+        const totalHours = arr.reduce((sum, r) => sum + (r.hours || 0), 0);
+        const totalProfit = arr.reduce((sum, r) => sum + (r.netProfit || 0), 0);
+        const efficiency = totalIncome > 0 ? (totalProfit / totalIncome) * 100 : 0;
+        return { income: totalIncome, orders: totalOrders, hours: totalHours, efficiency };
+    };
+    
+    const c = calc(currentRecords);
+    const p = calc(prevRecords);
+    
+    const calcTrend = (current, prev) => {
+        if (prev === 0) return current > 0 ? 100 : 0;
+        return ((current - prev) / prev) * 100;
+    };
+    
+    const formatTrend = (value) => {
+        const sign = value > 0 ? '+' : '';
+        return sign + value.toFixed(1) + '%';
+    };
+    
+    elements.income.textContent = formatTrend(calcTrend(c.income, p.income));
+    elements.orders.textContent = formatTrend(calcTrend(c.orders, p.orders));
+    elements.hours.textContent = formatTrend(calcTrend(c.hours, p.hours));
+    elements.efficiency.textContent = formatTrend(calcTrend(c.efficiency, p.efficiency));
+    
+    console.log('✅ Тренды обновлены');
+}
+
+// ============================================
+// ПОСЛЕДНИЕ ЗАПИСИ
+// ============================================
+
+// Обновление последних записей
+function updateRecentRecords() {
+    const container = document.getElementById('recent-records-list');
+    const countEl = document.getElementById('recent-count');
+    
+    if (!container) {
+        console.warn('⚠️ Контейнер recent-records-list не найден');
+        return;
+    }
+    
+    console.log('📋 Обновление последних записей, всего:', records.length);
+    
+    const sorted = [...records].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const recent = sorted.slice(0, 5);
+    
+    if (countEl) countEl.textContent = sorted.length;
+    
+    if (recent.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 30px; color: var(--ios-text-tertiary);">
+                <ion-icon name="document-text-outline" style="font-size: 48px; display: block; margin: 0 auto 12px;"></ion-icon>
+                Нет записей. Начните вести журнал!
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = recent.map((r, index) => `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; ${index < recent.length - 1 ? 'border-bottom: 1px solid var(--ios-border);' : ''}">
+            <div style="flex: 1; min-width: 0;">
+                <div style="font-weight: 600; font-size: 15px;">${formatDate(r.date)}</div>
+                <div style="font-size: 13px; color: var(--ios-text-tertiary);">
+                    ${r.weekday || ''} · 📦 ${r.ordersDelivery || 0} заказов · ⏱ ${r.hours || 0} ч
+                </div>
+            </div>
+            <div style="text-align: right; flex-shrink: 0; margin-left: 12px;">
+                <div style="font-weight: 700; font-size: 16px; color: ${r.netProfit >= 0 ? 'var(--ios-success)' : 'var(--ios-danger)'};">
+                    ${formatMoney(r.netProfit)}
+                </div>
+                <div style="font-size: 12px; color: var(--ios-text-tertiary);">
+                    доход ${formatMoney(r.totalIncome || 0)}
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    console.log('✅ Последние записи обновлены, показано:', recent.length);
+}
+
+// ============================================
+// ЛУЧШИЙ ДЕНЬ
+// ============================================
+
+// Обновление лучшего дня
+function updateBestDay() {
+    console.log('📊 Обновление лучшего дня, записей:', records.length);
+    
+    const incomeEl = document.getElementById('best-day-income');
+    const dateEl = document.getElementById('best-day-date');
+    const ordersEl = document.getElementById('best-day-orders');
+    const hoursEl = document.getElementById('best-day-hours');
+    const efficiencyEl = document.getElementById('best-day-efficiency');
+    
+    if (!incomeEl || !dateEl || !ordersEl || !hoursEl || !efficiencyEl) {
+        console.warn('⚠️ Элементы лучшего дня не найдены');
+        return;
+    }
+    
+    if (records.length === 0) {
+        incomeEl.textContent = '0 ₽';
+        dateEl.textContent = 'Нет данных';
+        ordersEl.textContent = '0';
+        hoursEl.textContent = '0';
+        efficiencyEl.textContent = '0%';
+        return;
+    }
+    
+    const bestDay = records.reduce((best, r) => {
+        if (!best || r.netProfit > best.netProfit) return r;
+        return best;
+    }, null);
+    
+    if (bestDay) {
+        incomeEl.textContent = formatMoney(bestDay.netProfit);
+        dateEl.textContent = formatDate(bestDay.date) + ' (' + (bestDay.weekday || '') + ')';
+        ordersEl.textContent = bestDay.ordersDelivery || 0;
+        hoursEl.textContent = bestDay.hours || 0;
+        const efficiency = bestDay.totalIncome > 0 ? ((bestDay.netProfit / bestDay.totalIncome) * 100) : 0;
+        efficiencyEl.textContent = efficiency.toFixed(1) + '%';
+        console.log('✅ Лучший день найден:', formatDate(bestDay.date), bestDay.netProfit);
+    }
+}
+
+// ============================================
+// TOAST УВЕДОМЛЕНИЕ
+// ============================================
+
+function showToast(message) {
+    let toast = document.getElementById('custom-toast');
+    if (toast) toast.remove();
+    
+    toast = document.createElement('div');
+    toast.id = 'custom-toast';
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 120px;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 14px;
+        font-size: 15px;
+        font-weight: 600;
+        z-index: 99999;
+        opacity: 0;
+        transition: all 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        max-width: 90%;
+        text-align: center;
+        pointer-events: none;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateX(-50%) translateY(0)';
+    }, 10);
+    
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(-50%) translateY(20px)';
+        setTimeout(() => {
+            if (toast.parentNode) toast.remove();
+        }, 400);
+    }, 2500);
+}
+
+// ============================================
+// ОБНОВЛЕННАЯ ФУНКЦИЯ HOME TAB
+// ============================================
+
+// Обновляем updateHomeTab для всех элементов
+const originalUpdateHomeTabFull = window.updateHomeTab;
+window.updateHomeTab = function() {
+    console.log('🔄 Обновление вкладки "Главная" (полное)');
+    
+    if (typeof originalUpdateHomeTabFull === 'function') {
+        originalUpdateHomeTabFull();
+    }
+    
+    // Обновляем все элементы
+    updateGoals();
+    updateBestDay();
+    updateTrends();
+    updateRecentRecords();
+    
+    console.log('✅ Вкладка "Главная" полностью обновлена');
+};
