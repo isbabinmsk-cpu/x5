@@ -11,6 +11,75 @@ let autoCalcState = {
     weight: true
 };
 
+// ===== ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ПАРСИНГА ДАТ БЕЗ СМЕЩЕНИЯ ЧАСОВОГО ПОЯСА =====
+function parseLocalDate(dateStr) {
+    if (!dateStr) return null;
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return new Date(dateStr);
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]) - 1; // Месяцы в JS 0-11
+    const day = parseInt(parts[2]);
+    return new Date(year, month, day);
+}
+
+// ===== УТИЛИТА: АВТОМАТИЧЕСКОЕ СЖАТИЕ ИЗОБРАЖЕНИЙ =====
+async function compressImage(file, maxSizeMB = 1) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                let canvas = document.createElement('canvas');
+                let ctx = canvas.getContext('2d');
+
+                // 1. Ограничиваем максимальные размеры (чтобы не сжимать гигантские фото до микроскопических)
+                let width = img.width;
+                let height = img.height;
+                const MAX_DIMENSION = 1200; // Максимум 1200px по длинной стороне (достаточно для аватара/чека)
+
+                if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+                    if (width > height) {
+                        height = Math.round(height * (MAX_DIMENSION / width));
+                        width = MAX_DIMENSION;
+                    } else {
+                        width = Math.round(width * (MAX_DIMENSION / height));
+                        height = MAX_DIMENSION;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // 2. Итеративное сжатие качества JPEG
+                let quality = 0.85; // Начинаем с 85% качества
+                let dataUrl = canvas.toDataURL('image/jpeg', quality);
+
+                // Длина base64 строки * 0.75 ≈ размер в байтах
+                while ((dataUrl.length * 0.75) > (maxSizeMB * 1024 * 1024) && quality > 0.1) {
+                    quality -= 0.1;
+                    dataUrl = canvas.toDataURL('image/jpeg', quality);
+                }
+
+                // 3. Если всё ещё слишком большое, уменьшаем размер холста в 2 раза
+                if ((dataUrl.length * 0.75) > (maxSizeMB * 1024 * 1024)) {
+                    canvas.width = Math.round(width / 2);
+                    canvas.height = Math.round(height / 2);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                }
+
+                console.log(`✅ Изображение сжато: ${(file.size / 1024 / 1024).toFixed(2)} МБ -> ${(dataUrl.length * 0.75 / 1024 / 1024).toFixed(2)} МБ`);
+                resolve(dataUrl);
+            };
+            img.onerror = reject;
+        };
+        reader.onerror = reject;
+    });
+}
+
 // ===== АУТЕНТИФИКАЦИЯ =====
 function switchAuthTab(tab) {
     const loginForm = document.getElementById('login-form');
@@ -160,46 +229,55 @@ auth.onAuthStateChanged(async (user) => {
     const statusWrapper = document.getElementById('connection-status-wrapper');
     
     if (user) {
-        // ===== ПОЛЬЗОВАТЕЛЬ ВОШЕЛ =====
-        currentUser = user;
-        localStorage.setItem('driverAuthState', 'true');
-        document.body.classList.add('authenticated');
-        
-        // Показываем интерфейс
-        if (authScreen) {
-            authScreen.classList.add('hidden');
-            authScreen.style.display = 'none';
-        }
-        if (container) container.style.display = 'block';
-        if (bottomNav) bottomNav.style.display = 'flex';
-        if (logoutBtn) logoutBtn.style.display = 'inline-flex';
-        
-        // Показываем индикатор статуса
-        if (statusWrapper) {
-            statusWrapper.style.display = 'flex';
-        }
-        
-        console.log('✅ Пользователь вошел:', user.email);
-        
-        // Обновляем индикатор статуса
-        connectionMode = 'checking';
-        firebaseErrorReason = '';
+    // ===== ПОЛЬЗОВАТЕЛЬ ВОШЕЛ =====
+    currentUser = user;
+    localStorage.setItem('driverAuthState', 'true');
+    document.body.classList.add('authenticated');
+
+    // Показываем интерфейс
+    if (authScreen) { authScreen.classList.add('hidden'); authScreen.style.display = 'none'; }
+    if (container) container.style.display = 'block';
+    if (bottomNav) bottomNav.style.display = 'flex';
+    if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+    if (statusWrapper) statusWrapper.style.display = 'flex';
+
+    // ⭐⭐⭐ НОВОЕ: МГНОВЕННО показываем имя и email (не ждём Firebase!)
+    const nameEl = document.getElementById('profile-name');
+    const emailEl = document.getElementById('profile-email');
+    const syncEl = document.getElementById('profile-sync-status');
+    
+    const userName = user.displayName || (user.email ? user.email.split('@')[0] : 'Водитель');
+    if (nameEl) nameEl.textContent = userName;
+    if (emailEl) emailEl.textContent = user.email || '';
+    if (syncEl) {
+        syncEl.innerHTML = '<ion-icon name="sync-outline" style="font-size: 16px;"></ion-icon> Загрузка данных...';
+        syncEl.style.color = 'var(--ios-warning)';
+    }
+    
+    // ⭐⭐⭐ НОВОЕ: Мгновенно показываем вкладку "Главная" с skeleton-данными
+    const homeTab = document.getElementById('tab-home');
+    if (homeTab && homeTab.classList.contains('active')) {
+        loadProfileAvatar(); // Показываем аватар из localStorage (если есть)
+    }
+
+    console.log('✅ Пользователь вошел:', user.email);
+
+    // Обновляем индикатор статуса
+    connectionMode = 'checking';
+    firebaseErrorReason = '';
+    updateConnectionIndicator();
+
+    // ⭐⭐⭐ ТЕПЕРЬ грузим данные (имя уже показано!)
+    try {
+        await loadUserData();
+        setTimeout(() => checkFirebaseConnection(), 1000);
+    } catch (error) {
+        console.error('❌ Ошибка загрузки данных:', error);
+        connectionMode = 'local';
+        firebaseErrorReason = 'Ошибка загрузки данных: ' + error.message;
         updateConnectionIndicator();
-        
-        try {
-            await loadUserData();
-            
-            // После загрузки данных проверяем подключение к Firebase
-            setTimeout(function() {
-                checkFirebaseConnection();
-            }, 1000);
-            
-        } catch (error) {
-            console.error('❌ Ошибка загрузки данных:', error);
-            connectionMode = 'local';
-            firebaseErrorReason = 'Ошибка загрузки данных: ' + error.message;
-            updateConnectionIndicator();
-        }
+    }
+
         
     } else {
         // ===== ПОЛЬЗОВАТЕЛЬ ВЫШЕЛ =====
@@ -270,133 +348,102 @@ function getAuthErrorMessage(errorCode) {
 // Загрузка данных пользователя из Firebase
 async function loadUserData() {
     if (!currentUser) return;
-    
-    // Показываем интерфейс
+
     const mainContainer = document.querySelector('.container');
     const bottomNav = document.querySelector('.bottom-nav');
     const authScreen = document.getElementById('auth-screen');
     const statusWrapper = document.getElementById('connection-status-wrapper');
-    
     if (authScreen) authScreen.classList.add('hidden');
     if (mainContainer) mainContainer.style.display = 'block';
     if (bottomNav) bottomNav.style.display = 'flex';
     if (statusWrapper) statusWrapper.style.display = 'flex';
-    
+
     try {
-        console.log('🔄 Загрузка данных пользователя...');
-        
-        // ===== 1. ЗАГРУЗКА ЗАПИСЕЙ =====
-        const recordsSnapshot = await db.collection('users')
-            .doc(currentUser.uid)
-            .collection('records')
-            .orderBy('date', 'desc')
-            .get();
-        
-        records = recordsSnapshot.docs.map(doc => {
-            return normalizeRecord({ id: doc.id, ...doc.data() });
-        });
-        
+        console.log('🔄 Параллельная загрузка данных пользователя...');
+
+        // ⭐⭐⭐ ГЛАВНОЕ ИЗМЕНЕНИЕ: Все запросы идут ОДНОВРЕМЕННО
+        const [recordsSnap, tariffsSnap, userDoc] = await Promise.all([
+            db.collection('users').doc(currentUser.uid).collection('records').orderBy('date', 'desc').get(),
+            db.collection('users').doc(currentUser.uid).collection('tariffs').orderBy('date', 'desc').get(),
+            db.collection('users').doc(currentUser.uid).get()
+        ]);
+
+        // Обрабатываем записи
+        records = recordsSnap.docs.map(doc => normalizeRecord({ id: doc.id, ...doc.data() }));
         console.log('✅ Загружено записей:', records.length);
-        
-        // ===== 2. ЗАГРУЗКА ТАРИФОВ =====
-        const tariffsSnapshot = await db.collection('users')
-            .doc(currentUser.uid)
-            .collection('tariffs')
-            .orderBy('date', 'desc')
-            .get();
-        
-        tariffs = tariffsSnapshot.docs.map(doc => {
-            return normalizeTariff({ id: doc.id, ...doc.data() });
-        });
-        
+
+        // Обрабатываем тарифы
+        tariffs = tariffsSnap.docs.map(doc => normalizeTariff({ id: doc.id, ...doc.data() }));
         console.log('✅ Загружено тарифов:', tariffs.length);
-        
-        // Если нет тарифов - создаем стандартный
+
+        // Если нет тарифов — создаём стандартный
         if (tariffs.length === 0) {
             const defaultTariff = {
                 date: new Date().toISOString().split('T')[0],
-                pickup: 60,
-                delivery: 81,
-                km: 11,
-                weight: 2
+                pickup: 60, delivery: 81, km: 11, weight: 2
             };
-            const docRef = await db.collection('users')
-                .doc(currentUser.uid)
-                .collection('tariffs')
-                .add(defaultTariff);
+            const docRef = await db.collection('users').doc(currentUser.uid)
+                .collection('tariffs').add(defaultTariff);
             tariffs.push(normalizeTariff({ id: docRef.id, ...defaultTariff }));
-            console.log('✅ Создан стандартный тариф');
         }
+
+        // ⭐⭐⭐ Обрабатываем аватар и цели ИЗ УЖЕ ЗАГРУЖЕННОГО userDoc (без доп. запроса!)
+        const userData = userDoc.exists ? userDoc.data() : {};
         
-        // ===== 3. ЗАГРУЗКА АВАТАРА =====
-        console.log('🔄 Загрузка аватара...');
-        await loadAvatarFromFirebase();
-        console.log('✅ Аватар загружен');
-        
-        // ===== 4. ЗАГРУЗКА ЦЕЛЕЙ =====
-        console.log('🔄 Загрузка целей из Firebase...');
-        await loadGoalsFromFirebase();
-        console.log('✅ Цели загружены');
-        
-        // ===== 5. СОХРАНЕНИЕ В LOCALSTORAGE =====
+        if (userData.avatar) {
+            try {
+                localStorage.setItem(AVATAR_STORAGE_KEY, userData.avatar);
+                loadProfileAvatar();
+                console.log('✅ Аватар загружен из кэша Firestore');
+            } catch (e) {
+                console.warn('⚠️ Аватар слишком большой для localStorage');
+            }
+        }
+
+        // Цели — тоже из userDoc, без отдельного запроса
+        if (userData.goals && typeof userData.goals === 'object') {
+            localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(userData.goals));
+            console.log('✅ Цели загружены из кэша Firestore');
+        } else {
+            const defaultGoals = { income: 100000, orders: 500, hours: 200 };
+            localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(defaultGoals));
+            await saveGoalsToFirebase(defaultGoals);
+        }
+
+        // Сохраняем в localStorage
         saveData();
-        console.log('✅ Данные сохранены в localStorage');
-        
-        // ===== 6. ОБНОВЛЕНИЕ ИНТЕРФЕЙСА =====
-        console.log('🔄 Обновление интерфейса...');
-        
-        // Обновляем таблицу
+
+        // ⭐⭐⭐ Обновляем интерфейс параллельно (не ждём друг друга)
         renderTable();
-        console.log('✅ Таблица обновлена');
-        
-        // Обновляем тарифы
         renderTariffs();
-        console.log('✅ Тарифы обновлены');
-        
-        // Обновляем фильтры
         populateFilters();
-        console.log('✅ Фильтры обновлены');
-        
-        // Обновляем аналитику
         updateAnalytics();
-        console.log('✅ Аналитика обновлена');
         
-        // Обновляем цели
-        await updateGoals();
-        console.log('✅ Цели обновлены');
-        
-        // Обновляем главную страницу
+        // Цели и главная — асинхронно, не блокируя
+        updateGoals();
         updateHomeTab();
-        console.log('✅ Главная страница обновлена');
-        
-        // Обновляем статус синхронизации
+
+        // Статус
         connectionMode = 'firebase';
         firebaseErrorReason = '';
         updateConnectionIndicator();
-        
         console.log('✅ Все данные успешно загружены!');
-        
+
     } catch (error) {
         console.error('❌ Ошибка загрузки данных:', error);
-        
-        // Пробуем загрузить из localStorage
-        console.log('🔄 Пытаемся загрузить данные из localStorage...');
+        console.log('🔄 Загружаем из localStorage...');
         await loadData();
-        
-        // Обновляем статус
         connectionMode = 'local';
         firebaseErrorReason = error.message || 'Ошибка загрузки данных';
         updateConnectionIndicator();
         
-        // Обновляем интерфейс из локальных данных
         renderTable();
         renderTariffs();
         populateFilters();
         updateAnalytics();
-        await updateGoals();
+        updateGoals();
         updateHomeTab();
-        
-        alert('⚠️ Ошибка загрузки данных: ' + error.message + '\nДанные загружены из локального кэша.');
+        alert('⚠️ Ошибка загрузки: ' + error.message + '\nДанные взяты из локального кэша.');
     }
 }
 
@@ -788,7 +835,8 @@ function getUniqueMonths() {
     const monthsMap = new Map();
     records.forEach(r => {
         if (!r.date) return;
-        const d = new Date(r.date);
+        const d = parseLocalDate(r.date);
+        if (!d) return; // Защита от некорректных дат
         const monthKey = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
         const monthLabel = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][d.getMonth()] + ' ' + d.getFullYear();
         if (!monthsMap.has(monthKey)) monthsMap.set(monthKey, { value: monthKey, label: monthLabel });
@@ -909,154 +957,14 @@ function getRecordRowHTML(r) {
     `;
 }
 
-function renderTable() {
-    const tbody = document.getElementById('records-body');
-    
-    // ✅ ПРОВЕРКА: существует ли tbody
-    if (!tbody) {
-        console.error(' Элемент <tbody id="records-body"> не найден в HTML');
-        return; // Выходим из функции, чтобы избежать ошибки
-    }
-    
-    tbody.innerHTML = '';
-    
-    // ... остальной код функции
 
-    let filteredRecords = [...records];
-    filteredRecords = applyFilters(filteredRecords);
-
-    const hasActiveFilters = Object.keys(filterState).some(key => {
-        const filter = filterState[key];
-        if (filter.type === 'checkbox' || filter.type === 'month') return filter.values && filter.values.length > 0;
-        else if (filter.type === 'range') return filter.min !== '' || filter.max !== '';
-        return false;
-    });
-
-    const hasActiveSorting = sortState.column !== null && sortState.direction !== null;
-    const shouldHideWeeklySummary = hasActiveFilters || hasActiveSorting;
-
-    if (sortState.column && sortState.direction) {
-        filteredRecords = applySorting(filteredRecords);
-    } else {
-        filteredRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
-    }
-
-    if (!shouldHideWeeklySummary) {
-        renderTableWithWeeklySummary(tbody, filteredRecords);
-    } else {
-        filteredRecords.forEach(r => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = getRecordRowHTML(r);
-            tbody.appendChild(tr);
-        });
-    }
-
-    let infoEl = document.getElementById('filter-info');
-    if (!infoEl) {
-        infoEl = document.createElement('div');
-        infoEl.id = 'filter-info';
-        infoEl.style.cssText = 'padding:15px;background:#dbeafe;border-radius:8px;margin:10px 0;text-align:center;color:#1e40af;font-weight:600;';
-        tbody.parentElement.appendChild(infoEl);
-    }
-
-    const count = filteredRecords.length;
-    const total = records.length;
-    if (count < total || count === 0) {
-        infoEl.style.display = 'block';
-        infoEl.textContent = `Показано ${count} из ${total} записей`;
-    } else {
-        infoEl.style.display = 'none';
-    }
-}
 
 // ===== РЕНДЕР ТАБЛИЦЫ С ПОНЕДЕЛЬНЫМИ ИТОГАМИ =====
-function renderTableWithWeeklySummary(tbody, records) {
-    const weeksMap = new Map();
-    records.forEach(r => {
-        if (!r.date) return;
-        const weekKey = getISOWeek(r.date);
-        if (!weeksMap.has(weekKey)) weeksMap.set(weekKey, []);
-        weeksMap.get(weekKey).push(r);
-    });
-
-    const sortedWeeks = Array.from(weeksMap.keys()).sort((a, b) => b.localeCompare(a));
-
-    sortedWeeks.forEach(weekKey => {
-        const weekRecords = weeksMap.get(weekKey);
-        const weekRange = getWeekDateRange(weekKey);
-
-        const summary = weekRecords.reduce((acc, r) => {
-            acc.hours += r.hours || 0;
-            acc.ordersPickup += r.ordersPickup || 0;
-            acc.payPickup += r.payPickup || 0;
-            acc.ordersDelivery += r.ordersDelivery || 0;
-            acc.payDelivery += r.payDelivery || 0;
-            acc.distance += r.distance || 0;
-            acc.payDistance += r.payDistance || 0;
-            acc.weight += r.weight || 0;
-            acc.payWeight += r.payWeight || 0;
-            acc.loadPay += r.loadPay || 0;
-            acc.bonusPay += r.bonusPay || 0;
-            acc.rating += r.rating || 0;
-            acc.tips += r.tips || 0;
-            acc.fuelCost += r.fuelCost || 0;
-            acc.repairCost += r.repairCost || 0;
-            acc.tax += r.tax || 0;
-            acc.totalIncome += r.totalIncome || 0;
-            acc.totalExpenses += r.totalExpenses || 0;
-            acc.netProfit += r.netProfit || 0;
-            if (r.recordType === 'work') acc.workingDays += 1;
-            return acc;
-        }, { hours: 0, ordersPickup: 0, payPickup: 0, ordersDelivery: 0, payDelivery: 0, distance: 0, payDistance: 0, weight: 0, payWeight: 0, loadPay: 0, bonusPay: 0, rating: 0, tips: 0, fuelCost: 0, repairCost: 0, tax: 0, totalIncome: 0, totalExpenses: 0, netProfit: 0, workingDays: 0 });
-
-        // Заголовок недели
-        const headerRow = document.createElement('tr');
-        headerRow.className = 'week-summary-header';
-        headerRow.innerHTML = `<td colspan="23"><ion-icon name="calendar-outline" class="week-header-icon"></ion-icon> Неделя ${weekKey.split('-W')[1]} (${weekRange.label}) — ${summary.workingDays} ${summary.workingDays === 1 ? 'день' : (summary.workingDays >= 2 && summary.workingDays <= 4 ? 'дня' : 'дней')}</td>`;
-        tbody.appendChild(headerRow);
-
-        // Записи недели
-        weekRecords.forEach(r => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = getRecordRowHTML(r);
-            tbody.appendChild(tr);
-        });
-
-        // Итоговая строка недели (ровно 23 ячейки: 3 объединенные + 19 числовых + 1 пустая)
-        const summaryRow = document.createElement('tr');
-        summaryRow.className = 'week-summary-row';
-        summaryRow.innerHTML = `
-            <td colspan="3"><strong><ion-icon name="bar-chart-outline" class="week-summary-icon"></ion-icon> ИТОГО:</strong></td>
-            <td><strong>${summary.hours.toFixed(1)}</strong></td>
-            <td><strong>${summary.ordersPickup}</strong></td>
-            <td><strong>${formatMoney(summary.payPickup)}</strong></td>
-            <td><strong>${summary.ordersDelivery}</strong></td>
-            <td><strong>${formatMoney(summary.payDelivery)}</strong></td>
-            <td><strong>${summary.distance.toFixed(1)}</strong></td>
-            <td><strong>${formatMoney(summary.payDistance)}</strong></td>
-            <td><strong>${summary.weight.toFixed(1)}</strong></td>
-            <td><strong>${formatMoney(summary.payWeight)}</strong></td>
-            <td><strong>${formatMoney(summary.loadPay)}</strong></td>
-            <td><strong>${formatMoney(summary.bonusPay)}</strong></td>
-            <td><strong>${formatMoney(summary.rating)}</strong></td>
-            <td><strong>${formatMoney(summary.tips)}</strong></td>
-            <td><strong>${formatMoney(summary.fuelCost)}</strong></td>
-            <td><strong>${formatMoney(summary.repairCost)}</strong></td>
-            <td><strong>${formatMoney(summary.tax)}</strong></td>
-            <td><strong>${formatMoney(summary.totalIncome)}</strong></td>
-            <td><strong>${formatMoney(summary.totalExpenses)}</strong></td>
-            <td style="color:${summary.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold"><strong>${formatMoney(summary.netProfit)}</strong></td>
-            <td></td>
-        `;
-        tbody.appendChild(summaryRow);
-    });
-}
-
-
 
 
 // ===== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК =====
 // Обновленная функция переключения вкладок
+// ===== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК (ЕДИНАЯ ФУНКЦИЯ) =====
 function switchTab(tabName) {
     // Скрываем все вкладки
     document.querySelectorAll('.tab-content').forEach(tab => {
@@ -1074,37 +982,53 @@ function switchTab(tabName) {
         targetTab.classList.add('active');
     }
     
-    // Активируем кнопку в навигации (если есть)
+    // Активируем кнопку в навигации
     const activeBtn = document.querySelector('.nav-item[data-tab="' + tabName + '"]');
     if (activeBtn) {
         activeBtn.classList.add('active');
     }
     
-    // Обновляем аналитику, если нужно
-    if (tabName === 'analytics') {
-        updateAnalytics();
-        initComparisonSelectors();
-        updateComparison();
-    }
-    
-    // Обновляем историю
-    if (tabName === 'history') {
-        renderTable();
-    }
-    
-    // Обновляем тарифы
-    if (tabName === 'tariffs') {
-        renderTariffs();
-    }
-    
-    // Обновляем профиль
-    if (tabName === 'home') {
-        setTimeout(updateHomeTab, 100);
+    // Выполняем действия в зависимости от вкладки
+    switch (tabName) {
+        case 'analytics':
+            updateAnalytics();
+            initComparisonSelectors();
+            updateComparison();
+            break;
+        case 'history':
+            // Инициализация фильтров при первом открытии
+            if (!window._historyInitialized) {
+                initHistoryFilters();
+                window._historyInitialized = true;
+            }
+            renderTable();
+            break;
+        case 'tariffs':
+            renderTariffs();
+            break;
+        case 'home':
+            // Вызываем updateHomeTab с задержкой, чтобы DOM успел обновиться
+            setTimeout(function() {
+                updateHomeTab();
+            }, 50);
+            break;
+        case 'entry':
+            // Опциональные действия для вкладки ввода
+            break;
+        
+        case 'settings':
+            // Ничего не делаем, просто показываем
+            break;
+        default:
+            break;
     }
     
     // Сохраняем состояние
     saveState();
 }
+
+// Гарантируем, что функция доступна глобально
+window.switchTab = switchTab;
 
 // ===== СБРОС ДАННЫХ (только localStorage, Firebase не трогаем!) =====
 async function resetAllData() {
@@ -1152,56 +1076,7 @@ function normalizeTariff(t) {
     };
 }
 
-// ===== ИНИЦИАЛИЗАЦИЯ =====
-// ===== ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ =====
-document.addEventListener('DOMContentLoaded', async () => {
-    console.log('🚀 Инициализация приложения...');
-    
-    // 1. СНАЧАЛА загружаем локальный кэш (быстрый старт)
-    // Данные из Firebase загрузятся позже через loadUserData() после авторизации
-    await loadData();
-    
-    // 2. Исправляем все некорректные recordType в локальном кэше
-    let fixed = false;
-    records = records.map(r => {
-        if (!r.recordType || r.recordType === '' || r.recordType === 'undefined') {
-            fixed = true;
-            r.recordType = (r.bonusPay || r.bonusPeriod) ? 'bonus' : 'work';
-        }
-        return normalizeRecord(r);
-    });
-    
-    if (fixed) {
-        console.log('✅ Исправлены некорректные recordType в localStorage');
-        saveData();
-    }
-    
-    // 3. Инициализируем базовые обработчики форм
-    document.getElementById('date').addEventListener('change', onDateChange);
-    document.getElementById('daily-form').addEventListener('submit', saveRecord);
-    document.getElementById('tariff-form').addEventListener('submit', saveTariff);
-    document.getElementById('date').valueAsDate = new Date();
-    onDateChange();
-    
-    // 4. ВАЖНО: Скрываем основной интерфейс до авторизации
-    // onAuthStateChanged() сам покажет его после входа
-    const mainContainer = document.querySelector('.container');
-    const bottomNav = document.querySelector('.bottom-nav');
-    const authScreen = document.getElementById('auth-screen');
-    
-    if (mainContainer) mainContainer.style.display = 'none';
-    if (bottomNav) bottomNav.style.display = 'none';
-    if (authScreen) authScreen.classList.remove('hidden');
-    
-    // 5. Инициализируем валидацию форм
-    addFormValidation();
-    
-    // 6. НЕ рендерим таблицу и тарифы здесь!
-    // Они будут отрендерены в loadUserData() после успешной авторизации.
-    // Если рендерить сейчас — покажутся пустые/старые данные до входа.
-    
-    console.log('✅ Базовая инициализация завершена. Ожидание авторизации...');
-});
+
 
 // ===== ВАЛИДАЦИЯ ФОРМЫ =====
 function addFormValidation() {
@@ -1642,14 +1517,30 @@ function updateAnalytics() {
     const month = document.getElementById('filter-month').value;
     const year = document.getElementById('filter-year').value;
     let filtered = [...records];
-    if (month) filtered = filtered.filter(r => (new Date(r.date).getMonth()+1).toString().padStart(2,'0') === month);
-    if (year) filtered = filtered.filter(r => new Date(r.date).getFullYear().toString() === year);
+    
+    // Фильтрация по месяцу с использованием parseLocalDate
+    if (month) {
+        filtered = filtered.filter(r => {
+            const d = parseLocalDate(r.date);
+            return d && (d.getMonth() + 1).toString().padStart(2, '0') === month;
+        });
+    }
+    
+    // Фильтрация по году с использованием parseLocalDate
+    if (year) {
+        filtered = filtered.filter(r => {
+            const d = parseLocalDate(r.date);
+            return d && d.getFullYear().toString() === year;
+        });
+    }
+    
     const uniqueDates = new Set();
     filtered.forEach(r => {
         if (r.hours > 0 || r.recordType === 'work') {
             uniqueDates.add(r.date);
         }
     });
+    
     const s = {
         totalIncome: filtered.reduce((sum, r) => sum + (r.totalIncome || 0), 0),
         totalFuel: filtered.reduce((sum, r) => sum + (r.fuelCost || 0), 0),
@@ -1662,23 +1553,27 @@ function updateAnalytics() {
         totalDistance: filtered.reduce((sum, r) => sum + (r.distance || 0), 0),
         workingDays: uniqueDates.size
     };
+    
     const avgIncomePerDay = s.workingDays > 0 ? s.totalIncome / s.workingDays : 0;
     const avgNetProfitPerDay = s.workingDays > 0 ? s.netProfit / s.workingDays : 0;
     const avgPerHour = s.totalHours > 0 ? s.netProfit / s.totalHours : 0;
     const avgCheck = s.totalOrders > 0 ? s.totalIncome / s.totalOrders : 0;
     const ordersPerHour = s.totalHours > 0 ? s.totalOrders / s.totalHours : 0;
     const efficiencyPercent = s.totalIncome > 0 ? (s.netProfit / s.totalIncome) * 100 : 0;
+    
     const setEl = (id, value) => {
         const el = document.getElementById(id);
         if (el) el.textContent = value;
     };
+    
     setEl('total-income', formatMoney(s.totalIncome));
     setEl('avg-income-per-day', formatMoney(avgIncomePerDay));
     setEl('total-fuel', formatMoney(s.totalFuel));
     setEl('total-repair', formatMoney(s.totalRepair));
     setEl('total-tax', formatMoney(s.totalTax));
     setEl('total-expenses', formatMoney(s.totalExpenses));
-    setEl('net-profit', formatMoney(s.netProfit));    setEl('avg-net-profit-per-day', formatMoney(avgNetProfitPerDay));
+    setEl('net-profit', formatMoney(s.netProfit));
+    setEl('avg-net-profit-per-day', formatMoney(avgNetProfitPerDay));
     setEl('total-hours', s.totalHours.toFixed(0));
     setEl('total-orders', s.totalOrders);
     setEl('total-distance', s.totalDistance.toFixed(2));
@@ -1687,6 +1582,7 @@ function updateAnalytics() {
     setEl('avg-check', formatMoney(avgCheck));
     setEl('orders-per-hour', ordersPerHour.toFixed(2));
     setEl('efficiency-percent', efficiencyPercent.toFixed(2) + '%');
+    
     updateCharts(filtered);
     
     // Сохраняем состояние
@@ -1699,13 +1595,24 @@ function updateCharts(filteredRecords) {
         if (expensesChart) { expensesChart.destroy(); expensesChart = null; }
         return;
     }
-    const sorted = [...filteredRecords].sort((a, b) => new Date(a.date) - new Date(b.date));
-    const labels = sorted.map(r => { 
-        const d = new Date(r.date); 
-        return d.getDate() + '.' + (d.getMonth()+1); 
+    
+    // Сортировка с использованием parseLocalDate
+    const sorted = [...filteredRecords].sort((a, b) => {
+        const da = parseLocalDate(a.date);
+        const db = parseLocalDate(b.date);
+        return (da || 0) - (db || 0);
     });
+    
+    // Формирование меток с использованием parseLocalDate
+    const labels = sorted.map(r => { 
+        const d = parseLocalDate(r.date);
+        if (!d) return '??';
+        return d.getDate() + '.' + (d.getMonth() + 1); 
+    });
+    
     const canvas1 = document.getElementById('income-chart');
     const canvas2 = document.getElementById('expenses-chart');
+    
     if (canvas1) {
         const ctx1 = canvas1.getContext('2d');
         if (incomeChart) incomeChart.destroy();
@@ -1721,6 +1628,7 @@ function updateCharts(filteredRecords) {
             options: { responsive: true, scales: { y: { beginAtZero: true } } }
         });
     }
+    
     if (canvas2) {
         const ctx2 = canvas2.getContext('2d');
         if (expensesChart) expensesChart.destroy();
@@ -1730,7 +1638,8 @@ function updateCharts(filteredRecords) {
         if (fuel === 0 && repair === 0 && tax === 0) return;
         expensesChart = new Chart(ctx2, {
             type: 'doughnut',
-            data: {                labels: ['Бензин', 'Ремонт', 'Налог'],
+            data: {
+                labels: ['Бензин', 'Ремонт', 'Налог'],
                 datasets: [{ data: [fuel, repair, tax], backgroundColor: ['#ef4444','#f59e0b','#8b5cf6'] }]
             },
             options: { responsive: true }
@@ -1741,37 +1650,49 @@ function updateCharts(filteredRecords) {
 function initComparisonSelectors() {
     const months = new Set(), years = new Set();
     records.forEach(r => {
-        const d = new Date(r.date);
-        months.add((d.getMonth()+1).toString().padStart(2,'0'));
+        const d = parseLocalDate(r.date);
+        if (!d) return;
+        months.add((d.getMonth() + 1).toString().padStart(2, '0'));
         years.add(d.getFullYear());
     });
-    const names = ['','Январь','Февраль','Март','Апрель','Май','Июнь',
-                   'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+    
+    const names = ['', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+                   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+    
     const c1m = document.getElementById('compare1-month');
     const c1y = document.getElementById('compare1-year');
     const c2m = document.getElementById('compare2-month');
     const c2y = document.getElementById('compare2-year');
+    
     if (!c1m || !c1y || !c2m || !c2y) return;
+    
+    // Заполняем селекторы месяцев
     [c1m, c2m].forEach(select => {
         select.innerHTML = '<option value="">Весь год</option>';
-        [...months].sort().forEach(m => {
+        const sortedMonths = [...months].sort((a, b) => a - b);
+        sortedMonths.forEach(m => {
             const o = document.createElement('option');
             o.value = m;
-            o.textContent = names[+m];
+            o.textContent = names[parseInt(m)];
             select.appendChild(o);
         });
     });
+    
+    // Заполняем селекторы годов
     [c1y, c2y].forEach(select => {
         select.innerHTML = '';
-        [...years].sort().forEach(y => {
+        const sortedYears = [...years].sort((a, b) => b - a); // Сортировка по убыванию (сначала новые)
+        sortedYears.forEach(y => {
             const o = document.createElement('option');
             o.value = y;
             o.textContent = y;
             select.appendChild(o);
         });
     });
+    
+    // Устанавливаем значения по умолчанию (последний год)
     if (years.size > 0) {
-        const sortedYears = [...years].sort((a,b) => b - a);
+        const sortedYears = [...years].sort((a, b) => b - a);
         c1y.value = sortedYears[0];
         c2y.value = sortedYears[0];
     }
@@ -1779,17 +1700,30 @@ function initComparisonSelectors() {
 
 function getPeriodStats(month, year) {
     let filtered = [...records];
-    if (year) {        filtered = filtered.filter(r => new Date(r.date).getFullYear().toString() === year);
+    
+    // Фильтрация по году
+    if (year) {
+        filtered = filtered.filter(r => {
+            const d = parseLocalDate(r.date);
+            return d && d.getFullYear().toString() === year;
+        });
     }
+    
+    // Фильтрация по месяцу
     if (month) {
-        filtered = filtered.filter(r => (new Date(r.date).getMonth()+1).toString().padStart(2,'0') === month);
+        filtered = filtered.filter(r => {
+            const d = parseLocalDate(r.date);
+            return d && (d.getMonth() + 1).toString().padStart(2, '0') === month;
+        });
     }
+    
     const uniqueDates = new Set();
     filtered.forEach(r => {
         if (r.hours > 0 || r.recordType === 'work') {
             uniqueDates.add(r.date);
         }
     });
+    
     return {
         totalIncome: filtered.reduce((sum, r) => sum + (r.totalIncome || 0), 0),
         totalExpenses: filtered.reduce((sum, r) => sum + (r.totalExpenses || 0), 0),
@@ -2091,21 +2025,51 @@ function quickCompare(type) {
     updateComparison();
 }
 
-function populateFilters() {    const months = new Set(), years = new Set();
+function populateFilters() {
+    const months = new Set(), years = new Set();
+    
     records.forEach(r => {
-        const d = new Date(r.date);
-        months.add((d.getMonth()+1).toString().padStart(2,'0'));
-        years.add(d.getFullYear());
+        const d = parseLocalDate(r.date);
+        if (d) {
+            months.add((d.getMonth() + 1).toString().padStart(2, '0'));
+            years.add(d.getFullYear());
+        }
     });
+    
     const ms = document.getElementById('filter-month');
     const ys = document.getElementById('filter-year');
-    const cm = ms.value, cy = ys.value;
+    
+    if (!ms || !ys) return;
+    
+    const cm = ms.value;
+    const cy = ys.value;
+    
+    // Заполняем селектор месяцев
     ms.innerHTML = '<option value="">Все месяцы</option>';
+    const names = ['', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 
+                   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+    
+    const sortedMonths = [...months].sort((a, b) => a - b);
+    sortedMonths.forEach(m => {
+        const o = document.createElement('option');
+        o.value = m;
+        o.textContent = names[parseInt(m)];
+        ms.appendChild(o);
+    });
+    
+    // Заполняем селектор годов
     ys.innerHTML = '<option value="">Все годы</option>';
-    const names = ['','Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-    [...months].sort().forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = names[+m]; ms.appendChild(o); });
-    [...years].sort().forEach(y => { const o = document.createElement('option'); o.value = y; o.textContent = y; ys.appendChild(o); });
-    ms.value = cm; ys.value = cy;
+    const sortedYears = [...years].sort((a, b) => b - a); // Сортировка по убыванию (сначала новые)
+    sortedYears.forEach(y => {
+        const o = document.createElement('option');
+        o.value = y;
+        o.textContent = y;
+        ys.appendChild(o);
+    });
+    
+    // Восстанавливаем выбранные значения
+    ms.value = cm;
+    ys.value = cy;
 }
 
 function getRecordRowHTML(r) {
@@ -2170,10 +2134,15 @@ function renderTable() {
     const hasActiveSorting = sortState.column !== null && sortState.direction !== null;
     const shouldHideWeeklySummary = hasActiveFilters || hasActiveSorting;
 
+    // Сортировка с использованием parseLocalDate
     if (sortState.column && sortState.direction) {
         filteredRecords = applySorting(filteredRecords);
     } else {
-        filteredRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+        filteredRecords.sort((a, b) => {
+            const da = parseLocalDate(a.date);
+            const db = parseLocalDate(b.date);
+            return (db || 0) - (da || 0);
+        });
     }
 
     if (!shouldHideWeeklySummary) {
@@ -2224,7 +2193,9 @@ function renderTable() {
 
 // ===== ПОЛУЧЕНИЕ ISO НЕДЕЛИ ИЗ ДАТЫ =====
 function getISOWeek(dateStr) {
-    const date = new Date(dateStr);
+    const date = parseLocalDate(dateStr);
+    if (!date) return '';
+    
     const target = new Date(date.valueOf());
     const dayNr = (date.getDay() + 6) % 7;
     target.setDate(target.getDate() - dayNr + 3);
@@ -2244,8 +2215,10 @@ function getWeekDateRange(weekKey) {
     const year = parseInt(yearStr);
     const week = parseInt(weekStr);
     
-    // Находим первый день года
-    const jan4 = new Date(year, 0, 4);
+    // Находим первый день года — используем parseLocalDate
+    const jan4 = parseLocalDate(`${year}-01-04`);
+    if (!jan4) return { start: null, end: null, label: '' };
+    
     const dayOfWeek = (jan4.getDay() + 6) % 7;
     const firstMonday = new Date(jan4);
     firstMonday.setDate(jan4.getDate() - dayOfWeek);
@@ -2253,7 +2226,8 @@ function getWeekDateRange(weekKey) {
     // Находим понедельник нужной недели
     const weekMonday = new Date(firstMonday);
     weekMonday.setDate(firstMonday.getDate() + (week - 1) * 7);
-        const weekSunday = new Date(weekMonday);
+    
+    const weekSunday = new Date(weekMonday);
     weekSunday.setDate(weekMonday.getDate() + 6);
     
     return {
@@ -2486,41 +2460,97 @@ async function importData(e) {
 // Синхронизация данных с Firebase (полная замена)
 async function syncToFirebase() {
     if (!currentUser) return;
-    
+
     try {
-        console.log('🔄 Синхронизация с Firebase...');
-        
+        console.log('🔄 Запуск умной инкрементальной синхронизации...');
         const userRef = db.collection('users').doc(currentUser.uid);
+        const recordsRef = userRef.collection('records');
+        const tariffsRef = userRef.collection('tariffs');
+
+        const BATCH_SIZE = 400; // Безопасный лимит Firestore
+
+        // ==========================================
+        // 1. ПОДГОТОВКА: Получаем ID всех записей, которые уже есть в Firebase
+        // ==========================================
+        const fbRecordsSnapshot = await recordsRef.get();
+        const fbRecordIds = new Set(fbRecordsSnapshot.docs.map(doc => doc.id));
+        const localRecordIds = new Set(records.map(r => r.id));
+
+        // Находим записи, которые были УДАЛЕНЫ локально, чтобы удалить их и из Firebase
+        const idsToDelete = [...fbRecordIds].filter(id => !localRecordIds.has(id));
         
-        // Удаляем все старые записи
-        const oldRecords = await userRef.collection('records').get();
-        const deletePromises1 = oldRecords.docs.map(doc => doc.ref.delete());
-        await Promise.all(deletePromises1);
-        
-        // Удаляем все старые тарифы
-        const oldTariffs = await userRef.collection('tariffs').get();
-        const deletePromises2 = oldTariffs.docs.map(doc => doc.ref.delete());
-        await Promise.all(deletePromises2);
-        
-        // Загружаем новые записи
-        for (const r of records) {
-            const recordToSave = { ...r };
-            delete recordToSave.id;
-            const docRef = await userRef.collection('records').add(recordToSave);
-            r.id = docRef.id;
+        if (idsToDelete.length > 0) {
+            console.log(`🗑️ Очистка ${idsToDelete.length} удаленных локально записей из Firebase...`);
+            for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
+                const batch = db.batch();
+                idsToDelete.slice(i, i + BATCH_SIZE).forEach(id => batch.delete(recordsRef.doc(id)));
+                await batch.commit();
+            }
         }
-        
-        // Загружаем новые тарифы
-        for (const t of tariffs) {
-            const tariffToSave = { ...t };
-            delete tariffToSave.id;
-            const docRef = await userRef.collection('tariffs').add(tariffToSave);
-            t.id = docRef.id;
+
+        // ==========================================
+        // 2. УМНАЯ ЗАГРУЗКА/ОБНОВЛЕНИЕ ЗАПИСЕЙ (UPSERT)
+        // ==========================================
+        if (records.length > 0) {
+            console.log(`📤 Синхронизация ${records.length} записей (обновление + создание)...`);
+            for (let i = 0; i < records.length; i += BATCH_SIZE) {
+                const batch = db.batch();
+                const chunk = records.slice(i, i + BATCH_SIZE);
+
+                for (const r of chunk) {
+                    const recordToSave = { ...r };
+                    const docId = recordToSave.id; // Сохраняем ID, чтобы использовать его как ID документа
+                    delete recordToSave.id; // В теле документа поле id не храним
+
+                    // batch.set работает как Upsert: 
+                    // Если документ с docId существует -> обновит его.
+                    // Если не существует -> создаст новый.
+                    batch.set(recordsRef.doc(docId), recordToSave);
+                }
+                await batch.commit();
+            }
         }
+
+        // ==========================================
+        // 3. УМНАЯ ЗАГРУЗКА/ОБНОВЛЕНИЕ ТАРИФОВ (аналогично)
+        // ==========================================
+        const fbTariffsSnapshot = await tariffsRef.get();
+        const fbTariffIds = new Set(fbTariffsSnapshot.docs.map(doc => doc.id));
+        const localTariffIds = new Set(tariffs.map(t => t.id));
         
-        console.log('✅ Данные синхронизированы с Firebase');
+        const tariffIdsToDelete = [...fbTariffIds].filter(id => !localTariffIds.has(id));
+        if (tariffIdsToDelete.length > 0) {
+            for (let i = 0; i < tariffIdsToDelete.length; i += BATCH_SIZE) {
+                const batch = db.batch();
+                tariffIdsToDelete.slice(i, i + BATCH_SIZE).forEach(id => batch.delete(tariffsRef.doc(id)));
+                await batch.commit();
+            }
+        }
+
+        if (tariffs.length > 0) {
+            for (let i = 0; i < tariffs.length; i += BATCH_SIZE) {
+                const batch = db.batch();
+                const chunk = tariffs.slice(i, i + BATCH_SIZE);
+
+                for (const t of chunk) {
+                    const tariffToSave = { ...t };
+                    const docId = tariffToSave.id;
+                    delete tariffToSave.id;
+                    batch.set(tariffsRef.doc(docId), tariffToSave);
+                }
+                await batch.commit();
+            }
+        }
+
+        // ==========================================
+        // 4. СОХРАНЕНИЕ СОСТОЯНИЯ
+        // ==========================================
+        saveData(); 
+        console.log('✅ Умная синхронизация успешно завершена!');
+        
     } catch (error) {
-        console.error('❌ Ошибка синхронизации:', error);
+        console.error('❌ Критическая ошибка синхронизации:', error);
+        alert('⚠️ Ошибка синхронизации с облаком. Проверьте интернет-соединение.');
     }
 }
 
@@ -2529,7 +2559,10 @@ function formatMoney(n) {
 }
 
 function formatDate(s) {
-    return new Date(s).toLocaleDateString('ru-RU');
+    if (!s) return '-';
+    const d = parseLocalDate(s);
+    if (!d) return s;
+    return d.toLocaleDateString('ru-RU');
 }
 
 // Переключение режима авто-расчета
@@ -2572,8 +2605,9 @@ function markManualEdit(field) {
 }
 
 // ===== ЭКСПОРТ В EXCEL (отдельная функция) =====
+// ===== ЭКСПОРТ В EXCEL =====
 function exportToExcel() {
-    console.log(' Начало экспорта в Excel...');
+    console.log('📊 Начало экспорта в Excel...');
     
     if (!records || records.length === 0) {
         alert('❌ Нет данных для экспорта. Сначала добавьте записи.');
@@ -2591,9 +2625,14 @@ function exportToExcel() {
         const data = records.map((r, index) => {
             const typeLabel = r.recordType === 'bonus' ? 'Бонус' :
                 r.recordType === 'expense' ? 'Расход' : 'Работа';
+            
+            // Используем parseLocalDate для форматирования даты
+            const d = parseLocalDate(r.date);
+            const dateStr = d ? d.toLocaleDateString('ru-RU') : r.date || '';
+            
             return {
                 '№': index + 1,
-                'Дата': formatDate(r.date),
+                'Дата': dateStr,
                 'День недели': r.weekday || '',
                 'Тип записи': typeLabel,
                 'Часы работы': r.hours || 0,
@@ -2664,9 +2703,13 @@ function exportToPDF() {
             r.recordType === 'expense' ? 'Расход' : 'Работа';
         const profitColor = r.netProfit >= 0 ? '#10b981' : '#ef4444';
         
+        // Используем parseLocalDate для форматирования даты
+        const d = parseLocalDate(r.date);
+        const dateStr = d ? d.toLocaleDateString('ru-RU') : r.date || '-';
+        
         rowsHTML += `
             <tr>
-                <td style="border: 1px solid #ddd; padding: 6px; font-size: 10px;">${formatDate(r.date)}</td>
+                <td style="border: 1px solid #ddd; padding: 6px; font-size: 10px;">${dateStr}</td>
                 <td style="border: 1px solid #ddd; padding: 6px; font-size: 10px;">${r.weekday || '-'}</td>
                 <td style="border: 1px solid #ddd; padding: 6px; font-size: 10px;">${typeLabel}</td>
                 <td style="border: 1px solid #ddd; padding: 6px; text-align: right; font-size: 10px;">${r.hours || 0}</td>
@@ -2691,6 +2734,10 @@ function exportToPDF() {
             </tr>
         `;
     });
+    
+    // Используем parseLocalDate для даты выгрузки
+    const today = new Date();
+    const exportDate = today.toLocaleDateString('ru-RU');
     
     const htmlContent = `
         <!DOCTYPE html>
@@ -2739,16 +2786,6 @@ function exportToPDF() {
                 td:first-child, td:nth-child(2), td:nth-child(3) {
                     text-align: left;
                 }
-                /* Итоговая строка - НЕ в tfoot, чтобы не повторялась */
-                .total-row {
-                    background-color: #f2f2f7;
-                    font-weight: bold;
-                    border-top: 2px solid #ddd;
-                }
-                .total-row td {
-                    padding: 8px 5px;
-                }
-                /* Отделяем таблицу итогов от основной */
                 .summary-table {
                     margin-top: 15px;
                     width: 100%;
@@ -2772,16 +2809,12 @@ function exportToPDF() {
                 @media print {
                     body { margin: 0; }
                     .no-print { display: none; }
-                    /* Запрещаем повторение footer на каждой странице */
-                    tfoot {
-                        display: table-footer-group;
-                    }
                 }
             </style>
         </head>
         <body>
             <h1>Журнал работы водителя</h1>
-            <div class="date-info">Дата выгрузки: ${new Date().toLocaleDateString('ru-RU')}</div>
+            <div class="date-info">Дата выгрузки: ${exportDate}</div>
             
             <table>
                 <thead>
@@ -2908,24 +2941,7 @@ function initHistoryFilters() {
     currentHistoryPage = 1;
 }
 
-// Вызываем инициализацию при загрузке
-document.addEventListener('DOMContentLoaded', function() {
-    initHistoryFilters();
-});
 
-// Перехватываем переключение вкладок
-const originalSwitchTab = window.switchTab;
-if (typeof originalSwitchTab === 'function') {
-    window.switchTab = function(tabName) {
-        originalSwitchTab(tabName);
-        if (tabName === 'history') {
-            setTimeout(function() {
-                initHistoryFilters();
-                filterHistoryByMonth();
-            }, 100);
-        }
-    };
-}
 
 // Фильтрация по месяцу и году
 function filterHistoryByMonth() {
@@ -2969,7 +2985,8 @@ function updateHistoryInfo() {
         // Считаем количество записей за выбранный период
         const filteredCount = records.filter(function(r) {
             if (!r.date) return false;
-            const d = new Date(r.date);
+            const d = parseLocalDate(r.date);
+            if (!d) return false;
             return (d.getMonth() + 1) === currentHistoryMonth && d.getFullYear() === currentHistoryYear;
         }).length;
         
@@ -2997,14 +3014,17 @@ function renderTableWithMonthFilter() {
     if (!showAllHistoryMode && currentHistoryMonth && currentHistoryYear) {
         filteredRecords = filteredRecords.filter(function(r) {
             if (!r.date) return false;
-            const d = new Date(r.date);
+            const d = parseLocalDate(r.date);
+            if (!d) return false;
             return (d.getMonth() + 1) === currentHistoryMonth && d.getFullYear() === currentHistoryYear;
         });
     }
     
     // Сортируем по дате (новые сверху)
     filteredRecords.sort(function(a, b) {
-        return new Date(b.date) - new Date(a.date);
+        const da = parseLocalDate(a.date);
+        const db = parseLocalDate(b.date);
+        return (db || 0) - (da || 0);
     });
     
     // Применяем пагинацию
@@ -3099,13 +3119,16 @@ function getFilteredRecords() {
     if (!showAllHistoryMode && currentHistoryMonth && currentHistoryYear) {
         filteredRecords = filteredRecords.filter(function(r) {
             if (!r.date) return false;
-            const d = new Date(r.date);
+            const d = parseLocalDate(r.date);
+            if (!d) return false;
             return (d.getMonth() + 1) === currentHistoryMonth && d.getFullYear() === currentHistoryYear;
         });
     }
     
     filteredRecords.sort(function(a, b) {
-        return new Date(b.date) - new Date(a.date);
+        const da = parseLocalDate(a.date);
+        const db = parseLocalDate(b.date);
+        return (db || 0) - (da || 0);
     });
     
     return filteredRecords;
@@ -3314,150 +3337,68 @@ async function checkFirebaseConnection() {
     }
 }
 
-// Запускаем проверку после загрузки страницы
-document.addEventListener('DOMContentLoaded', function() {
-    // Инициализируем индикатор
-    updateConnectionIndicator();
-    
-    // Запускаем проверку через 3 секунды
-    setTimeout(function() {
-        checkFirebaseConnection();
-    }, 3000);
-    
-    // Повторная проверка каждые 30 секунд
-    setInterval(function() {
-        if (document.body.classList.contains('authenticated')) {
-            checkFirebaseConnection();
-        }
-    }, 30000);
-});
-
-// Обновляем индикатор при изменении статуса авторизации
-const originalOnAuthStateChanged = window.onAuthStateChanged;
-if (typeof auth !== 'undefined' && auth.onAuthStateChanged) {
-    auth.onAuthStateChanged(function(user) {
-        if (user) {
-            // Пользователь вошёл — проверяем Firebase через секунду
-            setTimeout(checkFirebaseConnection, 1000);
-        } else {
-            // Пользователь вышел
-            connectionMode = 'local';
-            firebaseErrorReason = 'Пользователь не авторизован';
-            updateConnectionIndicator();
-        }
-        
-        // Вызываем оригинальный обработчик если есть
-        if (typeof originalOnAuthStateChanged === 'function') {
-            originalOnAuthStateChanged(user);
-        }
-    });
-}
-
-console.log('✅ Индикатор подключения загружен');
 
 // ============================================
 // ВКЛАДКА "ГЛАВНАЯ" - МОЙ ПРОФИЛЬ
 // ============================================
 
-// Обновление данных на вкладке "Главная"
+// ===== ЕДИНАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ ВКЛАДКИ "ГЛАВНАЯ" =====
 function updateHomeTab() {
-    // Проверяем, активна ли вкладка
     const homeTab = document.getElementById('tab-home');
+    // Если вкладка не активна, не тратим ресурсы на обновление
     if (!homeTab || !homeTab.classList.contains('active')) return;
-    
-    // Обновляем информацию о пользователе
+
+    console.log('🔄 Обновление вкладки "Главная"...');
+
+    // 1. Информация о пользователе
     if (currentUser) {
         const nameEl = document.getElementById('profile-name');
         const emailEl = document.getElementById('profile-email');
         const syncEl = document.getElementById('profile-sync-status');
         
-        // ПОЛУЧАЕМ РЕАЛЬНОЕ ИМЯ ПОЛЬЗОВАТЕЛЯ
-        // Сначала проверяем displayName из Firebase Auth
-        let userName = currentUser.displayName;
+        let userName = currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Водитель');
+        if (nameEl) nameEl.textContent = userName;
+        if (emailEl) emailEl.textContent = currentUser.email || 'email@example.com';
         
-        // Если displayName не задан, пробуем взять из email (до @)
-        if (!userName || userName === '') {
-            userName = currentUser.email ? currentUser.email.split('@')[0] : 'Водитель';
-        }
-        
-        // Если имя все еще пустое, ставим "Водитель"
-        if (!userName || userName === '') {
-            userName = 'Водитель';
-        }
-        
-        // Обновляем имя на странице с анимацией
-        if (nameEl) {
-            nameEl.textContent = userName;
-            // Добавляем анимацию появления
-            nameEl.style.animation = 'none';
-            setTimeout(() => {
-                nameEl.style.animation = 'textFadeIn 0.5s var(--ios-spring) forwards';
-            }, 10);
-        }
-        
-        // Обновляем email
-        if (emailEl) {
-            emailEl.textContent = currentUser.email || 'email@example.com';
-        }
-        
-        // Статус синхронизации
         if (syncEl) {
             if (connectionMode === 'firebase') {
-                syncEl.innerHTML = '<ion-icon name="cloud-done-outline" style="font-size: 16px;"></ion-icon> Синхронизация активна';
+                syncEl.innerHTML = '<ion-icon name="cloud-done-outline"></ion-icon> Синхронизация активна';
                 syncEl.style.color = 'var(--ios-success)';
-                syncEl.parentElement.style.background = 'var(--ios-success-light)';
-            } else if (connectionMode === 'local') {
-                syncEl.innerHTML = '<ion-icon name="cloud-offline-outline" style="font-size: 16px;"></ion-icon> Локальный режим';
-                syncEl.style.color = 'var(--ios-warning)';
-                syncEl.parentElement.style.background = 'var(--ios-warning-light)';
             } else {
-                syncEl.innerHTML = '<ion-icon name="sync-outline" style="font-size: 16px;"></ion-icon> Проверка...';
-                syncEl.style.color = 'var(--ios-text-tertiary)';
-                syncEl.parentElement.style.background = 'var(--ios-border)';
+                syncEl.innerHTML = '<ion-icon name="cloud-offline-outline"></ion-icon> Локальный режим';
+                syncEl.style.color = 'var(--ios-warning)';
             }
         }
     }
-    
-    // Общая статистика (остается без изменений)
+
+    // 2. Общая статистика
     const totalDays = new Set(records.filter(r => r.recordType === 'work' || r.hours > 0).map(r => r.date)).size;
     const totalProfit = records.reduce((sum, r) => sum + (r.netProfit || 0), 0);
-    const avgPerDay = totalDays > 0 ? totalProfit / totalDays : 0;
     const totalIncome = records.reduce((sum, r) => sum + (r.totalIncome || 0), 0);
-    const totalEfficiency = totalIncome > 0 ? (totalProfit / totalIncome) * 100 : 0;
     const totalOrders = records.reduce((sum, r) => sum + (r.ordersDelivery || 0), 0);
-    const totalKm = records.reduce((sum, r) => sum + (r.distance || 0), 0);
     const totalHours = records.reduce((sum, r) => sum + (r.hours || 0), 0);
-    const avgCheck = totalOrders > 0 ? totalIncome / totalOrders : 0;
-    const perHour = totalHours > 0 ? totalProfit / totalHours : 0;
     
-    // Функция для установки значения
-    const setEl = (id, value, suffix = '') => {
-        const el = document.getElementById(id);
-        if (el) {
-            if (typeof value === 'number' && value % 1 !== 0 && id !== 'profile-efficiency') {
-                el.textContent = value.toFixed(2) + suffix;
-            } else {
-                el.textContent = value + suffix;
-            }
-        }
-    };
-    
+    const setEl = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
     setEl('profile-total-days', totalDays);
     setEl('profile-total-profit', formatMoney(totalProfit));
-    setEl('profile-avg-per-day', formatMoney(avgPerDay));
-    setEl('profile-efficiency', totalEfficiency.toFixed(1) + '%');
+    setEl('profile-avg-per-day', totalDays > 0 ? formatMoney(totalProfit / totalDays) : '0 ₽');
+    setEl('profile-efficiency', totalIncome > 0 ? ((totalProfit / totalIncome) * 100).toFixed(1) + '%' : '0%');
     setEl('profile-total-records', records.length);
-    setEl('profile-total-km', totalKm.toFixed(1));
-    setEl('profile-avg-check', formatMoney(avgCheck));
+    setEl('profile-total-km', records.reduce((sum, r) => sum + (r.distance || 0), 0).toFixed(1));
+    setEl('profile-avg-check', totalOrders > 0 ? formatMoney(totalIncome / totalOrders) : '0 ₽');
     setEl('profile-total-hours', totalHours.toFixed(1));
     setEl('profile-total-orders', totalOrders);
-    setEl('profile-per-hour', formatMoney(perHour));
-    
-    // Обновляем достижения
+    setEl('profile-per-hour', totalHours > 0 ? formatMoney(totalProfit / totalHours) : '0 ₽');
+
+    // 3. Вызов всех вспомогательных функций обновления (теперь они гарантированно выполнятся)
     renderAchievements();
-    
-    // Загружаем аватар
     loadProfileAvatar();
+    
+    updateBestDay();
+    updateTrends();
+    updateRecentRecords();
+
+    console.log('✅ Вкладка "Главная" полностью обновлена');
 }
 
 // ============================================
@@ -3519,15 +3460,6 @@ function showEditNameDialog() {
     }
 }
 
-// Добавляем возможность изменить имя по двойному клику на имя
-document.addEventListener('DOMContentLoaded', function() {
-    const nameEl = document.getElementById('profile-name');
-    if (nameEl) {
-        nameEl.addEventListener('dblclick', showEditNameDialog);
-        nameEl.style.cursor = 'pointer';
-        nameEl.title = 'Двойной клик для изменения имени';
-    }
-});
 
 // Рендер достижений
 function renderAchievements() {
@@ -3610,14 +3542,7 @@ function renderAchievements() {
     `).join('');
 }
 
-// Переопределяем switchTab для обновления вкладки "Главная"
-const originalSwitchTabHome = window.switchTab;
-window.switchTab = function(tabName) {
-    originalSwitchTabHome(tabName);
-    if (tabName === 'home') {
-        setTimeout(updateHomeTab, 150);
-    }
-};
+
 
 // Обновляем при загрузке данных
 function updateHomeOnLoad() {
@@ -3627,30 +3552,11 @@ function updateHomeOnLoad() {
     }
 }
 
-// Добавляем в loadUserData
-const originalLoadUserDataHome = window.loadUserData;
-if (typeof originalLoadUserDataHome === 'function') {
-    window.loadUserData = async function() {
-        await originalLoadUserDataHome();
-        updateHomeOnLoad();
-    };
-}
 
-// Обновляем при изменении статуса синхронизации
-const originalCheckFirebase = window.checkFirebaseConnection;
-if (typeof originalCheckFirebase === 'function') {
-    window.checkFirebaseConnection = async function() {
-        await originalCheckFirebase();
-        updateHomeOnLoad();
-    };
-}
 
-// Первоначальная инициализация
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(updateHomeTab, 500);
-});
 
-console.log('✅ Вкладка "Мой профиль" загружена');
+
+
 
 // ============================================
 // ЗАГРУЗКА ФОТО ПРОФИЛЯ
@@ -3705,42 +3611,39 @@ function loadProfileAvatar() {
 function uploadAvatar(event) {
     const file = event.target.files[0];
     if (!file) return;
-    
-    // Проверяем размер файла (максимум 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-        alert('❌ Файл слишком большой! Максимальный размер: 5MB');
+
+    // ИСПРАВЛЕНИЕ: Лимит Firestore составляет строго 1 МБ (1024 * 1024 байт)
+    if (file.size > 1 * 1024 * 1024) {
+        alert('❌ Файл слишком большой для облачной синхронизации!\nМаксимальный размер: 1 МБ.\nПожалуйста, выберите фото меньшего размера или сожмите его.');
         event.target.value = '';
         return;
     }
-    
-    // Проверяем тип файла
+
     if (!file.type.startsWith('image/')) {
         alert('❌ Пожалуйста, выберите изображение!');
         event.target.value = '';
         return;
     }
-    
+
     const reader = new FileReader();
-    
     reader.onload = function(e) {
         const imageData = e.target.result;
         
-        // Сохраняем в localStorage
+        // 1. Сначала сохраняем локально для мгновенного отображения
         try {
             localStorage.setItem(AVATAR_STORAGE_KEY, imageData);
             console.log('✅ Аватар сохранён в localStorage');
         } catch (error) {
-            console.error('❌ Ошибка сохранения аватара:', error);
-            alert('❌ Не удалось сохранить фото. Возможно, файл слишком большой.');
+            console.error('❌ Ошибка сохранения аватара в localStorage:', error);
+            alert('❌ Не удалось сохранить фото. Возможно, файл всё ещё слишком большой.');
             event.target.value = '';
             return;
         }
-        
-        // Обновляем отображение
+
+        // 2. Обновляем интерфейс
         const avatarImg = document.getElementById('avatar-image');
         const avatarIcon = document.getElementById('avatar-icon');
         const avatarContainer = document.getElementById('profile-avatar');
-        
         if (avatarImg && avatarIcon) {
             avatarImg.src = imageData;
             avatarImg.style.display = 'block';
@@ -3748,22 +3651,16 @@ function uploadAvatar(event) {
             avatarContainer.style.background = 'none';
             avatarContainer.style.borderColor = 'var(--ios-success)';
             
-            // Обновляем кнопку
             const uploadBtn = document.getElementById('avatar-upload-btn');
-            if (uploadBtn) {
-                uploadBtn.style.background = 'var(--ios-success)';
-            }
+            if (uploadBtn) uploadBtn.style.background = 'var(--ios-success)';
         }
-        
-        // Если есть Firebase - сохраняем туда
+
+        // 3. Отправляем в Firebase
         if (currentUser && typeof db !== 'undefined') {
             saveAvatarToFirebase(imageData);
         }
-        
-        // Показываем уведомление
+
         showToast('✅ Фото профиля обновлено!');
-        
-        // Очищаем input
         event.target.value = '';
     };
     
@@ -3771,7 +3668,6 @@ function uploadAvatar(event) {
         alert('❌ Ошибка чтения файла. Попробуйте ещё раз.');
         event.target.value = '';
     };
-    
     reader.readAsDataURL(file);
 }
 
@@ -3873,42 +3769,7 @@ function removeAvatar() {
     showToast('🗑️ Фото профиля удалено');
 }
 
-// Добавляем обработчик долгого нажатия для удаления фото
-document.addEventListener('DOMContentLoaded', function() {
-    const avatarContainer = document.getElementById('profile-avatar-container');
-    if (avatarContainer) {
-        let pressTimer = null;
-        
-        avatarContainer.addEventListener('mousedown', function(e) {
-            pressTimer = setTimeout(function() {
-                removeAvatar();
-            }, 1000);
-        });
-        
-        avatarContainer.addEventListener('mouseup', function() {
-            clearTimeout(pressTimer);
-        });
-        
-        avatarContainer.addEventListener('mouseleave', function() {
-            clearTimeout(pressTimer);
-        });
-        
-        // Для мобильных устройств
-        avatarContainer.addEventListener('touchstart', function(e) {
-            pressTimer = setTimeout(function() {
-                removeAvatar();
-            }, 1000);
-        });
-        
-        avatarContainer.addEventListener('touchend', function() {
-            clearTimeout(pressTimer);
-        });
-        
-        avatarContainer.addEventListener('touchmove', function() {
-            clearTimeout(pressTimer);
-        });
-    }
-});
+
 
 // Показываем уведомление (Toast)
 function showToast(message) {
@@ -3963,26 +3824,7 @@ function showToast(message) {
     }, 2500);
 }
 
-// Переопределяем updateHomeTab для загрузки аватара
-const originalUpdateHomeTab = window.updateHomeTab;
-if (typeof originalUpdateHomeTab === 'function') {
-    window.updateHomeTab = function() {
-        originalUpdateHomeTab();
-        loadProfileAvatar();
-    };
-}
 
-// Загружаем аватар из Firebase при входе
-const originalLoadUserDataAvatar = window.loadUserData;
-if (typeof originalLoadUserDataAvatar === 'function') {
-    window.loadUserData = async function() {
-        await originalLoadUserDataAvatar();
-        await loadAvatarFromFirebase();
-        loadProfileAvatar();
-    };
-}
-
-console.log('✅ Функция загрузки фото профиля загружена');
 
 // ============================================
 // ПЛАВАЮЩАЯ КНОПКА "+" ДЛЯ ДОБАВЛЕНИЯ
@@ -4021,37 +3863,7 @@ function openEntryTab() {
     }
 }
 
-// Показываем/скрываем подсказку при наведении
-document.addEventListener('DOMContentLoaded', function() {
-    const fab = document.getElementById('fab-add');
-    const tooltip = document.getElementById('fab-tooltip');
-    
-    if (fab && tooltip) {
-        fab.addEventListener('mouseenter', function() {
-            tooltip.style.opacity = '1';
-            tooltip.style.transform = 'translateX(0) scale(1)';
-        });
-        
-        fab.addEventListener('mouseleave', function() {
-            tooltip.style.opacity = '0';
-            tooltip.style.transform = 'translateX(10px) scale(0.9)';
-        });
-        
-        // Для мобильных - показываем подсказку при первом касании
-        let tooltipShown = false;
-        fab.addEventListener('touchstart', function() {
-            if (!tooltipShown) {
-                tooltip.style.opacity = '1';
-                tooltip.style.transform = 'translateX(0) scale(1)';
-                tooltipShown = true;
-                setTimeout(() => {
-                    tooltip.style.opacity = '0';
-                    tooltip.style.transform = 'translateX(10px) scale(0.9)';
-                }, 2000);
-            }
-        });
-    }
-});
+
 
 // Убираем пульсацию после первого использования
 let fabPulseRemoved = false;
@@ -4290,7 +4102,8 @@ async function updateGoals() {
     
     const monthRecords = records.filter(r => {
         if (!r.date) return false;
-        const d = new Date(r.date);
+        const d = parseLocalDate(r.date);
+        if (!d) return false;
         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
     
@@ -4358,13 +4171,19 @@ function updateTrends() {
     const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
     const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
     
+    // Фильтрация записей за текущий месяц
     const currentRecords = records.filter(r => {
-        const d = new Date(r.date);
+        if (!r.date) return false;
+        const d = parseLocalDate(r.date);
+        if (!d) return false;
         return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
     
+    // Фильтрация записей за предыдущий месяц
     const prevRecords = records.filter(r => {
-        const d = new Date(r.date);
+        if (!r.date) return false;
+        const d = parseLocalDate(r.date);
+        if (!d) return false;
         return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
     });
     
@@ -4414,7 +4233,12 @@ function updateRecentRecords() {
     
     console.log('📋 Обновление последних записей, всего:', records.length);
     
-    const sorted = [...records].sort((a, b) => new Date(b.date) - new Date(a.date));
+    // Сортировка с использованием parseLocalDate
+    const sorted = [...records].sort((a, b) => {
+        const da = parseLocalDate(a.date);
+        const db = parseLocalDate(b.date);
+        return (db || 0) - (da || 0);
+    });
     const recent = sorted.slice(0, 5);
     
     if (countEl) countEl.textContent = sorted.length;
@@ -4429,24 +4253,30 @@ function updateRecentRecords() {
         return;
     }
     
-    container.innerHTML = recent.map((r, index) => `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; ${index < recent.length - 1 ? 'border-bottom: 1px solid var(--ios-border);' : ''}">
-            <div style="flex: 1; min-width: 0;">
-                <div style="font-weight: 600; font-size: 15px;">${formatDate(r.date)}</div>
-                <div style="font-size: 13px; color: var(--ios-text-tertiary);">
-                    ${r.weekday || ''} · 📦 ${r.ordersDelivery || 0} заказов · ⏱ ${r.hours || 0} ч
+    container.innerHTML = recent.map((r, index) => {
+        // Используем parseLocalDate для форматирования даты
+        const d = parseLocalDate(r.date);
+        const dateStr = d ? d.toLocaleDateString('ru-RU') : r.date || '-';
+        
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; ${index < recent.length - 1 ? 'border-bottom: 1px solid var(--ios-border);' : ''}">
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight: 600; font-size: 15px;">${dateStr}</div>
+                    <div style="font-size: 13px; color: var(--ios-text-tertiary);">
+                        ${r.weekday || ''} · 📦 ${r.ordersDelivery || 0} заказов · ⏱ ${r.hours || 0} ч
+                    </div>
+                </div>
+                <div style="text-align: right; flex-shrink: 0; margin-left: 12px;">
+                    <div style="font-weight: 700; font-size: 16px; color: ${r.netProfit >= 0 ? 'var(--ios-success)' : 'var(--ios-danger)'};">
+                        ${formatMoney(r.netProfit)}
+                    </div>
+                    <div style="font-size: 12px; color: var(--ios-text-tertiary);">
+                        доход ${formatMoney(r.totalIncome || 0)}
+                    </div>
                 </div>
             </div>
-            <div style="text-align: right; flex-shrink: 0; margin-left: 12px;">
-                <div style="font-weight: 700; font-size: 16px; color: ${r.netProfit >= 0 ? 'var(--ios-success)' : 'var(--ios-danger)'};">
-                    ${formatMoney(r.netProfit)}
-                </div>
-                <div style="font-size: 12px; color: var(--ios-text-tertiary);">
-                    доход ${formatMoney(r.totalIncome || 0)}
-                </div>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
     
     console.log('✅ Последние записи обновлены, показано:', recent.length);
 }
@@ -4486,12 +4316,15 @@ function updateBestDay() {
     
     if (bestDay) {
         incomeEl.textContent = formatMoney(bestDay.netProfit);
-        dateEl.textContent = formatDate(bestDay.date) + ' (' + (bestDay.weekday || '') + ')';
+        // Используем parseLocalDate для корректного форматирования даты
+        const d = parseLocalDate(bestDay.date);
+        const dateStr = d ? d.toLocaleDateString('ru-RU') : bestDay.date;
+        dateEl.textContent = dateStr + ' (' + (bestDay.weekday || '') + ')';
         ordersEl.textContent = bestDay.ordersDelivery || 0;
         hoursEl.textContent = bestDay.hours || 0;
         const efficiency = bestDay.totalIncome > 0 ? ((bestDay.netProfit / bestDay.totalIncome) * 100) : 0;
         efficiencyEl.textContent = efficiency.toFixed(1) + '%';
-        console.log('✅ Лучший день найден:', formatDate(bestDay.date), bestDay.netProfit);
+        console.log('✅ Лучший день найден:', dateStr, bestDay.netProfit);
     }
 }
 
@@ -4544,24 +4377,179 @@ function showToast(message) {
     }, 2500);
 }
 
-// ============================================
-// ОБНОВЛЕННАЯ ФУНКЦИЯ HOME TAB
-// ============================================
 
-// Обновляем updateHomeTab для всех элементов
-const originalUpdateHomeTabFull = window.updateHomeTab;
-window.updateHomeTab = function() {
-    console.log('🔄 Обновление вкладки "Главная" (полное)');
+
+// ============================================
+// ЕДИНСТВЕННЫЙ DOMContentLoaded - ВСЯ ИНИЦИАЛИЗАЦИЯ В ОДНОМ МЕСТЕ
+// ============================================
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📱 DOM загружен, инициализация приложения...');
     
-    if (typeof originalUpdateHomeTabFull === 'function') {
-        originalUpdateHomeTabFull();
+    // Устанавливаем флаги
+    window._homeTabInitialized = false;
+    window._homeDataUpdated = false;
+    
+    // ========================================
+    // 1. ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
+    // ========================================
+    (async function initApp() {
+        console.log('🚀 Инициализация приложения...');
+        
+        await loadData();
+        
+        let fixed = false;
+        records = records.map(r => {
+            if (!r.recordType || r.recordType === '' || r.recordType === 'undefined') {
+                fixed = true;
+                r.recordType = (r.bonusPay || r.bonusPeriod) ? 'bonus' : 'work';
+            }
+            return normalizeRecord(r);
+        });
+        
+        if (fixed) {
+            console.log('✅ Исправлены некорректные recordType в localStorage');
+            saveData();
+        }
+        
+        const dateInput = document.getElementById('date');
+        if (dateInput) {
+            dateInput.addEventListener('change', onDateChange);
+            dateInput.valueAsDate = new Date();
+            onDateChange();
+        }
+        
+        const dailyForm = document.getElementById('daily-form');
+        if (dailyForm) {
+            dailyForm.addEventListener('submit', saveRecord);
+        }
+        
+        const tariffForm = document.getElementById('tariff-form');
+        if (tariffForm) {
+            tariffForm.addEventListener('submit', saveTariff);
+        }
+        
+        const mainContainer = document.querySelector('.container');
+        const bottomNav = document.querySelector('.bottom-nav');
+        const authScreen = document.getElementById('auth-screen');
+        
+        if (mainContainer) mainContainer.style.display = 'none';
+        if (bottomNav) bottomNav.style.display = 'none';
+        if (authScreen) authScreen.classList.remove('hidden');
+        
+        addFormValidation();
+        
+        console.log('✅ Базовая инициализация завершена. Ожидание авторизации...');
+    })();
+    
+    // ========================================
+    // 2. ИНИЦИАЛИЗАЦИЯ ФИЛЬТРОВ ИСТОРИИ
+    // ========================================
+    initHistoryFilters();
+    console.log('✅ Фильтры истории инициализированы');
+    
+    // ========================================
+    // 3. ИНИЦИАЛИЗАЦИЯ ИНДИКАТОРА ПОДКЛЮЧЕНИЯ
+    // ========================================
+    updateConnectionIndicator();
+    
+    setTimeout(function() {
+        checkFirebaseConnection();
+    }, 3000);
+    
+    setInterval(function() {
+        if (document.body.classList.contains('authenticated')) {
+            checkFirebaseConnection();
+        }
+    }, 30000);
+    console.log('✅ Индикатор подключения инициализирован');
+    
+    // ========================================
+    // 4. ИНИЦИАЛИЗАЦИЯ ИМЕНИ ПОЛЬЗОВАТЕЛЯ
+    // ========================================
+    const nameEl = document.getElementById('profile-name');
+    if (nameEl) {
+        nameEl.addEventListener('dblclick', showEditNameDialog);
+        nameEl.style.cursor = 'pointer';
+        nameEl.title = 'Двойной клик для изменения имени';
+    }
+    console.log('✅ Имя пользователя инициализировано');
+    
+    // ========================================
+    // 5. ИНИЦИАЛИЗАЦИЯ АВАТАРА
+    // ========================================
+    const avatarContainer = document.getElementById('profile-avatar-container');
+    if (avatarContainer) {
+        let pressTimer = null;
+        
+        avatarContainer.addEventListener('mousedown', function(e) {
+            pressTimer = setTimeout(function() {
+                removeAvatar();
+            }, 1000);
+        });
+        
+        avatarContainer.addEventListener('mouseup', function() {
+            clearTimeout(pressTimer);
+        });
+        
+        avatarContainer.addEventListener('mouseleave', function() {
+            clearTimeout(pressTimer);
+        });
+        
+        avatarContainer.addEventListener('touchstart', function(e) {
+            pressTimer = setTimeout(function() {
+                removeAvatar();
+            }, 1000);
+        });
+        
+        avatarContainer.addEventListener('touchend', function() {
+            clearTimeout(pressTimer);
+        });
+        
+        avatarContainer.addEventListener('touchmove', function() {
+            clearTimeout(pressTimer);
+        });
     }
     
-    // Обновляем все элементы
-    updateGoals();
-    updateBestDay();
-    updateTrends();
-    updateRecentRecords();
+    loadProfileAvatar();
+    console.log('✅ Аватар инициализирован');
     
-    console.log('✅ Вкладка "Главная" полностью обновлена');
-};
+    // ========================================
+    // 6. ИНИЦИАЛИЗАЦИЯ FAB КНОПКИ
+    // ========================================
+    const fab = document.getElementById('fab-add');
+    const tooltip = document.getElementById('fab-tooltip');
+    
+    if (fab && tooltip) {
+        fab.addEventListener('mouseenter', function() {
+            tooltip.style.opacity = '1';
+            tooltip.style.transform = 'translateX(0) scale(1)';
+        });
+        
+        fab.addEventListener('mouseleave', function() {
+            tooltip.style.opacity = '0';
+            tooltip.style.transform = 'translateX(10px) scale(0.9)';
+        });
+        
+        let tooltipShown = false;
+        fab.addEventListener('touchstart', function() {
+            if (!tooltipShown) {
+                tooltip.style.opacity = '1';
+                tooltip.style.transform = 'translateX(0) scale(1)';
+                tooltipShown = true;
+                setTimeout(() => {
+                    tooltip.style.opacity = '0';
+                    tooltip.style.transform = 'translateX(10px) scale(0.9)';
+                }, 2000);
+            }
+        });
+    }
+    console.log('✅ FAB кнопка инициализирована');
+    
+    // ========================================
+    // 7. НЕ ВЫЗЫВАЕМ updateHomeTab() ЗДЕСЬ
+    // ========================================
+    // Главная вкладка обновится после входа пользователя
+    console.log('✅ Вкладка "Главная" ожидает авторизации...');
+    
+    console.log('✅ ВСЯ ИНИЦИАЛИЗАЦИЯ ЗАВЕРШЕНА!');
+});
