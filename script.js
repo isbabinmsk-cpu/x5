@@ -4857,28 +4857,41 @@ function renderFuelLogs() {
         
         return `
             <div class="fuel-log-item">
-                <div class="fuel-log-main">
+                <div class="fuel-log-header">
                     <div class="fuel-log-icon"><ion-icon name="fuel-outline"></ion-icon></div>
-                    <div class="fuel-log-details">
-                        <div class="fuel-log-title">${dateStr} ${log.comment ? `<span style="font-size: 12px; color: var(--ios-text-tertiary); font-weight: normal;">· ${log.comment}</span>` : ''}</div>
-                        <div class="fuel-log-meta">
-                            <span><ion-icon name="speedometer-outline"></ion-icon> ${log.mileage.toLocaleString('ru-RU')} км</span>
-                            <span><ion-icon name="water-outline"></ion-icon> ${log.liters.toFixed(2)} л</span>
-                            <span><ion-icon name="pricetag-outline"></ion-icon> ${log.pricePerLiter.toFixed(2)} ₽/л</span>
-                        </div>
+                    <div class="fuel-log-date-section">
+                        <div class="fuel-log-title">${dateStr}</div>
+                        ${log.comment ? `<div class="fuel-log-comment">${log.comment}</div>` : ''}
                     </div>
                 </div>
-                <div class="fuel-log-right">
+                
+                <div class="fuel-log-meta-grid">
+                    <div class="fuel-log-meta-item">
+                        <ion-icon name="speedometer-outline"></ion-icon>
+                        <span>${log.mileage.toLocaleString('ru-RU')} км</span>
+                    </div>
+                    <div class="fuel-log-meta-item">
+                        <ion-icon name="water-outline"></ion-icon>
+                        <span>${log.liters.toFixed(2)} л</span>
+                    </div>
+                    <div class="fuel-log-meta-item">
+                        <ion-icon name="pricetag-outline"></ion-icon>
+                        <span>${log.pricePerLiter.toFixed(2)} ₽/л</span>
+                    </div>
+                </div>
+                
+                <div class="fuel-log-footer">
                     <div class="fuel-log-consumption ${consumptionClass}">${consumptionText}</div>
                     <div class="fuel-log-amount">${formatMoney(log.amount)}</div>
-                    <div style="display: flex; gap: 6px;">
-                        <button class="fuel-log-edit" onclick="editFuelLog('${log.id}')" title="Редактировать">
-                            <ion-icon name="create-outline"></ion-icon>
-                        </button>
-                        <button class="fuel-log-delete" onclick="deleteFuelLog('${log.id}')" title="Удалить">
-                            <ion-icon name="trash-outline"></ion-icon>
-                        </button>
-                    </div>
+                </div>
+                
+                <div class="fuel-log-actions">
+                    <button class="fuel-log-edit" onclick="editFuelLog('${log.id}')" title="Редактировать">
+                        <ion-icon name="create-outline"></ion-icon>
+                    </button>
+                    <button class="fuel-log-delete" onclick="deleteFuelLog('${log.id}')" title="Удалить">
+                        <ion-icon name="trash-outline"></ion-icon>
+                    </button>
                 </div>
             </div>
         `;

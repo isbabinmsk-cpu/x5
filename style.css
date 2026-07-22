@@ -2760,3 +2760,228 @@ TOOLTIP ДЛЯ ЯЧЕЙКИ БЕНЗИНА
         margin-right: 8px !important; /* Немного уменьшаем отступ между иконкой и текстом */
     }
 }
+
+/* Основной контейнер записи */
+.fuel-log-item {
+    background: var(--ios-card-bg, #fff);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    position: relative;
+}
+
+/* Шапка с иконкой и датой */
+.fuel-log-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.fuel-log-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--ios-accent-light, #E3F2FD);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--ios-accent, #007AFF);
+    font-size: 20px;
+}
+
+.fuel-log-date-section {
+    flex: 1;
+    min-width: 0;
+}
+
+.fuel-log-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--ios-text-primary, #000);
+    margin-bottom: 2px;
+}
+
+.fuel-log-comment {
+    font-size: 12px;
+    color: var(--ios-text-tertiary, #8E8E93);
+}
+
+/* Сетка с мета-информацией */
+.fuel-log-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: var(--ios-secondary-bg, #F2F2F7);
+    border-radius: 8px;
+}
+
+.fuel-log-meta-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--ios-text-secondary, #3A3A3C);
+    text-align: center;
+}
+
+.fuel-log-meta-item ion-icon {
+    font-size: 16px;
+    color: var(--ios-text-tertiary, #8E8E93);
+}
+
+.fuel-log-meta-item span {
+    font-weight: 500;
+    font-size: 12px;
+    word-break: break-word;
+}
+
+/* Футер с расходом и суммой */
+.fuel-log-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ios-border, #E5E5EA);
+}
+
+.fuel-log-consumption {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.fuel-log-consumption.good {
+    color: var(--ios-success, #34C759);
+}
+
+.fuel-log-consumption.bad {
+    color: var(--ios-danger, #FF3B30);
+}
+
+.fuel-log-amount {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--ios-accent, #007AFF);
+}
+
+/* Кнопки действий */
+.fuel-log-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.fuel-log-edit,
+.fuel-log-delete {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: none;
+    background: var(--ios-secondary-bg, #F2F2F7);
+    color: var(--ios-text-secondary, #3A3A3C);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.fuel-log-edit:hover {
+    background: var(--ios-accent-light, #E3F2FD);
+    color: var(--ios-accent, #007AFF);
+}
+
+.fuel-log-delete:hover {
+    background: var(--ios-danger-light, #FFE5E5);
+    color: var(--ios-danger, #FF3B30);
+}
+
+/* АДАПТАЦИЯ ДЛЯ МОБИЛЬНЫХ */
+@media (max-width: 480px) {
+    .fuel-log-item {
+        padding: 12px;
+        margin-bottom: 10px;
+    }
+    
+    .fuel-log-header {
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    
+    .fuel-log-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+    }
+    
+    .fuel-log-title {
+        font-size: 14px;
+    }
+    
+    .fuel-log-meta-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+    
+    .fuel-log-meta-item {
+        font-size: 10px;
+    }
+    
+    .fuel-log-meta-item ion-icon {
+        font-size: 14px;
+    }
+    
+    .fuel-log-meta-item span {
+        font-size: 11px;
+    }
+    
+    .fuel-log-footer {
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+        margin-bottom: 10px;
+        padding-top: 10px;
+    }
+    
+    .fuel-log-consumption {
+        font-size: 14px;
+        text-align: center;
+    }
+    
+    .fuel-log-amount {
+        font-size: 18px;
+        text-align: center;
+    }
+    
+    .fuel-log-actions {
+        justify-content: center;
+    }
+    
+    .fuel-log-edit,
+    .fuel-log-delete {
+        width: 40px;
+        height: 40px;
+    }
+}
+
+/* Для очень маленьких экранов */
+@media (max-width: 360px) {
+    .fuel-log-meta-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .fuel-log-meta-item {
+        flex-direction: row;
+        justify-content: space-between;
+        font-size: 12px;
+    }
+}
