@@ -1,15 +1,63 @@
+// ==========================================
+// ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (ДОЛЖНЫ БЫТЬ В САМОМ ВЕРХУ ФАЙЛА)
+// ==========================================
+
+// 1. Основные данные
 let records = [];
 let tariffs = [];
+let fuelLogs = []; // Добавлено для модуля топлива
+
+// 2. Переменные графиков
 let incomeChart = null;
 let expensesChart = null;
 let comparisonChart = null;
+let fuelChartInstance = null;
+
+// 3. Состояния интерфейса
 let editingId = null;
-const DEFAULT_TARIFF = { pickup: 60, delivery: 81, km: 11, weight: 2 };
-// Состояние авто-расчета для полей км и вес
+let editingFuelId = null;
+let currentHistoryPage = 1;
+const RECORDS_PER_PAGE = 20;
+let showAllHistoryMode = false;
+
+// 4. Состояние авто-расчета
 let autoCalcState = {
     km: true,
     weight: true
 };
+
+// 5. СОСТОЯНИЕ ФИЛЬТРОВ И СОРТИРОВКИ (КРИТИЧЕСКИ ВАЖНО!)
+let filterState = {
+    date: { type: 'month', values: [] },
+    weekday: { type: 'checkbox', values: [] },
+    type: { type: 'checkbox', values: [] },
+    hours: { type: 'range', min: '', max: '' },
+    ordersPickup: { type: 'range', min: '', max: '' },
+    payPickup: { type: 'range', min: '', max: '' },
+    ordersDelivery: { type: 'range', min: '', max: '' },
+    payDelivery: { type: 'range', min: '', max: '' },
+    distance: { type: 'range', min: '', max: '' },
+    payDistance: { type: 'range', min: '', max: '' },
+    weight: { type: 'range', min: '', max: '' },
+    payWeight: { type: 'range', min: '', max: '' },
+    loadPay: { type: 'range', min: '', max: '' },
+    bonusPay: { type: 'range', min: '', max: '' },
+    rating: { type: 'range', min: '', max: '' },
+    tips: { type: 'range', min: '', max: '' },
+    fuelCost: { type: 'range', min: '', max: '' },
+    repairCost: { type: 'range', min: '', max: '' },
+    tax: { type: 'range', min: '', max: '' },
+    totalIncome: { type: 'range', min: '', max: '' },
+    totalExpenses: { type: 'range', min: '', max: '' },
+    netProfit: { type: 'range', min: '', max: '' }
+};
+
+let sortState = { column: null, direction: null };
+let currentFilterColumn = null;
+
+// ==========================================
+// ДАЛЕЕ ИДЕТ ВАШ ОСТАЛЬНОЙ КОД (Firebase инициализация и т.д.)
+// ==========================================
 
 // ===== ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ПАРСИНГА ДАТ БЕЗ СМЕЩЕНИЯ ЧАСОВОГО ПОЯСА =====
 function parseLocalDate(dateStr) {
@@ -229,56 +277,62 @@ auth.onAuthStateChanged(async (user) => {
     const statusWrapper = document.getElementById('connection-status-wrapper');
     
     if (user) {
-    // ===== ПОЛЬЗОВАТЕЛЬ ВОШЕЛ =====
-    currentUser = user;
-    localStorage.setItem('driverAuthState', 'true');
-    document.body.classList.add('authenticated');
+        // ===== ПОЛЬЗОВАТЕЛЬ ВОШЕЛ =====
+        currentUser = user;
+        localStorage.setItem('driverAuthState', 'true');
+        document.body.classList.add('authenticated');
 
-    // Показываем интерфейс
-    if (authScreen) { authScreen.classList.add('hidden'); authScreen.style.display = 'none'; }
-    if (container) container.style.display = 'block';
-    if (bottomNav) bottomNav.style.display = 'flex';
-    if (logoutBtn) logoutBtn.style.display = 'inline-flex';
-    if (statusWrapper) statusWrapper.style.display = 'flex';
+        // Показываем интерфейс
+        if (authScreen) { authScreen.classList.add('hidden'); authScreen.style.display = 'none'; }
+        if (container) container.style.display = 'block';
+        if (bottomNav) bottomNav.style.display = 'flex';
+        if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+        if (statusWrapper) statusWrapper.style.display = 'flex';
 
-    // ⭐⭐⭐ НОВОЕ: МГНОВЕННО показываем имя и email (не ждём Firebase!)
-    const nameEl = document.getElementById('profile-name');
-    const emailEl = document.getElementById('profile-email');
-    const syncEl = document.getElementById('profile-sync-status');
-    
-    const userName = user.displayName || (user.email ? user.email.split('@')[0] : 'Водитель');
-    if (nameEl) nameEl.textContent = userName;
-    if (emailEl) emailEl.textContent = user.email || '';
-    if (syncEl) {
-        syncEl.innerHTML = '<ion-icon name="sync-outline" style="font-size: 16px;"></ion-icon> Загрузка данных...';
-        syncEl.style.color = 'var(--ios-warning)';
-    }
-    
-    // ⭐⭐⭐ НОВОЕ: Мгновенно показываем вкладку "Главная" с skeleton-данными
-    const homeTab = document.getElementById('tab-home');
-    if (homeTab && homeTab.classList.contains('active')) {
-        loadProfileAvatar(); // Показываем аватар из localStorage (если есть)
-    }
-
-    console.log('✅ Пользователь вошел:', user.email);
-
-    // Обновляем индикатор статуса
-    connectionMode = 'checking';
-    firebaseErrorReason = '';
-    updateConnectionIndicator();
-
-    // ⭐⭐⭐ ТЕПЕРЬ грузим данные (имя уже показано!)
-    try {
-        await loadUserData();
-        setTimeout(() => checkFirebaseConnection(), 1000);
-    } catch (error) {
-        console.error('❌ Ошибка загрузки данных:', error);
-        connectionMode = 'local';
-        firebaseErrorReason = 'Ошибка загрузки данных: ' + error.message;
-        updateConnectionIndicator();
-    }
-
+        // ⭐⭐⭐ МГНОВЕННО показываем имя и email (не ждём Firebase!)
+        const nameEl = document.getElementById('profile-name');
+        const emailEl = document.getElementById('profile-email');
+        const syncEl = document.getElementById('profile-sync-status');
         
+        const userName = user.displayName || (user.email ? user.email.split('@')[0] : 'Водитель');
+        if (nameEl) nameEl.textContent = userName;
+        if (emailEl) emailEl.textContent = user.email || '';
+        if (syncEl) {
+            syncEl.innerHTML = '<ion-icon name="sync-outline" style="font-size: 16px;"></ion-icon> Загрузка данных...';
+            syncEl.style.color = 'var(--ios-warning)';
+        }
+        
+        // ⭐⭐⭐ Мгновенно показываем аватар из localStorage (если есть)
+        const homeTab = document.getElementById('tab-home');
+        if (homeTab && homeTab.classList.contains('active')) {
+            loadProfileAvatar(); 
+        }
+
+        console.log('✅ Пользователь вошел:', user.email);
+
+        // Обновляем индикатор статуса
+        connectionMode = 'checking';
+        firebaseErrorReason = '';
+        updateConnectionIndicator();
+
+        // ⭐⭐⭐ ТЕПЕРЬ грузим данные (имя уже показано!)
+        try {
+            // 1. Загружаем записи, тарифы, аватар и цели
+            await loadUserData();
+            
+            // 2. ⭐⭐⭐ КЛЮЧЕВОЕ ДОБАВЛЕНИЕ: Загружаем топливо ПОСЛЕ авторизации
+            await loadFuelLogs();
+            
+            // 3. Проверяем подключение
+            setTimeout(() => checkFirebaseConnection(), 1000);
+            
+        } catch (error) {
+            console.error('❌ Ошибка загрузки данных:', error);
+            connectionMode = 'local';
+            firebaseErrorReason = 'Ошибка загрузки данных: ' + error.message;
+            updateConnectionIndicator();
+        }
+
     } else {
         // ===== ПОЛЬЗОВАТЕЛЬ ВЫШЕЛ =====
         currentUser = null;
@@ -617,66 +671,37 @@ function restoreState() {
     }
 }
 
-// ===== ФИЛЬТРЫ =====
-let activeFilters = {};
-let filterState = {
-    date: { type: 'month', values: [] },
-    weekday: { type: 'checkbox', values: [] },
-    type: { type: 'checkbox', values: [] },
-    hours: { type: 'range', min: '', max: '' },
-    ordersPickup: { type: 'range', min: '', max: '' },
-    payPickup: { type: 'range', min: '', max: '' },
-    ordersDelivery: { type: 'range', min: '', max: '' },
-    payDelivery: { type: 'range', min: '', max: '' },
-    distance: { type: 'range', min: '', max: '' },
-    payDistance: { type: 'range', min: '', max: '' },
-    weight: { type: 'range', min: '', max: '' },
-    payWeight: { type: 'range', min: '', max: '' },
-    loadPay: { type: 'range', min: '', max: '' },
-    bonusPay: { type: 'range', min: '', max: '' },
-    rating: { type: 'range', min: '', max: '' },
-    tips: { type: 'range', min: '', max: '' },
-    fuelCost: { type: 'range', min: '', max: '' },
-    repairCost: { type: 'range', min: '', max: '' },
-    tax: { type: 'range', min: '', max: '' },
-    totalIncome: { type: 'range', min: '', max: '' },
-    totalExpenses: { type: 'range', min: '', max: '' },
-    netProfit: { type: 'range', min: '', max: '' }
-};
+// ==========================================
+// НАДЕЖНАЯ СИСТЕМА ФИЛЬТРАЦИИ (ВЕРСИЯ 3.0)
+// ==========================================
 
-// ===== СОРТИРОВКА =====
-let sortState = {
-    column: null,
-    direction: null
-};
-let currentFilterColumn = null;
 
-// ===== ФУНКЦИИ ФИЛЬТРАЦИИ =====
+
 function toggleFilter(column) {
     const filterRow = document.getElementById('filter-row');
-    if (!filterRow) return;
+    if (!filterRow) { console.error('❌ Нет #filter-row'); return; }
 
     if (filterRow.style.display === 'none' || filterRow.style.display === '') {
         filterRow.style.display = 'table-row';
         currentFilterColumn = column;
-        showFilterForColumn(column);
+        renderFilterUI(column);
     } else if (currentFilterColumn === column) {
         filterRow.style.display = 'none';
         currentFilterColumn = null;
     } else {
         currentFilterColumn = column;
-        showFilterForColumn(column);
+        renderFilterUI(column);
     }
 }
 
-function showFilterForColumn(column) {
-    const columns = Object.keys(filterState);
-    columns.forEach(col => {
+function renderFilterUI(column) {
+    // Скрываем все ячейки фильтров, показываем только нужную
+    Object.keys(filterState).forEach(col => {
         const cell = document.getElementById('filter-' + col);
         if (cell) {
             if (col === column) {
                 cell.style.display = 'table-cell';
-                renderFilter(col);
+                buildFilterControls(col, cell);
             } else {
                 cell.style.display = 'none';
                 cell.innerHTML = '';
@@ -685,223 +710,184 @@ function showFilterForColumn(column) {
     });
 }
 
-function renderFilter(column) {
-    const container = document.getElementById('filter-' + column);
-    if (!container) return;
+function buildFilterControls(column, container) {
     container.innerHTML = '';
-    container.onclick = (e) => e.stopPropagation();
-
+    
+    // 1. ФИЛЬТР ПО МЕСЯЦАМ
     if (column === 'date') {
-        const months = getUniqueMonths();
         const select = document.createElement('select');
+        select.style.cssText = 'width:100%; padding:6px; font-size:12px; border:1px solid #ccc; border-radius:6px;';
         select.innerHTML = '<option value="">Все месяцы</option>';
-        months.forEach(m => {
-            const option = document.createElement('option');
-            option.value = m.value;
-            option.textContent = m.label;
-            if (filterState.date.values.includes(m.value)) option.selected = true;
-            select.appendChild(option);
+        
+        const monthsMap = new Map();
+        records.forEach(r => {
+            if (!r.date) return;
+            const d = parseLocalDate(r.date);
+            if (!d) return;
+            const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+            const label = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][d.getMonth()] + ' ' + d.getFullYear();
+            if (!monthsMap.has(key)) monthsMap.set(key, label);
         });
-        select.onclick = (e) => e.stopPropagation();
-        select.onchange = (e) => {
+        
+        Array.from(monthsMap.entries()).sort((a,b) => b[0].localeCompare(a[0])).forEach(([key, label]) => {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.textContent = label;
+            if (filterState.date.values.includes(key)) opt.selected = true;
+            select.appendChild(opt);
+        });
+        
+        select.addEventListener('change', (e) => {
             filterState.date.values = e.target.value ? [e.target.value] : [];
             renderTable();
-        };
+        });
         container.appendChild(select);
-    } 
+    }
+    // 2. ФИЛЬТР ПО ДНЯМ НЕДЕЛИ
     else if (column === 'weekday') {
-        const days = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
         const wrapper = document.createElement('div');
-        wrapper.style.cssText = 'display:flex;flex-wrap:wrap;gap:4px;';
-        wrapper.onclick = (e) => e.stopPropagation();
-        days.forEach(day => {
+        wrapper.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px;';
+        ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'].forEach(day => {
             const label = document.createElement('label');
-            label.style.cssText = 'display:flex;align-items:center;font-size:11px;cursor:pointer;';
-            label.onclick = (e) => e.stopPropagation();
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.value = day;
-            checkbox.checked = filterState.weekday.values.includes(day);
-            checkbox.onclick = (e) => e.stopPropagation();
-            checkbox.onchange = updateWeekdayFilter;
-            label.appendChild(checkbox);
-            label.appendChild(document.createTextNode(day.slice(0, 3)));
-            wrapper.appendChild(label);
-        });
-        container.appendChild(wrapper);
-    } 
-    else if (column === 'type') {
-        const types = [
-            { value: 'work', label: '<ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px; color: #007AFF;"></ion-icon>Работа' },
-            { value: 'bonus', label: '<ion-icon name="gift-outline" style="vertical-align: middle; margin-right: 4px; color: #AF52DE;"></ion-icon>Бонус' },
-            { value: 'expense', label: '<ion-icon name="remove-circle-outline" style="vertical-align: middle; margin-right: 4px; color: #FF3B30;"></ion-icon>Расход' }
-        ];
-        const wrapper = document.createElement('div');
-        wrapper.style.cssText = 'display:flex;flex-direction:column;gap:8px;';
-        wrapper.onclick = (e) => e.stopPropagation();
-        types.forEach(t => {
-            const label = document.createElement('label');
-            label.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;';
-            label.onclick = (e) => e.stopPropagation();
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.value = t.value;
-            checkbox.checked = filterState.type.values.includes(t.value);
-            checkbox.onclick = (e) => e.stopPropagation();
-            checkbox.onchange = () => {
-                if (checkbox.checked) {
-                    if (!filterState.type.values.includes(t.value)) filterState.type.values.push(t.value);
-                } else {
-                    filterState.type.values = filterState.type.values.filter(v => v !== t.value);
-                }
+            label.style.cssText = 'display:flex; align-items:center; font-size:11px; cursor:pointer;';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = day;
+            cb.checked = filterState.weekday.values.includes(day);
+            cb.addEventListener('change', () => {
+                if (cb.checked) filterState.weekday.values.push(day);
+                else filterState.weekday.values = filterState.weekday.values.filter(v => v !== day);
                 renderTable();
-            };
-            label.appendChild(checkbox);
-            const span = document.createElement('span');
-            span.innerHTML = t.label;
-            label.appendChild(span);
+            });
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(' ' + day.slice(0,3)));
             wrapper.appendChild(label);
         });
         container.appendChild(wrapper);
-    } 
+    }
+// 3. ФИЛЬТР ПО ТИПУ
+else if (column === 'type') {
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
+    
+    // Добавлены свойства icon и color для каждого типа
+    [
+        { v: 'work', l: 'Работа', icon: 'calendar-outline', color: 'var(--ios-accent, #007AFF)' },
+        { v: 'bonus', l: 'Бонус', icon: 'gift-outline', color: 'var(--ios-purple, #AF52DE)' },
+        { v: 'expense', l: 'Расход', icon: 'remove-circle-outline', color: 'var(--ios-danger, #FF3B30)' }
+    ].forEach(t => {
+        const label = document.createElement('label');
+        label.style.cssText = 'display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px;';
+        
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = t.v;
+        cb.checked = filterState.type.values.includes(t.v);
+        cb.addEventListener('change', () => {
+            if (cb.checked) { if (!filterState.type.values.includes(t.v)) filterState.type.values.push(t.v); }
+            else { filterState.type.values = filterState.type.values.filter(v => v !== t.v); }
+            renderTable();
+        });
+        
+        label.appendChild(cb);
+        
+        // Создаем обертку для иконки и текста для идеального выравнивания
+        const textWrapper = document.createElement('span');
+        textWrapper.style.cssText = 'display:flex; align-items:center; gap:4px;';
+        textWrapper.innerHTML = `<ion-icon name="${t.icon}" style="color: ${t.color}; font-size: 16px;"></ion-icon> ${t.l}`;
+        
+        label.appendChild(textWrapper);
+        wrapper.appendChild(label);
+    });
+    container.appendChild(wrapper);
+}
+    // 4. ДИАПАЗОННЫЕ ФИЛЬТРЫ (ЧИСЛА)
     else if (filterState[column] && filterState[column].type === 'range') {
         const wrapper = document.createElement('div');
-        wrapper.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
-        wrapper.onclick = (e) => e.stopPropagation();
-
-        // Поля ввода для диапазона
-        const inputsWrapper = document.createElement('div');
-        inputsWrapper.style.cssText = 'display:flex;gap:4px;align-items:center;';
+        wrapper.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
         
-        const minInput = document.createElement('input');
-        minInput.type = 'number';
-        minInput.placeholder = 'От';
-        minInput.style.cssText = 'width:60px;padding:4px;font-size:11px;border:1px solid #ccc;border-radius:4px;';
-        minInput.value = filterState[column].min;
-        minInput.onclick = (e) => e.stopPropagation();
-        minInput.onchange = (e) => { filterState[column].min = e.target.value; renderTable(); };
-
-        const maxInput = document.createElement('input');
-        maxInput.type = 'number';
-        maxInput.placeholder = 'До';
-        maxInput.style.cssText = 'width:60px;padding:4px;font-size:11px;border:1px solid #ccc;border-radius:4px;';
-        maxInput.value = filterState[column].max;
-        maxInput.onclick = (e) => e.stopPropagation();
-        maxInput.onchange = (e) => { filterState[column].max = e.target.value; renderTable(); };
-
-        inputsWrapper.appendChild(minInput);
-        inputsWrapper.appendChild(maxInput);
-        wrapper.appendChild(inputsWrapper);
-
-        // Кнопки сортировки
-        const sortWrapper = document.createElement('div');
-        sortWrapper.style.cssText = 'display:flex;gap:4px;';
+        const inputsDiv = document.createElement('div');
+        inputsDiv.style.cssText = 'display:flex; gap:4px; align-items:center;';
         
-        const btnAsc = document.createElement('button');
-        btnAsc.innerHTML = '↑ А→Я';
-        btnAsc.style.cssText = `padding:4px 8px;font-size:11px;cursor:pointer;border:1px solid #ccc;border-radius:6px;background:${sortState.column === column && sortState.direction === 'asc' ? '#007AFF' : '#fff'};color:${sortState.column === column && sortState.direction === 'asc' ? '#fff' : '#333'};`;
-        btnAsc.onclick = (e) => {
-            e.stopPropagation();
-            if (sortState.column === column && sortState.direction === 'asc') { sortState.column = null; sortState.direction = null; } 
-            else { sortState.column = column; sortState.direction = 'asc'; }
-            renderTable(); renderFilter(column);
-        };
+        const minInp = document.createElement('input');
+        minInp.type = 'number'; minInp.placeholder = 'От';
+        minInp.style.cssText = 'width:50%; padding:6px; font-size:12px; border:1px solid #ccc; border-radius:6px;';
+        minInp.value = filterState[column].min;
+        
+        const maxInp = document.createElement('input');
+        maxInp.type = 'number'; maxInp.placeholder = 'До';
+        maxInp.style.cssText = 'width:50%; padding:6px; font-size:12px; border:1px solid #ccc; border-radius:6px;';
+        maxInp.value = filterState[column].max;
 
-        const btnDesc = document.createElement('button');
-        btnDesc.innerHTML = '↓ Я→А';
-        btnDesc.style.cssText = `padding:4px 8px;font-size:11px;cursor:pointer;border:1px solid #ccc;border-radius:6px;background:${sortState.column === column && sortState.direction === 'desc' ? '#007AFF' : '#fff'};color:${sortState.column === column && sortState.direction === 'desc' ? '#fff' : '#333'};`;
-        btnDesc.onclick = (e) => {
-            e.stopPropagation();
-            if (sortState.column === column && sortState.direction === 'desc') { sortState.column = null; sortState.direction = null; } 
-            else { sortState.column = column; sortState.direction = 'desc'; }
-            renderTable(); renderFilter(column);
-        };
+        // 🌟 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: используем addEventListener 'input'
+        minInp.addEventListener('input', (e) => {
+            filterState[column].min = e.target.value;
+            renderTable();
+        });
+        maxInp.addEventListener('input', (e) => {
+            filterState[column].max = e.target.value;
+            renderTable();
+        });
 
-        sortWrapper.appendChild(btnAsc);
-        sortWrapper.appendChild(btnDesc);
-        wrapper.appendChild(sortWrapper);
+        inputsDiv.appendChild(minInp);
+        inputsDiv.appendChild(maxInp);
+        wrapper.appendChild(inputsDiv);
         container.appendChild(wrapper);
     }
 }
 
-function updateWeekdayFilter(e) {
-    if (e) e.stopPropagation();
-    const checkboxes = document.querySelectorAll('#filter-weekday input[type="checkbox"]');
-    filterState.weekday.values = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
-    renderTable();
-}
-
-function getUniqueMonths() {
-    const monthsMap = new Map();
-    records.forEach(r => {
-        if (!r.date) return;
-        const d = parseLocalDate(r.date);
-        if (!d) return; // Защита от некорректных дат
-        const monthKey = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-        const monthLabel = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][d.getMonth()] + ' ' + d.getFullYear();
-        if (!monthsMap.has(monthKey)) monthsMap.set(monthKey, { value: monthKey, label: monthLabel });
-    });
-    return Array.from(monthsMap.values()).sort((a,b) => b.value.localeCompare(a.value));
-}
-
 function clearAllFilters() {
-    filterState = {
-        date: { type: 'month', values: [] },
-        weekday: { type: 'checkbox', values: [] },
-        type: { type: 'checkbox', values: [] },
-        hours: { type: 'range', min: '', max: '' },
-        ordersPickup: { type: 'range', min: '', max: '' },
-        payPickup: { type: 'range', min: '', max: '' },
-        ordersDelivery: { type: 'range', min: '', max: '' },
-        payDelivery: { type: 'range', min: '', max: '' },
-        distance: { type: 'range', min: '', max: '' },
-        payDistance: { type: 'range', min: '', max: '' },
-        weight: { type: 'range', min: '', max: '' },
-        payWeight: { type: 'range', min: '', max: '' },
-        loadPay: { type: 'range', min: '', max: '' },
-        bonusPay: { type: 'range', min: '', max: '' },
-        rating: { type: 'range', min: '', max: '' },
-        tips: { type: 'range', min: '', max: '' },
-        fuelCost: { type: 'range', min: '', max: '' },
-        repairCost: { type: 'range', min: '', max: '' },
-        tax: { type: 'range', min: '', max: '' },
-        totalIncome: { type: 'range', min: '', max: '' },
-        totalExpenses: { type: 'range', min: '', max: '' },
-        netProfit: { type: 'range', min: '', max: '' }
-    };
-    
+    Object.keys(filterState).forEach(key => {
+        if (filterState[key].type === 'range') {
+            filterState[key].min = '';
+            filterState[key].max = '';
+        } else {
+            filterState[key].values = [];
+        }
+    });
     sortState = { column: null, direction: null };
-
     const filterRow = document.getElementById('filter-row');
     if (filterRow) {
         filterRow.style.display = 'none';
-        const cells = filterRow.querySelectorAll('td');
-        cells.forEach(cell => { if (cell.id && cell.id.startsWith('filter-')) cell.innerHTML = ''; });
+        filterRow.querySelectorAll('td').forEach(td => { if(td.id.startsWith('filter-')) td.innerHTML = ''; });
     }
     currentFilterColumn = null;
     renderTable();
 }
 
+// ===== ПРИМЕНЕНИЕ ФИЛЬТРОВ (МАКСИМАЛЬНО ЗАЩИЩЕННОЕ) =====
 function applyFilters(data) {
     return data.filter(r => {
+        // 1. Дата
         if (filterState.date.values.length > 0) {
-            const recordMonth = r.date ? r.date.substring(0, 7) : '';
-            if (!filterState.date.values.includes(recordMonth)) return false;
+            const recMonth = r.date ? r.date.substring(0, 7) : '';
+            if (!filterState.date.values.includes(recMonth)) return false;
         }
+        // 2. День недели
         if (filterState.weekday.values.length > 0) {
-            const recordWeekday = r.weekday ? r.weekday.trim().charAt(0).toUpperCase() + r.weekday.trim().slice(1).toLowerCase() : '';
-            if (!filterState.weekday.values.includes(recordWeekday)) return false;
+            const recDay = r.weekday ? r.weekday.trim().charAt(0).toUpperCase() + r.weekday.trim().slice(1).toLowerCase() : '';
+            if (!filterState.weekday.values.includes(recDay)) return false;
         }
+        // 3. Тип
         if (filterState.type.values.length > 0) {
             if (!filterState.type.values.includes(r.recordType)) return false;
         }
-        
-        const rangeFields = Object.keys(filterState).filter(k => filterState[k].type === 'range');
-        for (const field of rangeFields) {
-            const filter = filterState[field];
-            const value = parseFloat(r[field]) || 0;
-            if (filter.min !== '' && value < parseFloat(filter.min)) return false;
-            if (filter.max !== '' && value > parseFloat(filter.max)) return false;
+        // 4. Числовые диапазоны
+        for (const key of Object.keys(filterState)) {
+            const f = filterState[key];
+            if (f.type !== 'range') continue;
+            if (f.min === '' && f.max === '') continue; // Пропускаем, если фильтр пуст
+
+            // Безопасное получение числа
+            let val = 0;
+            const raw = r[key];
+            if (raw !== undefined && raw !== null && raw !== '' && raw !== '-') {
+                val = parseFloat(raw);
+                if (isNaN(val)) val = 0;
+            }
+
+            if (f.min !== '' && !isNaN(parseFloat(f.min)) && val < parseFloat(f.min)) return false;
+            if (f.max !== '' && !isNaN(parseFloat(f.max)) && val > parseFloat(f.max)) return false;
         }
         return true;
     });
@@ -913,57 +899,16 @@ function applySorting(data) {
     if (data.length === 0 || !(field in data[0])) return data;
     
     return [...data].sort((a, b) => {
-        const valA = parseFloat(a[field]) || 0;
-        const valB = parseFloat(b[field]) || 0;
+        const rawA = a[field];
+        const valA = (rawA === undefined || rawA === null || rawA === '' || rawA === '-') ? 0 : parseFloat(rawA);
+        const rawB = b[field];
+        const valB = (rawB === undefined || rawB === null || rawB === '' || rawB === '-') ? 0 : parseFloat(rawB);
         return sortState.direction === 'asc' ? valA - valB : valB - valA;
     });
 }
 
-// ===== ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ РЕНДЕРА СТРОКИ (ГАРАНТИЯ ВЫРАВНИВАНИЯ) =====
-function getRecordRowHTML(r) {
-    const typeLabel = r.recordType === 'bonus'
-        ? '<ion-icon name="gift-outline" style="vertical-align: middle; margin-right: 4px; color: #AF52DE;"></ion-icon>Бонус'
-        : r.recordType === 'expense'
-        ? '<ion-icon name="remove-circle-outline" style="vertical-align: middle; margin-right: 4px; color: #FF3B30;"></ion-icon>Расход'
-        : '<ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px; color: #007AFF;"></ion-icon>Работа';
-
-    return `
-        <td>${formatDate(r.date)}</td>
-        <td>${r.weekday || '-'}</td>
-        <td>${typeLabel}</td>
-        <td>${r.hours || '-'}</td>
-        <td>${r.ordersPickup || '-'}</td>
-        <td>${r.payPickup ? formatMoney(r.payPickup) : '-'}</td>
-        <td>${r.ordersDelivery || '-'}</td>
-        <td>${r.payDelivery ? formatMoney(r.payDelivery) : '-'}</td>
-        <td>${r.distance ? r.distance.toFixed(1) : '-'}</td>
-        <td>${r.payDistance ? formatMoney(r.payDistance) : '-'}</td>
-        <td>${r.weight ? r.weight.toFixed(1) : '-'}</td>
-        <td>${r.payWeight ? formatMoney(r.payWeight) : '-'}</td>
-        <td>${r.loadPay ? formatMoney(r.loadPay) : '-'}</td>
-        <td>${r.bonusPay ? formatMoney(r.bonusPay) : '-'}</td>
-        <td>${r.rating ? formatMoney(r.rating) : '-'}</td>
-        <td>${r.tips ? formatMoney(r.tips) : '-'}</td>
-        <td>${r.fuelCost ? formatMoney(r.fuelCost) : '-'}</td>
-        <td>${r.repairCost ? formatMoney(r.repairCost) : '-'}</td>
-        <td>${r.tax ? formatMoney(r.tax) : '-'}</td>
-        <td>${formatMoney(r.totalIncome)}</td>
-        <td>${formatMoney(r.totalExpenses)}</td>
-        <td style="color:${r.netProfit >= 0 ? '#10b981' : '#ef4444'};font-weight:bold">${formatMoney(r.netProfit)}</td>
-        <td>
-            <button class="btn btn-success" onclick="editRecord('${r.id}')"><ion-icon name="create-outline"></ion-icon></button>
-            <button class="btn btn-danger" onclick="deleteRecord('${r.id}')"><ion-icon name="trash-outline"></ion-icon></button>
-        </td>
-    `;
-}
 
 
-
-// ===== РЕНДЕР ТАБЛИЦЫ С ПОНЕДЕЛЬНЫМИ ИТОГАМИ =====
-
-
-// ===== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК =====
-// Обновленная функция переключения вкладок
 // ===== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК (ЕДИНАЯ ФУНКЦИЯ) =====
 function switchTab(tabName) {
     // Скрываем все вкладки
@@ -1016,6 +961,17 @@ function switchTab(tabName) {
             // Опциональные действия для вкладки ввода
             break;
         
+        // ===== ДОБАВЛЕНО: Обработка вкладки "Топливо" =====
+        case 'fuel':
+            setTimeout(function() {
+                // Проверки typeof гарантируют, что ошибки не будет, если модуль еще не загрузился
+                if (typeof renderFuelLogs === 'function') renderFuelLogs();
+                if (typeof updateFuelStats === 'function') updateFuelStats();
+                if (typeof updateFuelChart === 'function') updateFuelChart();
+            }, 50);
+            break;
+        // ==================================================
+
         case 'settings':
             // Ничего не делаем, просто показываем
             break;
@@ -2072,12 +2028,26 @@ function populateFilters() {
     ys.value = cy;
 }
 
+// ===== РЕНДЕР СТРОКИ ТАБЛИЦЫ С ИНТЕГРАЦИЕЙ ТОПЛИВА И TOOLTIP =====
 function getRecordRowHTML(r) {
     const typeLabel = r.recordType === 'bonus'
         ? '<ion-icon name="gift-outline" style="vertical-align: middle; margin-right: 4px; color: #AF52DE;"></ion-icon>Бонус'
         : r.recordType === 'expense'
         ? '<ion-icon name="remove-circle-outline" style="vertical-align: middle; margin-right: 4px; color: #FF3B30;"></ion-icon>Расход'
         : '<ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px; color: #007AFF;"></ion-icon>Работа';
+
+    // Проверяем, есть ли детали заправок для tooltip
+    const hasFuelDetails = r.fuelDetails && Array.isArray(r.fuelDetails) && r.fuelDetails.length > 0;
+    const fuelCellClass = hasFuelDetails ? 'fuel-cell-with-details' : '';
+    
+    // Формируем data-атрибуты для tooltip (только если есть детали)
+    let fuelTooltipAttr = '';
+    if (hasFuelDetails) {
+        const fuelDetailsJSON = JSON.stringify(r.fuelDetails).replace(/'/g, "&apos;");
+        const fuelLiters = r.fuelLiters || 0;
+        const fuelCount = r.fuelLogCount || r.fuelDetails.length;
+        fuelTooltipAttr = `data-fuel-details='${fuelDetailsJSON}' data-fuel-liters='${fuelLiters}' data-fuel-count='${fuelCount}'`;
+    }
 
     return `
         <td>${formatDate(r.date)}</td>
@@ -2096,7 +2066,7 @@ function getRecordRowHTML(r) {
         <td>${r.bonusPay ? formatMoney(r.bonusPay) : '-'}</td>
         <td>${r.rating ? formatMoney(r.rating) : '-'}</td>
         <td>${r.tips ? formatMoney(r.tips) : '-'}</td>
-        <td>${r.fuelCost ? formatMoney(r.fuelCost) : '-'}</td>
+        <td class="${fuelCellClass}" ${fuelTooltipAttr}>${r.fuelCost ? formatMoney(r.fuelCost) : '-'}</td>
         <td>${r.repairCost ? formatMoney(r.repairCost) : '-'}</td>
         <td>${r.tax ? formatMoney(r.tax) : '-'}</td>
         <td>${formatMoney(r.totalIncome)}</td>
@@ -2112,7 +2082,6 @@ function getRecordRowHTML(r) {
 function renderTable() {
     const tbody = document.getElementById('records-body');
     
-    // ✅ ПРОВЕРКА: существует ли tbody
     if (!tbody) {
         console.error('❌ Элемент <tbody id="records-body"> не найден в HTML');
         return;
@@ -2120,43 +2089,101 @@ function renderTable() {
     
     tbody.innerHTML = '';
     
-    // Применяем фильтры
+    // Определяем, активна ли вкладка "История"
+    const historyTab = document.getElementById('tab-history');
+    const isHistoryActive = historyTab && historyTab.classList.contains('active');
+    
     let filteredRecords = [...records];
-    filteredRecords = applyFilters(filteredRecords);
-
-    const hasActiveFilters = Object.keys(filterState).some(key => {
-        const filter = filterState[key];
-        if (filter.type === 'checkbox' || filter.type === 'month') return filter.values && filter.values.length > 0;
-        else if (filter.type === 'range') return filter.min !== '' || filter.max !== '';
-        return false;
+    
+    // ===== ЕСЛИ АКТИВНА ВКЛАДКА "ИСТОРИЯ" =====
+    if (isHistoryActive) {
+// 1. Сначала применяем фильтр по дате (месяц/год) ТОЛЬКО если не активен фильтр по столбцу "Дата"
+if (!showAllHistoryMode && currentHistoryMonth && currentHistoryYear && filterState.date.values.length === 0) {
+    filteredRecords = filteredRecords.filter(function(r) {
+        if (!r.date) return false;
+        const d = parseLocalDate(r.date);
+        if (!d) return false;
+        return (d.getMonth() + 1) === currentHistoryMonth && d.getFullYear() === currentHistoryYear;
     });
-
-    const hasActiveSorting = sortState.column !== null && sortState.direction !== null;
-    const shouldHideWeeklySummary = hasActiveFilters || hasActiveSorting;
-
-    // Сортировка с использованием parseLocalDate
-    if (sortState.column && sortState.direction) {
-        filteredRecords = applySorting(filteredRecords);
-    } else {
-        filteredRecords.sort((a, b) => {
-            const da = parseLocalDate(a.date);
-            const db = parseLocalDate(b.date);
-            return (db || 0) - (da || 0);
+}
+        
+        // 2. Затем применяем ВСЕ фильтры из filterState (по всем 23 столбцам)
+        // ⭐ ИСПРАВЛЕНИЕ: было Filters, стало applyFilters
+        filteredRecords = applyFilters(filteredRecords);
+        
+        // 3. Сортируем
+        if (sortState.column && sortState.direction) {
+            filteredRecords = applySorting(filteredRecords);
+        } else {
+            filteredRecords.sort((a, b) => {
+                const da = parseLocalDate(a.date);
+                const db = parseLocalDate(b.date);
+                return (db || 0) - (da || 0);
+            });
+        }
+        
+        // 4. Рендерим с недельными итогами или без
+        const hasActiveFilters = Object.keys(filterState).some(key => {
+            const filter = filterState[key];
+            if (filter.type === 'checkbox' || filter.type === 'month') return filter.values && filter.values.length > 0;
+            else if (filter.type === 'range') return filter.min !== '' || filter.max !== '';
+            return false;
         });
+        
+        const hasActiveSorting = sortState.column !== null && sortState.direction !== null;
+        const shouldHideWeeklySummary = hasActiveFilters || hasActiveSorting;
+        
+        if (!shouldHideWeeklySummary && !showAllHistoryMode) {
+            renderTableWithWeeklySummary(tbody, filteredRecords);
+        } else {
+            filteredRecords.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = getRecordRowHTML(r);
+                tbody.appendChild(tr);
+            });
+        }
+        
+        // Обновляем пагинацию
+        const totalPages = Math.ceil(filteredRecords.length / RECORDS_PER_PAGE);
+        renderPagination(totalPages);
+        
+    } else {
+        // ===== ДЛЯ ДРУГИХ ВКЛАДОК (аналитика и т.д.) =====
+        filteredRecords = applyFilters(filteredRecords);
+        
+        const hasActiveFilters = Object.keys(filterState).some(key => {
+            const filter = filterState[key];
+            if (filter.type === 'checkbox' || filter.type === 'month') return filter.values && filter.values.length > 0;
+            else if (filter.type === 'range') return filter.min !== '' || filter.max !== '';
+            return false;
+        });
+        
+        const hasActiveSorting = sortState.column !== null && sortState.direction !== null;
+        const shouldHideWeeklySummary = hasActiveFilters || hasActiveSorting;
+        
+        if (sortState.column && sortState.direction) {
+            filteredRecords = applySorting(filteredRecords);
+        } else {
+            filteredRecords.sort((a, b) => {
+                const da = parseLocalDate(a.date);
+                const db = parseLocalDate(b.date);
+                return (db || 0) - (da || 0);
+            });
+        }
+        
+        if (!shouldHideWeeklySummary) {
+            renderTableWithWeeklySummary(tbody, filteredRecords);
+        } else {
+            filteredRecords.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = getRecordRowHTML(r);
+                tbody.appendChild(tr);
+            });
+        }
     }
 
-    if (!shouldHideWeeklySummary) {
-        renderTableWithWeeklySummary(tbody, filteredRecords);
-    } else {
-        filteredRecords.forEach(r => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = getRecordRowHTML(r);
-            tbody.appendChild(tr);
-        });
-    }
-
-    // ✅ БЕЗОПАСНОЕ ДОБАВЛЕНИЕ ИНФОРМАЦИОННОГО БЛОКА
-    // Ищем контейнер таблицы
+    
+    // ===== ИНФОРМАЦИОННЫЙ БЛОК =====
     let tableContainer = tbody.closest('.table-container');
     if (!tableContainer) {
         tableContainer = tbody.closest('table');
@@ -2171,23 +2198,65 @@ function renderTable() {
             infoEl = document.createElement('div');
             infoEl.id = 'filter-info';
             infoEl.style.cssText = 'padding:15px;background:#dbeafe;border-radius:8px;margin:10px 0;text-align:center;color:#1e40af;font-weight:600;';
-            // Вставляем после таблицы
             if (tableContainer.tagName === 'TABLE') {
                 tableContainer.parentElement.insertBefore(infoEl, tableContainer.nextSibling);
             } else {
                 tableContainer.appendChild(infoEl);
             }
         }
-
+        
         const count = filteredRecords.length;
         const total = records.length;
+        
         if (count < total || count === 0) {
             infoEl.style.display = 'block';
-            infoEl.textContent = `Показано ${count} из ${total} записей`;
+            if (isHistoryActive) {
+                let filterInfo = '';
+                if (!showAllHistoryMode && currentHistoryMonth && currentHistoryYear) {
+                    const monthName = getMonthName(currentHistoryMonth);
+                    filterInfo = ` за ${monthName} ${currentHistoryYear}`;
+                }
+                infoEl.textContent = `📅 Показано ${count} из ${total} записей${filterInfo}`;
+            } else {
+                infoEl.textContent = `📊 Показано ${count} из ${total} записей`;
+            }
         } else {
             infoEl.style.display = 'none';
         }
     }
+}
+
+// ===== ПРИМЕНЕНИЕ ВСЕХ ФИЛЬТРОВ (ДЛЯ ИСТОРИИ) =====
+function applyAllFilters(data) {
+    return data.filter(r => {
+        // 1. Фильтр по дате (месяц)
+        if (filterState.date.values.length > 0) {
+            const recordMonth = r.date ? r.date.substring(0, 7) : '';
+            if (!filterState.date.values.includes(recordMonth)) return false;
+        }
+        
+        // 2. Фильтр по дню недели
+        if (filterState.weekday.values.length > 0) {
+            const recordWeekday = r.weekday ? r.weekday.trim().charAt(0).toUpperCase() + r.weekday.trim().slice(1).toLowerCase() : '';
+            if (!filterState.weekday.values.includes(recordWeekday)) return false;
+        }
+        
+        // 3. Фильтр по типу записи
+        if (filterState.type.values.length > 0) {
+            if (!filterState.type.values.includes(r.recordType)) return false;
+        }
+        
+        // 4. Фильтры по диапазонам для всех числовых полей
+        const rangeFields = Object.keys(filterState).filter(k => filterState[k].type === 'range');
+        for (const field of rangeFields) {
+            const filter = filterState[field];
+            const value = parseFloat(r[field]) || 0;
+            if (filter.min !== '' && value < parseFloat(filter.min)) return false;
+            if (filter.max !== '' && value > parseFloat(filter.max)) return false;
+        }
+        
+        return true;
+    });
 }
 
 
@@ -2903,9 +2972,9 @@ function exportToPDF() {
 
 let currentHistoryMonth = null;
 let currentHistoryYear = null;
-let showAllHistoryMode = false;
-let currentHistoryPage = 1;
-const RECORDS_PER_PAGE = 50;
+
+
+
 
 // Заполняем фильтры при загрузке
 function initHistoryFilters() {
@@ -3134,24 +3203,7 @@ function getFilteredRecords() {
     return filteredRecords;
 }
 
-// Модифицируем существующую renderTable для совместимости
-const originalRenderTable = window.renderTable;
-if (typeof originalRenderTable === 'function') {
-    window.renderTable = function() {
-        // Если мы на вкладке истории и есть фильтр — используем фильтрованную версию
-        const historyTab = document.getElementById('tab-history');
-        if (historyTab && historyTab.classList.contains('active')) {
-            if (showAllHistoryMode || (currentHistoryMonth && currentHistoryYear)) {
-                updateHistoryInfo();
-                renderTableWithMonthFilter();
-                return;
-            }
-        }
-        
-        // Иначе используем оригинальную функцию
-        originalRenderTable();
-    };
-}
+
 
 // Инициализация при загрузке
 console.log('✅ Модуль фильтрации истории загружен');
@@ -3475,49 +3527,49 @@ function renderAchievements() {
     const achievements = [];
     
     // Достижения по доходу
-    if (totalIncome >= 100000) {
-        achievements.push({ icon: '👑', label: 'Золотой доход (100 000 ₽)', class: 'gold' });
-    } else if (totalIncome >= 50000) {
-        achievements.push({ icon: '🥈', label: 'Серебряный доход (50 000 ₽)', class: 'silver' });
-    } else if (totalIncome >= 10000) {
-        achievements.push({ icon: '🥉', label: 'Бронзовый доход (10 000 ₽)', class: 'bronze' });
-    }
-    
-    // Достижения по заказам
-    if (totalOrders >= 1000) {
-        achievements.push({ icon: '📦', label: '1000+ заказов', class: 'gold' });
-    } else if (totalOrders >= 500) {
-        achievements.push({ icon: '📦', label: '500+ заказов', class: 'silver' });
-    } else if (totalOrders >= 100) {
-        achievements.push({ icon: '📦', label: '100+ заказов', class: 'bronze' });
-    }
-    
-    // Достижения по дням
-    if (totalDays >= 100) {
-        achievements.push({ icon: '📅', label: '100+ рабочих дней', class: 'gold' });
-    } else if (totalDays >= 50) {
-        achievements.push({ icon: '📅', label: '50+ рабочих дней', class: 'silver' });
-    } else if (totalDays >= 10) {
-        achievements.push({ icon: '📅', label: '10+ рабочих дней', class: 'bronze' });
-    }
-    
-    // Достижения по километрам
-    if (totalKm >= 10000) {
-        achievements.push({ icon: '🏃', label: '10 000+ км', class: 'gold' });
-    } else if (totalKm >= 5000) {
-        achievements.push({ icon: '🏃', label: '5 000+ км', class: 'silver' });
-    } else if (totalKm >= 1000) {
-        achievements.push({ icon: '🏃', label: '1 000+ км', class: 'bronze' });
-    }
-    
-    // Достижения по часам
-    if (totalHours >= 500) {
-        achievements.push({ icon: '⏱', label: '500+ часов', class: 'gold' });
-    } else if (totalHours >= 200) {
-        achievements.push({ icon: '⏱', label: '200+ часов', class: 'silver' });
-    } else if (totalHours >= 50) {
-        achievements.push({ icon: '⏱', label: '50+ часов', class: 'bronze' });
-    }
+if (totalIncome >= 100000) {
+    achievements.push({ icon: '<ion-icon name="trophy-outline"></ion-icon>', label: 'Золотой доход (100 000 ₽)', class: 'gold' });
+} else if (totalIncome >= 50000) {
+    achievements.push({ icon: '<ion-icon name="medal-outline"></ion-icon>', label: 'Серебряный доход (50 000 ₽)', class: 'silver' });
+} else if (totalIncome >= 10000) {
+    achievements.push({ icon: '<ion-icon name="star-outline"></ion-icon>', label: 'Бронзовый доход (10 000 ₽)', class: 'bronze' });
+}
+
+// Достижения по заказам
+if (totalOrders >= 1000) {
+    achievements.push({ icon: '<ion-icon name="cube-outline"></ion-icon>', label: '1000+ заказов', class: 'gold' });
+} else if (totalOrders >= 500) {
+    achievements.push({ icon: '<ion-icon name="cube-outline"></ion-icon>', label: '500+ заказов', class: 'silver' });
+} else if (totalOrders >= 100) {
+    achievements.push({ icon: '<ion-icon name="cube-outline"></ion-icon>', label: '100+ заказов', class: 'bronze' });
+}
+
+// Достижения по дням
+if (totalDays >= 100) {
+    achievements.push({ icon: '<ion-icon name="calendar-outline"></ion-icon>', label: '100+ рабочих дней', class: 'gold' });
+} else if (totalDays >= 50) {
+    achievements.push({ icon: '<ion-icon name="calendar-outline"></ion-icon>', label: '50+ рабочих дней', class: 'silver' });
+} else if (totalDays >= 10) {
+    achievements.push({ icon: '<ion-icon name="calendar-outline"></ion-icon>', label: '10+ рабочих дней', class: 'bronze' });
+}
+
+// Достижения по километрам
+if (totalKm >= 10000) {
+    achievements.push({ icon: '<ion-icon name="walk-outline"></ion-icon>', label: '10 000+ км', class: 'gold' });
+} else if (totalKm >= 5000) {
+    achievements.push({ icon: '<ion-icon name="walk-outline"></ion-icon>', label: '5 000+ км', class: 'silver' });
+} else if (totalKm >= 1000) {
+    achievements.push({ icon: '<ion-icon name="walk-outline"></ion-icon>', label: '1 000+ км', class: 'bronze' });
+}
+
+// Достижения по часам
+if (totalHours >= 500) {
+    achievements.push({ icon: '<ion-icon name="time-outline"></ion-icon>', label: '500+ часов', class: 'gold' });
+} else if (totalHours >= 200) {
+    achievements.push({ icon: '<ion-icon name="time-outline"></ion-icon>', label: '200+ часов', class: 'silver' });
+} else if (totalHours >= 50) {
+    achievements.push({ icon: '<ion-icon name="time-outline"></ion-icon>', label: '50+ часов', class: 'bronze' });
+}
     
     // Первое достижение
     if (achievements.length === 0 && records.length > 0) {
@@ -4263,7 +4315,7 @@ function updateRecentRecords() {
                 <div style="flex: 1; min-width: 0;">
                     <div style="font-weight: 600; font-size: 15px;">${dateStr}</div>
                     <div style="font-size: 13px; color: var(--ios-text-tertiary);">
-                        ${r.weekday || ''} · 📦 ${r.ordersDelivery || 0} заказов · ⏱ ${r.hours || 0} ч
+                        ${r.weekday || ''} · <ion-icon name="cube-outline" style="vertical-align: middle; margin-right: 4px; font-size: 14px;"></ion-icon> ${r.ordersDelivery || 0} заказов · <ion-icon name="time-outline" style="vertical-align: middle; margin-right: 4px; font-size: 14px;"></ion-icon> ${r.hours || 0} ч
                     </div>
                 </div>
                 <div style="text-align: right; flex-shrink: 0; margin-left: 12px;">
@@ -4552,4 +4604,632 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ Вкладка "Главная" ожидает авторизации...');
     
     console.log('✅ ВСЯ ИНИЦИАЛИЗАЦИЯ ЗАВЕРШЕНА!');
+});
+
+// ============================================
+// ПОЛНЫЙ МОДУЛЬ ТОПЛИВА (С РАСЧЕТОМ, РЕДАКТИРОВАНИЕМ И TOOLTIP)
+// ============================================
+
+
+
+
+const FUEL_STORAGE_KEY = 'driverFuelLogs';
+
+// 1. РАСЧЕТ РАСХОДА (Та самая недостающая функция)
+function calculateFuelConsumption(logs) {
+    const sorted = [...logs].sort((a, b) => (a.mileage || 0) - (b.mileage || 0));
+    sorted.forEach((log, index) => {
+        if (index === 0) { 
+            log.consumption = null; 
+            log.costPerKm = null; 
+        } else {
+            const diff = log.mileage - sorted[index - 1].mileage;
+            if (diff > 0) { 
+                log.consumption = (log.liters / diff) * 100; 
+                log.costPerKm = log.amount / diff; 
+            } else { 
+                log.consumption = null; 
+                log.costPerKm = null; 
+            }
+        }
+        log.pricePerLiter = log.liters > 0 ? log.amount / log.liters : 0;
+    });
+    return sorted;
+}
+
+// 2. ЗАГРУЗКА ДАННЫХ
+async function loadFuelLogs() {
+    try {
+        const saved = localStorage.getItem(FUEL_STORAGE_KEY);
+        if (saved) fuelLogs = JSON.parse(saved);
+        
+        if (currentUser && typeof db !== 'undefined') {
+            const snapshot = await db.collection('users')
+                .doc(currentUser.uid)
+                .collection('fuelLogs')
+                .orderBy('date', 'desc')
+                .get();
+            
+            if (!snapshot.empty) {
+                fuelLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                localStorage.setItem(FUEL_STORAGE_KEY, JSON.stringify(fuelLogs));
+                console.log('✅ Топливо загружено из Firebase:', fuelLogs.length);
+            }
+        }
+        renderFuelLogs();
+        updateFuelStats();
+        updateFuelChart();
+        
+        // Автоматическая синхронизация с историей при загрузке
+        if (typeof syncFuelToRecords === 'function') {
+            await syncFuelToRecords();
+        }
+    } catch (error) {
+        console.error('❌ Ошибка загрузки топлива:', error);
+    }
+}
+
+// 3. СОХРАНЕНИЕ В FIREBASE
+async function saveFuelLogToFirebase(log) {
+    if (!currentUser || typeof db === 'undefined') return false;
+    try {
+        const logToSave = { ...log };
+        delete logToSave.id;
+        await db.collection('users').doc(currentUser.uid).collection('fuelLogs').doc(log.id).set(logToSave);
+        return true;
+    } catch (error) {
+        console.error('❌ Ошибка сохранения в Firebase:', error);
+        return false;
+    }
+}
+
+// 4. ОБРАБОТЧИК ФОРМЫ (ДОБАВЛЕНИЕ И РЕДАКТИРОВАНИЕ)
+async function handleFuelSubmit(e) {
+    e.preventDefault();
+    
+    const date = document.getElementById('fuel-date').value;
+    const mileage = parseFloat(document.getElementById('fuel-mileage').value);
+    const liters = parseFloat(document.getElementById('fuel-liters').value);
+    const amount = parseFloat(document.getElementById('fuel-amount').value);
+    const comment = document.getElementById('fuel-comment').value || '';
+    
+    if (!date || !mileage || !liters || !amount) {
+        alert('❌ Заполните все обязательные поля');
+        return;
+    }
+
+    const isEditing = !!editingFuelId;
+    
+    if (isEditing) {
+        // Режим обновления
+        const index = fuelLogs.findIndex(l => l.id === editingFuelId);
+        if (index !== -1) {
+            fuelLogs[index] = { ...fuelLogs[index], date, mileage, liters, amount, comment, updatedAt: new Date().toISOString() };
+            
+            if (currentUser && typeof db !== 'undefined') {
+                try {
+                    const logToSave = { ...fuelLogs[index] };
+                    delete logToSave.id;
+                    await db.collection('users').doc(currentUser.uid).collection('fuelLogs').doc(editingFuelId).set(logToSave);
+                } catch (error) {
+                    console.error('❌ Ошибка обновления в Firebase:', error);
+                }
+            }
+        }
+    } else {
+        // Режим создания
+        const newLog = { id: Date.now().toString(), date, mileage, liters, amount, comment, createdAt: new Date().toISOString() };
+        fuelLogs.push(newLog);
+        await saveFuelLogToFirebase(newLog);
+    }
+    
+    localStorage.setItem(FUEL_STORAGE_KEY, JSON.stringify(fuelLogs));
+    calculateFuelConsumption(fuelLogs);
+    renderFuelLogs();
+    updateFuelStats();
+    updateFuelChart();
+    clearFuelForm();
+    
+    if (typeof syncFuelToRecords === 'function') {
+        await syncFuelToRecords();
+    }
+    
+    showToast(isEditing ? '✅ Заправка обновлена и синхронизирована!' : '✅ Заправка добавлена и синхронизирована!');
+}
+
+// 5. РЕДАКТИРОВАНИЕ
+function editFuelLog(id) {
+    const log = fuelLogs.find(l => l.id === id);
+    if (!log) return;
+
+    editingFuelId = id;
+    document.getElementById('fuel-date').value = log.date;
+    document.getElementById('fuel-mileage').value = log.mileage;
+    document.getElementById('fuel-liters').value = log.liters;
+    document.getElementById('fuel-amount').value = log.amount;
+    document.getElementById('fuel-comment').value = log.comment || '';
+
+    const submitBtn = document.querySelector('#fuel-form button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.innerHTML = '<ion-icon name="checkmark-circle-outline"></ion-icon> Обновить заправку';
+        submitBtn.classList.remove('btn-success');
+        submitBtn.classList.add('btn-primary');
+    }
+    document.getElementById('fuel-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showToast('✏️ Редактирование заправки');
+}
+
+// 6. УДАЛЕНИЕ
+async function deleteFuelLog(id) {
+    if (!confirm('Удалить эту заправку?')) return;
+    
+    fuelLogs = fuelLogs.filter(l => l.id !== id);
+    localStorage.setItem(FUEL_STORAGE_KEY, JSON.stringify(fuelLogs));
+    
+    if (currentUser && typeof db !== 'undefined') {
+        await db.collection('users').doc(currentUser.uid).collection('fuelLogs').doc(id).delete().catch(console.error);
+    }
+    
+    renderFuelLogs();
+    updateFuelStats();
+    updateFuelChart();
+    
+    if (typeof syncFuelToRecords === 'function') {
+        await syncFuelToRecords();
+    }
+    showToast('🗑️ Заправка удалена, история обновлена');
+}
+
+// 7. ОЧИСТКА ФОРМЫ
+function clearFuelForm() {
+    document.getElementById('fuel-form').reset();
+    document.getElementById('fuel-date').valueAsDate = new Date();
+    document.getElementById('fuel-price').value = '';
+    document.getElementById('fuel-consumption').value = '';
+    
+    editingFuelId = null;
+    const submitBtn = document.querySelector('#fuel-form button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.innerHTML = '<ion-icon name="checkmark-circle-outline"></ion-icon> Сохранить заправку';
+        submitBtn.classList.remove('btn-primary');
+        submitBtn.classList.add('btn-success');
+    }
+}
+
+// 8. АВТОРАСЧЕТ В ФОРМЕ
+function updateFuelFormCalculations() {
+    const liters = parseFloat(document.getElementById('fuel-liters').value) || 0;
+    const amount = parseFloat(document.getElementById('fuel-amount').value) || 0;
+    const mileage = parseFloat(document.getElementById('fuel-mileage').value) || 0;
+    
+    if (liters > 0 && amount > 0) document.getElementById('fuel-price').value = (amount / liters).toFixed(2);
+    else document.getElementById('fuel-price').value = '';
+    
+    if (liters > 0 && mileage > 0 && fuelLogs.length > 0) {
+        const lastLog = [...fuelLogs].sort((a, b) => (b.mileage || 0) - (a.mileage || 0))[0];
+        const diff = mileage - lastLog.mileage;
+        if (diff > 0) document.getElementById('fuel-consumption').value = ((liters / diff) * 100).toFixed(1);
+        else document.getElementById('fuel-consumption').value = '';
+    } else {
+        document.getElementById('fuel-consumption').value = '';
+    }
+}
+
+// 9. РЕНДЕР СПИСКА (С КНОПКОЙ РЕДАКТИРОВАНИЯ)
+function renderFuelLogs() {
+    const container = document.getElementById('fuel-logs-list');
+    if (!container) return;
+    
+    const period = document.getElementById('fuel-filter-period')?.value || 'all';
+    let filtered = [...fuelLogs];
+    
+    if (period !== 'all') {
+        const now = new Date();
+        const cutoff = new Date();
+        if (period === 'month') cutoff.setMonth(now.getMonth() - 1);
+        else if (period === '3months') cutoff.setMonth(now.getMonth() - 3);
+        else if (period === 'year') cutoff.setFullYear(now.getFullYear() - 1);
+        
+        filtered = filtered.filter(l => {
+            const d = parseLocalDate(l.date);
+            return d && d >= cutoff;
+        });
+    }
+    
+    filtered.sort((a, b) => (parseLocalDate(b.date) || 0) - (parseLocalDate(a.date) || 0));
+    const calculated = calculateFuelConsumption(filtered);
+    
+    if (calculated.length === 0) {
+        container.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--ios-text-tertiary);"><ion-icon name="fuel-outline" style="font-size: 48px; display: block; margin: 0 auto 12px;"></ion-icon>Нет заправок за выбранный период</div>`;
+        return;
+    }
+    
+    container.innerHTML = calculated.map(log => {
+        const d = parseLocalDate(log.date);
+        const dateStr = d ? d.toLocaleDateString('ru-RU') : log.date;
+        let consumptionClass = '', consumptionText = '—';
+        
+        if (log.consumption !== null) {
+            consumptionText = log.consumption.toFixed(1) + ' л/100км';
+            if (log.consumption < 8) consumptionClass = 'good';
+            else if (log.consumption > 12) consumptionClass = 'bad';
+        }
+        
+        return `
+            <div class="fuel-log-item">
+                <div class="fuel-log-main">
+                    <div class="fuel-log-icon"><ion-icon name="fuel-outline"></ion-icon></div>
+                    <div class="fuel-log-details">
+                        <div class="fuel-log-title">${dateStr} ${log.comment ? `<span style="font-size: 12px; color: var(--ios-text-tertiary); font-weight: normal;">· ${log.comment}</span>` : ''}</div>
+                        <div class="fuel-log-meta">
+                            <span><ion-icon name="speedometer-outline"></ion-icon> ${log.mileage.toLocaleString('ru-RU')} км</span>
+                            <span><ion-icon name="water-outline"></ion-icon> ${log.liters.toFixed(2)} л</span>
+                            <span><ion-icon name="pricetag-outline"></ion-icon> ${log.pricePerLiter.toFixed(2)} ₽/л</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="fuel-log-right">
+                    <div class="fuel-log-consumption ${consumptionClass}">${consumptionText}</div>
+                    <div class="fuel-log-amount">${formatMoney(log.amount)}</div>
+                    <div style="display: flex; gap: 6px;">
+                        <button class="fuel-log-edit" onclick="editFuelLog('${log.id}')" title="Редактировать">
+                            <ion-icon name="create-outline"></ion-icon>
+                        </button>
+                        <button class="fuel-log-delete" onclick="deleteFuelLog('${log.id}')" title="Удалить">
+                            <ion-icon name="trash-outline"></ion-icon>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 10. СТАТИСТИКА
+function updateFuelStats() {
+    const logs = calculateFuelConsumption(fuelLogs);
+    const withCons = logs.filter(l => l.consumption !== null);
+    const totalLiters = logs.reduce((sum, l) => sum + (l.liters || 0), 0);
+    const totalSpent = logs.reduce((sum, l) => sum + (l.amount || 0), 0);
+    const maxM = logs.length > 0 ? Math.max(...logs.map(l => l.mileage || 0)) : 0;
+    const minM = logs.length > 0 ? Math.min(...logs.map(l => l.mileage || 0)) : 0;
+    const avgCons = withCons.length > 0 ? withCons.reduce((sum, l) => sum + l.consumption, 0) / withCons.length : 0;
+    const avgCost = (maxM - minM) > 0 ? totalSpent / (maxM - minM) : 0;
+
+    const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setEl('fuel-avg-consumption', avgCons > 0 ? avgCons.toFixed(1) + ' л/100км' : '0 л/100км');
+    setEl('fuel-cost-per-km', avgCost > 0 ? avgCost.toFixed(2) + ' ₽/км' : '0 ₽/км');
+    setEl('fuel-total-liters', totalLiters.toFixed(1) + ' л');
+    setEl('fuel-total-mileage', (maxM - minM).toFixed(0) + ' км');
+    setEl('fuel-total-spent', formatMoney(totalSpent));
+    setEl('fuel-total-logs', logs.length);
+}
+
+// 11. ГРАФИК
+function updateFuelChart() {
+    const canvas = document.getElementById('fuel-consumption-chart');
+    const emptyMsg = document.getElementById('fuel-chart-empty');
+    if (!canvas) return;
+    
+    const logs = calculateFuelConsumption(fuelLogs).filter(l => l.consumption !== null).sort((a, b) => (parseLocalDate(a.date) || 0) - (parseLocalDate(b.date) || 0));
+    
+    if (logs.length < 2) {
+        canvas.style.display = 'none'; if (emptyMsg) emptyMsg.style.display = 'block';
+        if (fuelChartInstance) { fuelChartInstance.destroy(); fuelChartInstance = null; }
+        return;
+    }
+    
+    canvas.style.display = 'block'; if (emptyMsg) emptyMsg.style.display = 'none';
+    const labels = logs.map(l => { const d = parseLocalDate(l.date); return d ? d.toLocaleDateString('ru-RU', {day:'2-digit', month:'2-digit'}) : l.date; });
+    const data = logs.map(l => l.consumption);
+    const avg = data.reduce((sum, v) => sum + v, 0) / data.length;
+    
+    if (fuelChartInstance) fuelChartInstance.destroy();
+    fuelChartInstance = new Chart(canvas.getContext('2d'), {
+        type: 'line', data: { labels, datasets: [
+            { label: 'Расход л/100км', data, borderColor: '#FF9500', backgroundColor: 'rgba(255,149,0,0.1)', borderWidth: 3, fill: true, tension: 0.4, pointRadius: 5 },
+            { label: 'Средний', data: Array(labels.length).fill(avg), borderColor: '#34C759', borderWidth: 2, borderDash: [5, 5], fill: false, pointRadius: 0 }
+        ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } }, scales: { y: { beginAtZero: false } } }
+    });
+}
+
+// 12. ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
+document.addEventListener('DOMContentLoaded', () => {
+    const fuelForm = document.getElementById('fuel-form');
+    if (fuelForm) fuelForm.addEventListener('submit', handleFuelSubmit);
+    
+    ['fuel-liters', 'fuel-amount', 'fuel-mileage'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', updateFuelFormCalculations);
+    });
+    
+    const dateInput = document.getElementById('fuel-date');
+    if (dateInput) dateInput.valueAsDate = new Date();
+});
+
+// Интеграция с переключением вкладок
+const originalSwitchTabFuel = window.switchTab;
+window.switchTab = function(tabName) {
+    if (typeof originalSwitchTabFuel === 'function') originalSwitchTabFuel(tabName);
+    if (tabName === 'fuel') {
+        setTimeout(() => {
+            renderFuelLogs();
+            updateFuelStats();
+            updateFuelChart();
+        }, 100);
+    }
+};
+
+// ============================================
+// БЕЗОПАСНАЯ СИНХРОНИЗАЦИЯ ТОПЛИВА С ИСТОРИЕЙ (С ДЕТАЛЬНЫМ ЛОГИРОВАНИЕМ)
+// ============================================
+async function syncFuelToRecords() {
+    console.log('🔄 Запуск синхронизации топлива с историей...');
+    
+    if (typeof fuelLogs === 'undefined' || fuelLogs.length === 0) {
+        console.log('ℹ️ Нет записей о топливе для синхронизации');
+        return 0;
+    }
+    
+    // Группируем заправки по дате
+    const fuelByDate = {};
+    fuelLogs.forEach(log => {
+        if (!log.date) return;
+        if (!fuelByDate[log.date]) {
+            fuelByDate[log.date] = {
+                totalAmount: 0,
+                totalLiters: 0,
+                count: 0,
+                details: []
+            };
+        }
+        fuelByDate[log.date].totalAmount += log.amount || 0;
+        fuelByDate[log.date].totalLiters += log.liters || 0;
+        fuelByDate[log.date].count += 1;
+        fuelByDate[log.date].details.push({
+            amount: log.amount,
+            liters: log.liters,
+            mileage: log.mileage,
+            comment: log.comment || ''
+        });
+    });
+    
+    console.log('📊 Найдено топлива по датам:', fuelByDate);
+    
+    let updatedCount = 0;
+    let changedDates = [];
+    
+    // Обновляем записи в records
+    records.forEach(record => {
+        if (!record.date) return;
+        
+        const fuelData = fuelByDate[record.date];
+        if (!fuelData) return;
+        
+        const newFuelCost = fuelData.totalAmount;
+        const oldFuelCost = record.fuelCost || 0;
+        
+        // ✅ ИЗМЕНЕНИЕ: Обновляем если:
+        // 1. Сумма из топлива больше текущей, ИЛИ
+        // 2. Нет деталей заправок (нужно добавить для tooltip)
+        const needsUpdate = newFuelCost > oldFuelCost ||
+            !record.fuelDetails ||
+            record.fuelDetails.length === 0;
+        
+        if (needsUpdate) {
+            console.log(`📝 Обновление за ${record.date}: ${oldFuelCost} ₽ → ${newFuelCost} ₽ (детали: ${fuelData.count} заправки)`);
+            
+            // Обновляем сумму только если новая больше
+            if (newFuelCost > oldFuelCost) {
+                record.fuelCost = newFuelCost;
+            }
+            
+            // ВСЕГДА добавляем детали заправок для tooltip
+            record.fuelDetails = fuelData.details;
+            record.fuelLiters = fuelData.totalLiters;
+            record.fuelLogCount = fuelData.count;
+            
+            // Пересчитываем расходы и прибыль
+            record.totalExpenses = calcExpenses(record);
+            record.netProfit = calcIncome(record) - record.totalExpenses;
+            
+            updatedCount++;
+            changedDates.push(record.date);
+        } else {
+            console.log(`️ Пропуск за ${record.date}: сумма ${oldFuelCost} ₽ актуальна, детали уже есть`);
+        }
+    });
+    
+    console.log(`📊 Итог синхронизации: Обновлено ${updatedCount}, Пропущено ${records.length - updatedCount}`);
+    
+    if (updatedCount > 0) {
+        saveData();
+        
+        if (currentUser && typeof db !== 'undefined') {
+            try {
+                const batch = db.batch();
+                const recordsRef = db.collection('users').doc(currentUser.uid).collection('records');
+                
+                records.forEach(record => {
+                    if (changedDates.includes(record.date)) {
+                        const recordToSave = { ...record };
+                        delete recordToSave.id;
+                        batch.set(recordsRef.doc(record.id), recordToSave);
+                    }
+                });
+                
+                await batch.commit();
+                console.log('✅ Записи синхронизированы с Firebase');
+            } catch (error) {
+                console.error('❌ Ошибка синхронизации с Firebase:', error);
+            }
+        }
+        
+        renderTable();
+        updateAnalytics();
+        showToast(`✅ Синхронизировано ${updatedCount} записей`);
+    } else {
+        showToast('️ Все данные актуальны');
+    }
+    
+    return updatedCount;
+}
+
+// ============================================
+// TOOLTIP ДЛЯ ДЕТАЛЕЙ ЗАПРАВОК
+// ============================================
+
+let fuelTooltipElement = null;
+
+function createFuelTooltip() {
+    if (fuelTooltipElement) return fuelTooltipElement;
+    
+    fuelTooltipElement = document.createElement('div');
+    fuelTooltipElement.className = 'fuel-tooltip';
+    fuelTooltipElement.id = 'fuel-tooltip';
+    document.body.appendChild(fuelTooltipElement);
+    
+    return fuelTooltipElement;
+}
+
+function showFuelTooltip(event, cell) {
+    const details = cell.getAttribute('data-fuel-details');
+    const liters = cell.getAttribute('data-fuel-liters');
+    const count = cell.getAttribute('data-fuel-count');
+    
+    if (!details) return;
+    
+    const fuelDetails = JSON.parse(details.replace(/&apos;/g, "'"));
+    const tooltip = createFuelTooltip();
+    
+    // Формируем HTML tooltip
+    let html = `
+        <div class="fuel-tooltip-header">
+            <ion-icon name="fuel-outline"></ion-icon>
+            <h4>Подробности заправок</h4>
+        </div>
+        <div class="fuel-tooltip-summary">
+            <div class="fuel-tooltip-summary-item">
+                <div class="label">Заправок</div>
+                <div class="value">${count}</div>
+            </div>
+            <div class="fuel-tooltip-summary-item">
+                <div class="label">Литров</div>
+                <div class="value">${parseFloat(liters).toFixed(1)}</div>
+            </div>
+            <div class="fuel-tooltip-summary-item">
+                <div class="label">Сумма</div>
+                <div class="value">${cell.textContent.trim()}</div>
+            </div>
+        </div>
+        <div class="fuel-tooltip-details">
+    `;
+    
+    fuelDetails.forEach((detail, index) => {
+        html += `
+            <div class="fuel-tooltip-detail-item">
+                <div class="detail-info">
+                    <div class="detail-liters">⛽ ${detail.liters} л ${detail.mileage ? `· ${detail.mileage} км` : ''}</div>
+                    ${detail.comment ? `<div class="detail-comment">${detail.comment}</div>` : ''}
+                </div>
+                <div class="detail-amount">${formatMoney(detail.amount)}</div>
+            </div>
+        `;
+    });
+    
+    html += `
+        </div>
+        <div class="fuel-tooltip-hint">
+            Наведите для просмотра деталей
+        </div>
+    `;
+    
+    tooltip.innerHTML = html;
+    
+    // Позиционируем tooltip
+    const rect = cell.getBoundingClientRect();
+    const tooltipWidth = 300;
+    const tooltipHeight = tooltip.offsetHeight || 200;
+    
+    let left = rect.right + 10;
+    let top = rect.top;
+    
+    // Проверяем, не выходит ли за правый край
+    if (left + tooltipWidth > window.innerWidth) {
+        left = rect.left - tooltipWidth - 10;
+    }
+    
+    // Проверяем, не выходит ли за нижний край
+    if (top + tooltipHeight > window.innerHeight) {
+        top = window.innerHeight - tooltipHeight - 10;
+    }
+    
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+    tooltip.classList.add('visible');
+}
+
+function hideFuelTooltip() {
+    if (fuelTooltipElement) {
+        fuelTooltipElement.classList.remove('visible');
+    }
+}
+
+// Делегирование событий для ячеек с топливом
+document.addEventListener('mouseover', function(event) {
+    const cell = event.target.closest('.fuel-cell-with-details');
+    if (cell) {
+        showFuelTooltip(event, cell);
+    }
+});
+
+document.addEventListener('mouseout', function(event) {
+    const cell = event.target.closest('.fuel-cell-with-details');
+    if (cell) {
+        const tooltip = document.getElementById('fuel-tooltip');
+        if (tooltip && !tooltip.contains(event.relatedTarget)) {
+            hideFuelTooltip();
+        }
+    }
+});
+
+// Для мобильных устройств - показывать по клику
+document.addEventListener('click', function(event) {
+    const cell = event.target.closest('.fuel-cell-with-details');
+    if (cell) {
+        if (fuelTooltipElement && fuelTooltipElement.classList.contains('visible')) {
+            hideFuelTooltip();
+        } else {
+            showFuelTooltip(event, cell);
+        }
+    } else if (!event.target.closest('#fuel-tooltip')) {
+        hideFuelTooltip();
+    }
+});
+
+console.log('✅ Tooltip для топлива инициализирован');
+
+
+
+// ===== ГАРАНТИРОВАННАЯ ПРИВЯЗКА ФИЛЬТРОВ =====
+document.addEventListener('DOMContentLoaded', function() {
+    // Делаем все функции глобально доступными
+    window.applyFilters = applyFilters;
+    window.applySorting = applySorting;
+    window.renderTable = renderTable;
+    window.toggleFilter = toggleFilter;
+    window.clearAllFilters = clearAllFilters;
+    window.filterState = filterState;
+    window.sortState = sortState;
+    window.records = records;
+    
+    console.log('✅ Все функции и переменные экспортированы в window');
+    
+    // Проверяем, что строка фильтров существует
+    const filterRow = document.getElementById('filter-row');
+    if (filterRow) {
+        console.log('✅ Строка фильтров найдена, display:', filterRow.style.display);
+    } else {
+        console.error('❌ Строка фильтров #filter-row НЕ НАЙДЕНА в HTML!');
+    }
 });

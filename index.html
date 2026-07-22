@@ -90,7 +90,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.5.0" defer></script>
+    <script src="script.js?v=2.6.0" defer></script>
 </head>
 <body>
 
@@ -309,42 +309,50 @@
 
     </div>
     
-    <!-- Статистика профиля -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px;">
-        <div class="stat-card" style="background: var(--ios-accent-light); border-color: var(--ios-accent);">
-            <h3 style="color: var(--ios-accent);">📅 Рабочих дней</h3>
-            <div class="stat-value" id="profile-total-days" style="color: var(--ios-accent);">0</div>
-        </div>
-        <div class="stat-card" style="background: var(--ios-success-light); border-color: var(--ios-success);">
-            <h3 style="color: var(--ios-success);">💰 Всего заработано</h3>
-            <div class="stat-value" id="profile-total-profit" style="color: var(--ios-success);">0 ₽</div>
-        </div>
-        <div class="stat-card" style="background: var(--ios-warning-light); border-color: var(--ios-warning);">
-            <h3 style="color: var(--ios-warning);">📊 Средний доход в день</h3>
-            <div class="stat-value" id="profile-avg-per-day" style="color: var(--ios-warning);">0 ₽</div>
-        </div>
-        <div class="stat-card" style="background: var(--ios-purple); border-color: var(--ios-purple);">
-            <h3 style="color: white;">🚀 Эффективность</h3>
-            <div class="stat-value" id="profile-efficiency" style="color: white;">0%</div>
-        </div>
-    </div>
-    
-    <!-- Лучший день -->
-    <div class="card float-in texture-grain" style="background: linear-gradient(135deg, #FFD70008 0%, #FFA50008 100%); border-color: #FFD70030;">
-        <h3 style="display: flex; align-items: center; gap: 8px; font-size: 18px; margin-bottom: 16px;">
-            <ion-icon name="star-outline" style="font-size: 28px; color: var(--ios-gold);"></ion-icon>
-            Лучший день
+<!-- Статистика профиля -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px;">
+    <div class="stat-card" style="background: var(--ios-accent-light); border-color: var(--ios-accent);">
+        <h3 style="color: var(--ios-accent); display: flex; align-items: center; gap: 8px;">
+            <ion-icon name="calendar-outline" style="font-size: 1.2em;"></ion-icon> Рабочих дней
         </h3>
-        <div style="text-align: center; padding: 10px 0;">
-            <div style="font-size: 32px; font-weight: 700; color: var(--ios-gold);" id="best-day-income">0 ₽</div>
-            <div style="color: var(--ios-text-tertiary); font-size: 15px; margin-top: 4px;" id="best-day-date">Нет данных</div>
-            <div style="display: flex; justify-content: center; gap: 20px; margin-top: 12px; font-size: 14px; color: var(--ios-text-secondary);">
-                <span>📦 <strong id="best-day-orders">0</strong> заказов</span>
-                <span>⏱ <strong id="best-day-hours">0</strong> часов</span>
-                <span>📊 <strong id="best-day-efficiency">0%</strong> эффективность</span>
-            </div>
+        <div class="stat-value" id="profile-total-days" style="color: var(--ios-accent);">0</div>
+    </div>
+    <div class="stat-card" style="background: var(--ios-success-light); border-color: var(--ios-success);">
+        <h3 style="color: var(--ios-success); display: flex; align-items: center; gap: 8px;">
+            <ion-icon name="cash-outline" style="font-size: 1.2em;"></ion-icon> Всего заработано
+        </h3>
+        <div class="stat-value" id="profile-total-profit" style="color: var(--ios-success);">0 ₽</div>
+    </div>
+    <div class="stat-card" style="background: var(--ios-warning-light); border-color: var(--ios-warning);">
+        <h3 style="color: var(--ios-warning); display: flex; align-items: center; gap: 8px;">
+            <ion-icon name="stats-chart-outline" style="font-size: 1.2em;"></ion-icon> Средний доход в день
+        </h3>
+        <div class="stat-value" id="profile-avg-per-day" style="color: var(--ios-warning);">0 ₽</div>
+    </div>
+    <div class="stat-card" style="background: var(--ios-purple); border-color: var(--ios-purple);">
+        <h3 style="color: white; display: flex; align-items: center; gap: 8px;">
+            <ion-icon name="rocket-outline" style="font-size: 1.2em;"></ion-icon> Эффективность
+        </h3>
+        <div class="stat-value" id="profile-efficiency" style="color: white;">0%</div>
+    </div>
+</div>
+    
+<!-- Лучший день -->
+<div class="card float-in texture-grain" style="background: linear-gradient(135deg, #FFD70008 0%, #FFA50008 100%); border-color: #FFD70030;">
+    <h3 style="display: flex; align-items: center; gap: 8px; font-size: 18px; margin-bottom: 16px;">
+        <ion-icon name="star-outline" style="font-size: 28px; color: var(--ios-gold);"></ion-icon>
+        Лучший день
+    </h3>
+    <div style="text-align: center; padding: 10px 0;">
+        <div style="font-size: 32px; font-weight: 700; color: var(--ios-gold);" id="best-day-income">0 ₽</div>
+        <div style="color: var(--ios-text-tertiary); font-size: 15px; margin-top: 4px;" id="best-day-date">Нет данных</div>
+        <div style="display: flex; justify-content: center; gap: 20px; margin-top: 12px; font-size: 14px; color: var(--ios-text-secondary);">
+            <span><ion-icon name="cube-outline" style="vertical-align: middle; margin-right: 4px; font-size: 16px;"></ion-icon> <strong id="best-day-orders">0</strong> заказов</span>
+            <span><ion-icon name="time-outline" style="vertical-align: middle; margin-right: 4px; font-size: 16px;"></ion-icon> <strong id="best-day-hours">0</strong> часов</span>
+            <span><ion-icon name="stats-chart-outline" style="vertical-align: middle; margin-right: 4px; font-size: 16px;"></ion-icon> <strong id="best-day-efficiency">0%</strong> эффективность</span>
         </div>
     </div>
+</div>
     
     <!-- Тренды -->
 <div class="card float-in texture-grain">
@@ -381,7 +389,7 @@
     
     <div style="margin-bottom: 16px;">
         <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px;">
-            <span style="color: var(--ios-text-secondary);">💰 Доход за месяц</span>
+            <span style="color: var(--ios-text-secondary);"><ion-icon name="cash-outline" style="vertical-align: middle; margin-right: 4px; font-size: 16px;"></ion-icon> Доход за месяц</span>
             <span style="font-weight: 600;">
                 <span id="goal-income-current">0</span> ₽ / <span id="goal-income-target">100 000</span> ₽
             </span>
@@ -393,7 +401,7 @@
     
     <div style="margin-bottom: 16px;">
         <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px;">
-            <span style="color: var(--ios-text-secondary);">📦 Заказов за месяц</span>
+            <span style="color: var(--ios-text-secondary);"><ion-icon name="cube-outline" style="vertical-align: middle; margin-right: 4px; font-size: 16px;"></ion-icon> Заказов за месяц</span>
             <span style="font-weight: 600;">
                 <span id="goal-orders-current">0</span> / <span id="goal-orders-target">500</span>
             </span>
@@ -405,7 +413,7 @@
     
     <div>
         <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 6px;">
-            <span style="color: var(--ios-text-secondary);">⏱ Часов за месяц</span>
+            <span style="color: var(--ios-text-secondary);"><ion-icon name="time-outline" style="vertical-align: middle; margin-right: 4px; font-size: 16px;"></ion-icon> Часов за месяц</span>
             <span style="font-weight: 600;">
                 <span id="goal-hours-current">0</span> ч / <span id="goal-hours-target">200</span> ч
             </span>
@@ -414,6 +422,7 @@
             <div id="goal-hours-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--ios-warning), var(--ios-danger)); border-radius: 4px; transition: width 0.8s cubic-bezier(0.32, 0.72, 0, 1);"></div>
         </div>
     </div>
+
     
     <!-- ===== КНОПКА НАСТРОЙКИ ЦЕЛЕЙ ===== -->
     <button onclick="showGoalSettings()" style="
@@ -525,24 +534,24 @@
             <ion-icon name="flash-outline" style="font-size: 28px; color: var(--ios-accent);"></ion-icon>
             Быстрые действия
         </h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
-            <button class="btn btn-primary glossy ripple magnetic" onclick="openEntryTab()" style="width: 100%;">
-                <ion-icon name="add-circle-outline"></ion-icon>
-                Заполнить день
-            </button>
-            <button class="btn btn-success glossy ripple magnetic" onclick="switchTab('analytics')" style="width: 100%;">
-                <ion-icon name="stats-chart-outline"></ion-icon>
-                Аналитика
-            </button>
-            <button class="btn btn-secondary glossy ripple magnetic" onclick="switchTab('history')" style="width: 100%;">
-                <ion-icon name="clipboard-outline"></ion-icon>
-                История
-            </button>
-            <button class="btn btn-secondary glossy ripple magnetic" onclick="switchTab('tariffs')" style="width: 100%;">
-                <ion-icon name="settings-outline"></ion-icon>
-                Тарифы
-            </button>
-        </div>
+        <div class="action-buttons" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
+    <button class="btn btn-primary glossy ripple magnetic" onclick="openEntryTab()" style="width: 100%;">
+        <ion-icon name="add-circle-outline"></ion-icon>
+        Заполнить день
+    </button>
+    <button class="btn btn-success glossy ripple magnetic" onclick="switchTab('analytics')" style="width: 100%;">
+        <ion-icon name="stats-chart-outline"></ion-icon>
+        Аналитика
+    </button>
+    <button class="btn btn-secondary glossy ripple magnetic" onclick="switchTab('history')" style="width: 100%;">
+        <ion-icon name="clipboard-outline"></ion-icon>
+        История
+    </button>
+    <button class="btn btn-secondary glossy ripple magnetic" onclick="switchTab('tariffs')" style="width: 100%;">
+        <ion-icon name="settings-outline"></ion-icon>
+        Тарифы
+    </button>
+</div>
     </div>
 </div>
         
@@ -1194,6 +1203,127 @@
     </div>
 </div>
 
+        <!-- ВКЛАДКА: ТОПЛИВО -->
+<div id="tab-fuel" class="tab-content">
+    <div class="top-header">
+        <h1><ion-icon name="fuel-outline" class="header-icon" style="color: var(--ios-warning);"></ion-icon> Калькулятор топлива</h1>
+    </div>
+
+    <!-- Сводная статистика -->
+    <div class="card">
+        <h2><ion-icon name="stats-chart-outline" class="section-icon"></ion-icon> Статистика</h2>
+        <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
+            <div class="stat-card income">
+                <h3>⛽ Средний расход</h3>
+                <div class="stat-value" id="fuel-avg-consumption">0 л/100км</div>
+            </div>
+            <div class="stat-card profit">
+                <h3>💰 Стоимость км</h3>
+                <div class="stat-value" id="fuel-cost-per-km">0 ₽/км</div>
+            </div>
+            <div class="stat-card">
+                <h3>📊 Всего литров</h3>
+                <div class="stat-value" id="fuel-total-liters">0 л</div>
+            </div>
+            <div class="stat-card">
+                <h3>️ Пробег</h3>
+                <div class="stat-value" id="fuel-total-mileage">0 км</div>
+            </div>
+            <div class="stat-card">
+                <h3>💵 Всего потрачено</h3>
+                <div class="stat-value" id="fuel-total-spent">0 ₽</div>
+            </div>
+            <div class="stat-card">
+                <h3> Заправок</h3>
+                <div class="stat-value" id="fuel-total-logs">0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Форма добавления заправки -->
+    <div class="card">
+        <h2><ion-icon name="add-circle-outline" class="section-icon"></ion-icon> Добавить заправку</h2>
+        <form id="fuel-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label><ion-icon name="calendar-outline"></ion-icon> Дата *</label>
+                    <input type="date" id="fuel-date" required>
+                </div>
+                <div class="form-group">
+                    <label><ion-icon name="speedometer-outline"></ion-icon> Пробег (км) *</label>
+                    <input type="number" id="fuel-mileage" step="0.1" min="0" placeholder="Например: 125000" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label><ion-icon name="water-outline"></ion-icon> Литры *</label>
+                    <input type="number" id="fuel-liters" step="0.01" min="0" placeholder="Например: 45.5" required>
+                </div>
+                <div class="form-group">
+                    <label><ion-icon name="cash-outline"></ion-icon> Сумма (₽) *</label>
+                    <input type="number" id="fuel-amount" step="0.01" min="0" placeholder="Например: 2500" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label><ion-icon name="pricetag-outline"></ion-icon> Цена за литр (₽)</label>
+                    <input type="number" id="fuel-price" step="0.01" min="0" placeholder="Авторасчет" readonly style="background: var(--ios-bg-tertiary);">
+                </div>
+                <div class="form-group">
+                    <label><ion-icon name="analytics-outline"></ion-icon> Расход л/100км</label>
+                    <input type="number" id="fuel-consumption" step="0.1" min="0" placeholder="Авторасчет" readonly style="background: var(--ios-bg-tertiary);">
+                </div>
+            </div>
+            <div class="form-group" style="margin-top: 16px;">
+                <label><ion-icon name="document-text-outline"></ion-icon> Комментарий</label>
+                <input type="text" id="fuel-comment" placeholder="АЗС, марка бензина и т.д.">
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-success">
+                    <ion-icon name="checkmark-circle-outline"></ion-icon> Сохранить заправку
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="clearFuelForm()">
+                    <ion-icon name="close-circle-outline"></ion-icon> Очистить
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- График расхода -->
+    <div class="card">
+        <h2><ion-icon name="trending-up-outline" class="section-icon"></ion-icon> Динамика расхода топлива</h2>
+        <div class="chart-container" style="padding: 0; box-shadow: none; border: none;">
+            <canvas id="fuel-consumption-chart" style="max-height: 300px;"></canvas>
+        </div>
+        <div id="fuel-chart-empty" style="text-align: center; padding: 40px; color: var(--ios-text-tertiary); display: none;">
+            <ion-icon name="analytics-outline" style="font-size: 48px; display: block; margin: 0 auto 12px;"></ion-icon>
+            Добавьте минимум 2 заправки с указанием пробега для построения графика
+        </div>
+    </div>
+
+    <!-- История заправок -->
+    <div class="card">
+        <h2><ion-icon name="time-outline" class="section-icon"></ion-icon> История заправок</h2>
+        <div class="filters" style="margin-bottom: 16px;">
+            <div class="form-group" style="flex: 1; min-width: 150px;">
+                <label>Период</label>
+                <select id="fuel-filter-period" onchange="renderFuelLogs()">
+                    <option value="all">Все время</option>
+                    <option value="month">Этот месяц</option>
+                    <option value="3months">3 месяца</option>
+                    <option value="year">Год</option>
+                </select>
+            </div>
+        </div>
+        <div id="fuel-logs-list">
+            <div style="text-align: center; padding: 40px; color: var(--ios-text-tertiary);">
+                <ion-icon name="fuel-outline" style="font-size: 48px; display: block; margin: 0 auto 12px;"></ion-icon>
+                Нет заправок. Добавьте первую!
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Вкладка: Настройки (Объединенные функции) -->
         <div id="tab-settings" class="tab-content">
             
@@ -1367,6 +1497,11 @@
         <ion-icon name="settings-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
         <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">Тарифы</span>
     </button>
+    
+    <button class="nav-item" data-tab="fuel" onclick="switchTab('fuel')">
+    <ion-icon name="flame-outline"></ion-icon>
+    <span class="label">Топливо</span>
+</button>
     
     <button class="nav-item magnetic" data-tab="settings" onclick="switchTab('settings')" style="
         flex: 0 0 auto;

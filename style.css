@@ -2175,3 +2175,588 @@ body:not(.authenticated) #fab-tooltip {
         100% { opacity: 1; transform: scale(1) translateZ(0); }
     }
 }
+
+/* ============================================
+МОДУЛЬ ТОПЛИВА (ПРОФЕССИОНАЛЬНАЯ АДАПТАЦИЯ)
+============================================ */
+.fuel-log-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    border-bottom: 1px solid var(--ios-border);
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    border-radius: var(--ios-radius-sm);
+    gap: 12px; /* Надежное расстояние вместо margin */
+}
+
+.fuel-log-item:hover {
+    background: var(--ios-accent-light);
+}
+
+.fuel-log-item:active {
+    transform: scale(0.99); /* Легкий тактильный отклик */
+}
+
+.fuel-log-item:last-child {
+    border-bottom: none;
+}
+
+.fuel-log-main {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1;
+    min-width: 0; /* КРИТИЧНО: позволяет тексту корректно обрезаться троеточием */
+}
+
+.fuel-log-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--ios-warning-light);
+    color: var(--ios-warning);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.fuel-log-details {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.fuel-log-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--ios-text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    word-break: break-word;
+}
+
+.fuel-log-meta {
+    font-size: 13px;
+    color: var(--ios-text-tertiary);
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.fuel-log-meta ion-icon {
+    font-size: 14px;
+    vertical-align: middle;
+    margin-right: 2px;
+}
+
+.fuel-log-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    text-align: right;
+}
+
+.fuel-log-amount {
+    font-weight: 700;
+    font-size: 17px;
+    color: var(--ios-danger);
+    white-space: nowrap; /* Запрещаем перенос суммы */
+}
+
+.fuel-log-consumption {
+    font-size: 13px;
+    color: var(--ios-text-secondary);
+    font-weight: 600;
+    background: var(--ios-bg-tertiary);
+    padding: 4px 10px;
+    border-radius: var(--ios-radius-full);
+    white-space: nowrap;
+}
+
+.fuel-log-consumption.good {
+    color: var(--ios-success);
+    background: var(--ios-success-light);
+}
+
+.fuel-log-consumption.bad {
+    color: var(--ios-danger);
+    background: var(--ios-danger-light);
+}
+
+.fuel-log-delete {
+    background: none;
+    border: none;
+    padding: 8px; /* Увеличена область нажатия для пальцев (минимум 36x36px) */
+    cursor: pointer;
+    border-radius: 50%;
+    color: var(--ios-text-tertiary);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    min-height: 36px;
+}
+
+.fuel-log-delete:hover {
+    background: var(--ios-danger-light);
+    color: var(--ios-danger);
+}
+
+.fuel-log-delete:active {
+    transform: scale(0.9);
+}
+
+.fuel-log-delete ion-icon {
+    font-size: 20px;
+}
+
+/* ============================================
+АДАПТАЦИЯ ПОД РАЗМЕРЫ ЭКРАНОВ
+============================================ */
+
+/* 1. Мобильные телефоны (портрет, до 480px) */
+@media (max-width: 480px) {
+    .fuel-log-item {
+        flex-wrap: wrap;
+        padding: 14px 12px;
+        gap: 8px;
+    }
+
+    .fuel-log-main {
+        width: 100%; /* Верхняя строка занимает всю ширину */
+    }
+
+    .fuel-log-right {
+        width: 100%;
+        justify-content: space-between; /* Сумма слева, корзина справа */
+        /* Отступ равен ширине иконки (44px) + gap (12px) = 56px */
+        margin-left: 56px; 
+        margin-top: 4px;
+        padding-top: 10px;
+        border-top: 1px dashed var(--ios-border); /* Аккуратный визуальный разделитель */
+    }
+
+    .fuel-log-amount {
+        font-size: 16px;
+    }
+
+    .fuel-log-consumption {
+        font-size: 12px;
+        padding: 3px 8px;
+    }
+}
+
+/* 2. Очень маленькие экраны (до 360px, например, iPhone SE, старые Android) */
+@media (max-width: 360px) {
+    .fuel-log-icon {
+        width: 38px;
+        height: 38px;
+        font-size: 18px;
+    }
+
+    .fuel-log-right {
+        margin-left: 50px; /* Корректируем отступ под уменьшенную иконку (38+12) */
+    }
+
+    .fuel-log-title {
+        font-size: 14px;
+    }
+
+    .fuel-log-meta {
+        font-size: 12px;
+        gap: 8px;
+    }
+
+    .fuel-log-amount {
+        font-size: 15px;
+    }
+}
+
+/* 3. Планшеты и крупные телефоны (481px - 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
+    .fuel-log-item {
+        padding: 18px 20px;
+    }
+    
+    .fuel-log-icon {
+        width: 48px;
+        height: 48px;
+        font-size: 24px;
+    }
+
+    .fuel-log-title {
+        font-size: 16px;
+    }
+
+    .fuel-log-amount {
+        font-size: 18px;
+    }
+}
+
+/* 4. Мобильные устройства в ландшафтной ориентации (КРИТИЧНО ВАЖНО!) */
+@media (max-height: 500px) and (orientation: landscape) {
+    .fuel-log-item {
+        flex-wrap: nowrap; /* Запрещаем перенос строк, экономим вертикальное место */
+        padding: 10px 16px;
+    }
+
+    .fuel-log-right {
+        width: auto;
+        margin-left: 12px;
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
+    }
+
+    .fuel-log-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+    }
+
+    .fuel-log-title {
+        font-size: 14px;
+        margin-bottom: 2px;
+    }
+
+    .fuel-log-meta {
+        font-size: 12px;
+    }
+
+    .fuel-log-amount {
+        font-size: 15px;
+    }
+
+    /* Скрываем бейдж расхода на узких горизонтальных экранах, чтобы вместить сумму и кнопку удаления */
+    .fuel-log-consumption {
+        display: none; 
+    }
+}
+
+/* ============================================
+TOOLTIP ДЛЯ ЯЧЕЙКИ БЕНЗИНА
+============================================ */
+.fuel-cell-with-details {
+    position: relative;
+    cursor: pointer;
+    border-bottom: 2px dotted var(--ios-warning) !important;
+    transition: all 0.2s;
+}
+
+.fuel-cell-with-details:hover {
+    background: var(--ios-warning-light) !important;
+    transform: scale(1.05);
+}
+
+/* Tooltip контейнер */
+.fuel-tooltip {
+    position: fixed;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--ios-border);
+    border-radius: var(--ios-radius-lg);
+    padding: 16px;
+    box-shadow: var(--ios-shadow-lg);
+    z-index: 10000;
+    min-width: 280px;
+    max-width: 350px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+}
+
+.fuel-tooltip.visible {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.fuel-tooltip-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--ios-border);
+}
+
+.fuel-tooltip-header ion-icon {
+    font-size: 24px;
+    color: var(--ios-warning);
+}
+
+.fuel-tooltip-header h4 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ios-text-primary);
+}
+
+.fuel-tooltip-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 10px;
+    background: var(--ios-bg-tertiary);
+    border-radius: var(--ios-radius-md);
+}
+
+.fuel-tooltip-summary-item {
+    text-align: center;
+}
+
+.fuel-tooltip-summary-item .label {
+    font-size: 11px;
+    color: var(--ios-text-tertiary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.fuel-tooltip-summary-item .value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ios-text-primary);
+}
+
+.fuel-tooltip-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.fuel-tooltip-detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    background: var(--ios-bg-secondary);
+    border-radius: var(--ios-radius-sm);
+    border-left: 3px solid var(--ios-warning);
+    font-size: 13px;
+}
+
+.fuel-tooltip-detail-item .detail-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.fuel-tooltip-detail-item .detail-amount {
+    font-weight: 700;
+    color: var(--ios-danger);
+    margin-left: 10px;
+    white-space: nowrap;
+}
+
+.fuel-tooltip-detail-item .detail-liters {
+    font-size: 12px;
+    color: var(--ios-text-secondary);
+    margin-top: 2px;
+}
+
+.fuel-tooltip-detail-item .detail-comment {
+    font-size: 11px;
+    color: var(--ios-text-tertiary);
+    margin-top: 2px;
+    font-style: italic;
+}
+
+.fuel-tooltip-hint {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--ios-border);
+    text-align: center;
+    font-size: 11px;
+    color: var(--ios-text-tertiary);
+    font-style: italic;
+}
+
+/* Адаптив для мобильных */
+@media (max-width: 480px) {
+    .fuel-tooltip {
+        min-width: 240px;
+        max-width: 280px;
+        padding: 12px;
+    }
+    
+    .fuel-tooltip-summary {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .fuel-tooltip-summary-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .fuel-tooltip-summary-item .label {
+        margin-bottom: 0;
+    }
+}
+
+/* Кнопка редактирования в списке топлива */
+.fuel-log-edit {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    border-radius: 50%;
+    color: var(--ios-text-tertiary);
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    min-height: 36px;
+}
+
+.fuel-log-edit:hover {
+    background: var(--ios-accent-light);
+    color: var(--ios-accent);
+}
+
+.fuel-log-edit:active {
+    transform: scale(0.9);
+}
+
+.fuel-log-edit ion-icon {
+    font-size: 20px;
+}
+
+/* Стили для иконок Ionicons внутри карточек статистики */
+.stat-card h3 ion-icon {
+    /* Размер иконки (масштабируется относительно текста заголовка) */
+    font-size: 1.3em; 
+    width: 1.3em;     
+    height: 1.3em;    
+    
+    /* Убираем стандартные отступы, если они есть */
+    margin: 0;
+    padding: 0;
+    
+    /* Делаем иконку flex-контейнером, чтобы внутренняя SVG идеально центрировалась */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* Цвет иконки автоматически подстраивается под цвет текста в h3 */
+    color: inherit; 
+    
+    /* Запрещаем иконке сжиматься, если текст заголовка длинный */
+    flex-shrink: 0; 
+    
+    /* Плавный переход для анимации */
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Легкий эффект увеличения иконки при наведении на карточку */
+.stat-card:hover h3 ion-icon {
+    transform: scale(1.15);
+}
+
+/* Дополнительные стили для самого заголовка (для идеального вида) */
+.stat-card h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 8px 0; /* Небольшой отступ снизу до самой цифры */
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+/* Стили для маленьких иконок в нижней строке блока "Лучший день" */
+.best-day-stats span {
+    transition: color 0.2s ease;
+}
+
+.best-day-stats span ion-icon {
+    font-size: 1.2em; /* Чуть больше текста для акцента */
+    width: 1.2em;
+    height: 1.2em;
+    color: inherit; /* Наследует цвет от span */
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+/* Легкая интерактивность при наведении на пункт статистики */
+.best-day-stats span:hover {
+    color: var(--ios-gold); /* Меняем цвет текста при наведении */
+}
+
+.best-day-stats span:hover ion-icon {
+    transform: scale(1.15);
+}
+
+/* Стили для большой иконки звезды в заголовке */
+.card h3 ion-icon[name="star-outline"] {
+    font-size: 1.4em;
+    width: 1.4em;
+    height: 1.4em;
+    color: var(--ios-gold);
+    flex-shrink: 0;
+}
+
+/* Базовые стили для выравнивания иконки и текста в кнопках */
+.action-buttons .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 15px; /* Стандартный размер шрифта для десктопа/планшета */
+    padding: 12px 8px;
+    line-height: 1.2;
+}
+
+.action-buttons .btn ion-icon {
+    font-size: 20px; /* Стандартный размер иконки */
+}
+
+/* АДАПТАЦИЯ ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ (экраны уже 480px) */
+@media (max-width: 480px) {
+    .action-buttons {
+        gap: 8px; /* Уменьшаем расстояние между кнопками */
+    }
+    
+    .action-buttons .btn {
+        font-size: 12px; /* Уменьшенный шрифт для мобильных */
+        padding: 10px 4px; /* Более компактные отступы внутри кнопки */
+        gap: 4px; /* Минимальный отступ между иконкой и текстом */
+    }
+    
+    .action-buttons .btn ion-icon {
+        font-size: 16px; /* Пропорционально уменьшаем иконки */
+    }
+}
+
+/* Адаптация кнопок в настройках для мобильных устройств */
+@media (max-width: 480px) {
+    #tab-settings .btn {
+        font-size: 13px; /* Уменьшаем размер текста */
+        padding: 10px 12px; /* Делаем внутренние отступы чуть компактнее */
+    }
+    
+    #tab-settings .btn ion-icon {
+        font-size: 18px !important; /* Пропорционально уменьшаем иконки (перебиваем инлайн-стили) */
+        margin-right: 8px !important; /* Немного уменьшаем отступ между иконкой и текстом */
+    }
+}
