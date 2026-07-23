@@ -602,7 +602,7 @@ let isRestoringState = false; // Флаг восстановления сост�
 
 function saveState() {
     try {
-        const activeBtn = document.querySelector('.nav-btn.active');
+        const activeBtn = document.querySelector('.nav-item.active');
         const state = {
             activeTab: activeBtn ? activeBtn.getAttribute('data-tab') : 'entry',
             filterMonth: document.getElementById('filter-month')?.value || '',
@@ -643,28 +643,12 @@ function restoreState() {
         if (c2m && state.compare2Month) c2m.value = state.compare2Month;
         if (c2y && state.compare2Year) c2y.value = state.compare2Year;
         
-        // Переключаем вкладку
-        if (state.activeTab) {
-            // Устанавливаем классы напрямую БЕЗ вызова switchTab
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
-            
-            const targetTab = document.getElementById('tab-' + state.activeTab);
-            const targetBtn = document.querySelector('.nav-btn[data-tab="' + state.activeTab + '"]');
-            
-            if (targetTab) targetTab.classList.add('active');
-            if (targetBtn) targetBtn.classList.add('active');
-            
-            // Запускаем функции для активной вкладки
-            if (state.activeTab === 'analytics') {
-                updateAnalytics();
-                initComparisonSelectors();
-                updateComparison();
-            } else if (state.activeTab === 'history') {
-                renderTable();
-            } else if (state.activeTab === 'tariffs') {
-                renderTariffs();
-            }
+        // ✅ ИСПРАВЛЕНИЕ: Используем switchTab() вместо ручной манипуляции
+        if (state.activeTab && state.activeTab !== 'home') {
+            // Небольшая задержка, чтобы DOM успел полностью загрузиться
+            setTimeout(() => {
+                switchTab(state.activeTab);
+            }, 100);
         }
     } catch (e) {
         console.error('❌ Ошибка восстановления:', e);
@@ -1107,6 +1091,32 @@ async function saveRecordToFirebase(record) {
     }
 }
 
+// Пакетное обновление записей в Firebase
+async function saveRecordsBatchToFirebase(recordsToUpdate) {
+    if (!currentUser || !recordsToUpdate.length) return;
+    try {
+        const recordsRef = db.collection('users').doc(currentUser.uid).collection('records');
+        const BATCH_SIZE = 400;
+        
+        for (let i = 0; i < recordsToUpdate.length; i += BATCH_SIZE) {
+            const batch = db.batch();
+            const chunk = recordsToUpdate.slice(i, i + BATCH_SIZE);
+            
+            for (const r of chunk) {
+                const recordToSave = { ...r };
+                delete recordToSave.id;
+                batch.set(recordsRef.doc(r.id), recordToSave);
+            }
+            
+            await batch.commit();
+        }
+        
+        console.log(`✅ Пакетно сохранено ${recordsToUpdate.length} записей в Firebase`);
+    } catch (error) {
+        console.error('❌ Ошибка пакетного сохранения:', error);
+    }
+}
+
 async function deleteRecordFromFirebase(id) {
     if (!currentUser) return;
     
@@ -1204,20 +1214,57 @@ function autoCalc(type) {
 }
 
 function recalcCurrentByTariff() {
+    // Проверяем, что мы в режиме редактирования
+    if (!editingId) {
+        alert('⚠️ Эта функция работает только при редактировании существующей записи.');
+        return;
+    }
+    
     const tariff = getTariffForDate(document.getElementById('date').value);
     if (!tariff) {
         alert('❌ Тариф для этой даты не найден');
         return;
     }
+    
     const pickup = parseFloat(document.getElementById('orders-pickup').value) || 0;
     const delivery = parseFloat(document.getElementById('orders-delivery').value) || 0;
     const km = parseFloat(document.getElementById('distance').value) || 0;
     const weight = parseFloat(document.getElementById('weight').value) || 0;
-    if (pickup > 0) document.getElementById('pay-pickup').value = Math.round(pickup * tariff.pickup * 100) / 100;
-    if (delivery > 0) document.getElementById('pay-delivery').value = Math.round(delivery * tariff.delivery * 100) / 100;
-    if (km > 0) document.getElementById('pay-distance').value = Math.round(km * tariff.km * 100) / 100;
-    if (weight > 0) document.getElementById('pay-weight').value = Math.round(weight * tariff.weight * 100) / 100;
-    alert('✅ Пересчитано по тарифу на ' + document.getElementById('date').value);
+    
+    // Считаем новые значения
+    const newPayPickup = pickup > 0 ? Math.round(pickup * tariff.pickup * 100) / 100 : 0;
+    const newPayDelivery = delivery > 0 ? Math.round(delivery * tariff.delivery * 100) / 100 : 0;
+    const newPayDistance = km > 0 ? Math.round(km * tariff.km * 100) / 100 : 0;
+    const newPayWeight = weight > 0 ? Math.round(weight * tariff.weight * 100) / 100 : 0;
+    
+    // Обновляем поля формы
+    document.getElementById('pay-pickup').value = newPayPickup;
+    document.getElementById('pay-delivery').value = newPayDelivery;
+    document.getElementById('pay-distance').value = newPayDistance;
+    document.getElementById('pay-weight').value = newPayWeight;
+    
+    // Сохраняем изменения в массив записей
+    const recordIndex = records.findIndex(r => r.id === editingId);
+    if (recordIndex !== -1) {
+        records[recordIndex].payPickup = newPayPickup;
+        records[recordIndex].payDelivery = newPayDelivery;
+        records[recordIndex].payDistance = newPayDistance;
+        records[recordIndex].payWeight = newPayWeight;
+        
+        // Пересчитываем итоги
+        records[recordIndex] = normalizeRecord(records[recordIndex]);
+        
+        // Сохраняем в localStorage и Firebase
+        saveData();
+        if (typeof db !== 'undefined' && currentUser) {
+            saveRecordToFirebase(records[recordIndex]);
+        }
+        
+        // Обновляем таблицу
+        renderTable();
+    }
+    
+    alert('✅ Пересчитано и сохранено по тарифу на ' + document.getElementById('date').value);
 }
 
 function cancelEdit() {
@@ -1394,35 +1441,66 @@ async function deleteTariff(id) {
 
 function recalculateAllTariffs() {
     if (records.length === 0) {
-        alert('Нет записей для пересчёта');        return;
-    }
-    if (!confirm('⚠️ Пересчитать ВСЕ записи по актуальным тарифам на их даты?')) {
+        alert('Нет записей для пересчёта');
         return;
     }
+    if (!confirm('️ Пересчитать ВСЕ записи по актуальным тарифам на их даты?\n\nПоля, изменённые вручную, будут пропущены.')) {
+        return;
+    }
+    
     let changedCount = 0;
+    let skippedCount = 0;
+    const recordsToUpdate = [];
+    
     records = records.map(r => {
         const tariff = getTariffForDate(r.date);
         if (!tariff) return r;
-        const newPayPickup = Math.round((r.ordersPickup || 0) * tariff.pickup * 100) / 100;
-        const newPayDelivery = Math.round((r.ordersDelivery || 0) * tariff.delivery * 100) / 100;
-        const newPayDistance = Math.round((r.distance || 0) * tariff.km * 100) / 100;
-        const newPayWeight = Math.round((r.weight || 0) * tariff.weight * 100) / 100;
-        if (newPayPickup !== r.payPickup || newPayDelivery !== r.payDelivery ||
-            newPayDistance !== r.payDistance || newPayWeight !== r.payWeight) {
+        
+        // Получаем список полей, изменённых вручную
+        const manualEdits = r.manualEdits || [];
+        
+        // Рассчитываем новые значения только для полей, не изменённых вручную
+        const newPayPickup = manualEdits.includes('payPickup') ? r.payPickup : Math.round((r.ordersPickup || 0) * tariff.pickup * 100) / 100;
+        const newPayDelivery = manualEdits.includes('payDelivery') ? r.payDelivery : Math.round((r.ordersDelivery || 0) * tariff.delivery * 100) / 100;
+        const newPayDistance = manualEdits.includes('payDistance') ? r.payDistance : Math.round((r.distance || 0) * tariff.km * 100) / 100;
+        const newPayWeight = manualEdits.includes('payWeight') ? r.payWeight : Math.round((r.weight || 0) * tariff.weight * 100) / 100;
+        
+        // Проверяем, изменилось ли что-то
+        const hasChanges = newPayPickup !== r.payPickup ||
+            newPayDelivery !== r.payDelivery ||
+            newPayDistance !== r.payDistance ||
+            newPayWeight !== r.payWeight;
+        
+        if (hasChanges) {
             changedCount++;
+            const updatedRecord = normalizeRecord({
+                ...r,
+                payPickup: newPayPickup,
+                payDelivery: newPayDelivery,
+                payDistance: newPayDistance,
+                payWeight: newPayWeight
+            });
+            recordsToUpdate.push(updatedRecord);
+            return updatedRecord;
+        } else {
+            skippedCount++;
+            return r;
         }
-        return normalizeRecord({
-            ...r,
-            payPickup: newPayPickup,
-            payDelivery: newPayDelivery,
-            payDistance: newPayDistance,
-            payWeight: newPayWeight
-        });
     });
+    
+    // Сохраняем в localStorage
     saveData();
+    
+    // Сохраняем в Firebase (пакетно)
+    if (currentUser && recordsToUpdate.length > 0) {
+        saveRecordsBatchToFirebase(recordsToUpdate);
+    }
+    
     renderTable();
     updateAnalytics();
-    alert('✅ Пересчитано записей: ' + changedCount + ' из ' + records.length);
+    
+    const manualSkipped = records.filter(r => (r.manualEdits || []).length > 0).length;
+    alert(`✅ Пересчитано: ${changedCount}\n️ Пропущено (без изменений): ${skippedCount}\n️ Пропущено (ручные правки): ${manualSkipped}`);
 }
 
 function renderTariffs() {
@@ -2637,7 +2715,6 @@ function formatDate(s) {
 // Переключение режима авто-расчета
 function toggleAutoCalc(field) {
     autoCalcState[field] = !autoCalcState[field];
-    
     const btn = document.querySelector(`[onclick="toggleAutoCalc('${field}')"]`);
     const input = document.getElementById(field === 'km' ? 'pay-distance' : 'pay-weight');
     const hint = input ? input.closest('.form-group').querySelector('.auto-hint') : null;
@@ -2648,6 +2725,17 @@ function toggleAutoCalc(field) {
         if (input) input.classList.remove('manual-edit');
         if (hint) hint.textContent = 'автоматически';
         
+        // Убираем поле из списка ручных правок
+        if (editingId) {
+            const recordIndex = records.findIndex(r => r.id === editingId);
+            if (recordIndex !== -1) {
+                const fieldName = field === 'km' ? 'payDistance' : 'payWeight';
+                if (records[recordIndex].manualEdits) {
+                    records[recordIndex].manualEdits = records[recordIndex].manualEdits.filter(f => f !== fieldName);
+                }
+            }
+        }
+        
         // Пересчитываем автоматически
         autoCalc(field);
     } else {
@@ -2655,6 +2743,20 @@ function toggleAutoCalc(field) {
         if (btn) btn.classList.add('manual-mode');
         if (input) input.classList.add('manual-edit');
         if (hint) hint.textContent = 'ручной ввод';
+        
+        // Добавляем поле в список ручных правок
+        if (editingId) {
+            const recordIndex = records.findIndex(r => r.id === editingId);
+            if (recordIndex !== -1) {
+                const fieldName = field === 'km' ? 'payDistance' : 'payWeight';
+                if (!records[recordIndex].manualEdits) {
+                    records[recordIndex].manualEdits = [];
+                }
+                if (!records[recordIndex].manualEdits.includes(fieldName)) {
+                    records[recordIndex].manualEdits.push(fieldName);
+                }
+            }
+        }
     }
 }
 
@@ -2662,14 +2764,26 @@ function toggleAutoCalc(field) {
 function markManualEdit(field) {
     if (autoCalcState[field]) {
         autoCalcState[field] = false;
-        
         const btn = document.querySelector(`[onclick="toggleAutoCalc('${field}')"]`);
         const input = document.getElementById(field === 'km' ? 'pay-distance' : 'pay-weight');
         const hint = input ? input.closest('.form-group').querySelector('.auto-hint') : null;
-        
         if (btn) btn.classList.add('manual-mode');
         if (input) input.classList.add('manual-edit');
         if (hint) hint.textContent = 'ручной ввод';
+        
+        // Добавляем поле в список ручных правок текущей записи
+        if (editingId) {
+            const recordIndex = records.findIndex(r => r.id === editingId);
+            if (recordIndex !== -1) {
+                const fieldName = field === 'km' ? 'payDistance' : 'payWeight';
+                if (!records[recordIndex].manualEdits) {
+                    records[recordIndex].manualEdits = [];
+                }
+                if (!records[recordIndex].manualEdits.includes(fieldName)) {
+                    records[recordIndex].manualEdits.push(fieldName);
+                }
+            }
+        }
     }
 }
 
@@ -2739,12 +2853,34 @@ function exportToExcel() {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Журнал водителя");
         
-        // Сохраняем файл
+        // ===== НАДЕЖНОЕ СОХРАНЕНИЕ ФАЙЛА (РАБОТАЕТ ВЕЗДЕ, ВКЛЮЧАЯ iOS/Android) =====
         const fileName = `driver-data-${new Date().toISOString().split('T')[0]}.xlsx`;
-        XLSX.writeFile(wb, fileName);
+        
+        // 1. Генерируем бинарный буфер данных
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        
+        // 2. Создаем Blob-объект
+        const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        
+        // 3. Создаем временную ссылку для скачивания
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        
+        // 4. Инициируем клик по ссылке (скачивание)
+        link.click();
+        
+        // 5. Очищаем память через небольшую задержку
+        setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }, 1000);
         
         console.log('✅ Excel файл создан:', fileName);
-        alert('✅ Excel файл успешно создан!\n\nФайл сохранен в папку "Загрузки"');
+        alert('✅ Excel файл успешно создан!\n\nИмя файла: ' + fileName + '\n\nПроверьте папку "Загрузки"');
         
     } catch (error) {
         console.error('❌ Ошибка экспорта в Excel:', error);
@@ -4604,6 +4740,14 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ Вкладка "Главная" ожидает авторизации...');
     
     console.log('✅ ВСЯ ИНИЦИАЛИЗАЦИЯ ЗАВЕРШЕНА!');
+    
+    // ========================================
+// 8. ВОССТАНОВЛЕНИЕ СОСТОЯНИЯ (ПОСЛЕДНЕЕ ДЕЙСТВИЕ!)
+// ========================================
+// Восстанавливаем последнюю активную вкладку после загрузки данных
+setTimeout(() => {
+    restoreState();
+}, 500);
 });
 
 // ============================================

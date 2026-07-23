@@ -547,10 +547,7 @@
         <ion-icon name="clipboard-outline"></ion-icon>
         История
     </button>
-    <button class="btn btn-secondary glossy ripple magnetic" onclick="switchTab('tariffs')" style="width: 100%;">
-        <ion-icon name="settings-outline"></ion-icon>
-        Тарифы
-    </button>
+    
 </div>
     </div>
 </div>
@@ -1122,86 +1119,7 @@
     </div>
 </div>
 
-        <!-- Вкладка: Тарифы -->
-        <div id="tab-tariffs" class="tab-content">
-    <div class="card float-in texture-grain">
-        <h2>
-            <ion-icon name="pricetag-outline" class="section-icon"></ion-icon>
-            Управление тарифами
-        </h2>
-        <div class="tariff-info">
-            Тарифы применяются с указанной даты.
-        </div>
-        
-        <form id="tariff-form" class="tariff-form">
-            <div class="form-row">
-                <div class="form-group">
-                    <label>
-                        <ion-icon name="calendar-outline" class="form-icon date-icon"></ion-icon>
-                        Дата вступления в силу *
-                    </label>
-                    <input type="date" id="tariff-date" required>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>
-                        <ion-icon name="arrow-down-circle-outline" class="form-icon pickup-icon"></ion-icon>
-                        Забор (₽/шт)
-                    </label>
-                    <input type="number" id="tariff-pickup" step="0.01" min="0" required>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <ion-icon name="arrow-up-circle-outline" class="form-icon delivery-icon"></ion-icon>
-                        Выдача (₽/шт)
-                    </label>
-                    <input type="number" id="tariff-delivery" step="0.01" min="0" required>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <ion-icon name="navigate-outline" class="form-icon km-icon"></ion-icon>
-                        Км (₽/км)
-                    </label>
-                    <input type="number" id="tariff-km" step="0.01" min="0" required>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <ion-icon name="scale-outline" class="form-icon weight-icon"></ion-icon>
-                        Вес (₽/кг)
-                    </label>
-                    <input type="number" id="tariff-weight" step="0.01" min="0" required>
-                </div>
-            </div>
-            <button type="submit" class="btn btn-success glossy ripple magnetic">
-                <ion-icon name="add-circle-outline" class="btn-icon"></ion-icon>
-                Добавить тариф
-            </button>
-        </form>
 
-        <div class="tariff-actions-panel">
-            <h3>
-                <ion-icon name="sync-outline" class="section-icon"></ion-icon>
-                Массовые действия
-            </h3>
-            <button class="btn btn-secondary glossy ripple magnetic" onclick="recalculateAllTariffs()">
-                <ion-icon name="calculator-outline" class="btn-icon"></ion-icon>
-                Пересчитать все записи по актуальным тарифам
-            </button>
-            <p class="hint-text">Это обновит суммы выплат во всех записях согласно тарифам, действовавшим на дату каждой записи.</p>
-        </div>
-
-        <div class="tariffs-history">
-            <h3>
-                <ion-icon name="time-outline" class="section-icon"></ion-icon>
-                История тарифов
-            </h3>
-            <div id="tariffs-list" class="tariffs-list">
-                <!-- Список тарифов -->
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- ВКЛАДКА: ТОПЛИВО -->
 <div id="tab-fuel" class="tab-content">
@@ -1325,67 +1243,128 @@
 </div>
 
 <!-- Вкладка: Настройки (Объединенные функции) -->
-        <div id="tab-settings" class="tab-content">
-            
-            <!-- Карточка 1: Экспорт данных -->
-            <div class="card float-in texture-grain">
-                <h2>
-                    <ion-icon name="cloud-download-outline" style="vertical-align: middle; margin-right: 8px; font-size: 28px !important; color: var(--ios-success);"></ion-icon>
-                    Экспорт данных
-                </h2>
-                <p class="hint-text" style="margin-bottom: 20px; text-align: left;">
-                    Выгрузите вашу статистику в удобном формате для печати, отчетов или анализа в Excel.
-                </p>
-                <div class="form-actions" style="flex-direction: column; gap: 12px;">
-                    <!-- Экспорт в Excel -->
-                    <button class="btn btn-primary glossy ripple magnetic" onclick="exportToExcel()" style="width: 100%; justify-content: flex-start;">
-                        <ion-icon name="grid-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
-                        Экспорт в Excel (.xlsx)
-                    </button>
-                    
-                    <!-- Экспорт в PDF -->
-                    <button class="btn btn-success glossy ripple magnetic" onclick="exportToPDF()" style="width: 100%; justify-content: flex-start;">
-                        <ion-icon name="print-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
-                        Экспорт в PDF (Полная таблица)
-                    </button>
-
-                    <!-- Резервная копия JSON -->
-                    <button class="btn btn-secondary glossy ripple magnetic" onclick="exportData()" style="width: 100%; justify-content: flex-start;">
-                        <ion-icon name="save-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
-                        Резервная копия (JSON)
-                    </button>
+<div id="tab-settings" class="tab-content">
+    
+    <!-- БЛОК 1: Управление тарифами -->
+    <div class="card float-in texture-grain">
+        <h2>
+            <ion-icon name="pricetag-outline" style="vertical-align: middle; margin-right: 8px; font-size: 28px !important; color: var(--ios-warning);"></ion-icon>
+            Управление тарифами
+        </h2>
+        <p class="tariff-info">Тарифы применяются с указанной даты.</p>
+        <form id="tariff-form" class="tariff-form" onsubmit="saveTariff(event)">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Дата вступления в силу *</label>
+                    <input type="date" id="tariff-date" required>
+                </div>
+                <div class="form-group">
+                    <label>Забор (₽/шт)</label>
+                    <input type="number" id="tariff-pickup" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>Выдача (₽/шт)</label>
+                    <input type="number" id="tariff-delivery" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>Км (₽/км)</label>
+                    <input type="number" id="tariff-km" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>Вес (₽/кг)</label>
+                    <input type="number" id="tariff-weight" step="0.01" min="0" required>
                 </div>
             </div>
-
-            <!-- Карточка 2: Управление и восстановление -->
-            <div class="card float-in texture-grain">
-                <h2>
-                    <ion-icon name="settings-outline" style="vertical-align: middle; margin-right: 8px; font-size: 28px !important; color: var(--ios-accent);"></ion-icon>
-                    Управление и восстановление
-                </h2>
-                <div class="form-actions" style="flex-direction: column; gap: 12px;">
-                    <!-- Импорт данных -->
-                    <div style="position: relative; width: 100%;">
-                        <button class="btn btn-secondary glossy magnetic" style="width: 100%; display: flex; align-items: center; justify-content: flex-start; gap: 10px;" id="import-trigger-btn">
-                            <ion-icon name="cloud-upload-outline" style="font-size: 24px !important;"></ion-icon>
-                            Импорт из резервной копии (JSON)
-                        </button>
-                        <input type="file" id="import-file" accept=".json" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;" onchange="importData(event)">
-                    </div>
-
-                    <!-- Полный сброс -->
-                    <button class="btn btn-danger glossy ripple magnetic" onclick="resetAllData()" style="width: 100%; justify-content: flex-start;">
-                        <ion-icon name="trash-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
-                        Полный сброс локальных данных
-                    </button>
-                </div>
-                <p class="hint-text" style="margin-top: 20px; text-align: center; color: var(--ios-danger); font-weight: 500;">
-                    ⚠️ При сбросе удаляются локальные данные. Данные в Firebase (если подключено) сохраняются.
-                </p>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-success glossy ripple magnetic" style="width: 100%; justify-content: flex-start;">
+                    <ion-icon name="checkmark-circle-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
+                    Добавить тариф
+                </button>
             </div>
-
+        </form>
+    </div>
+    
+    <!-- БЛОК 2: Массовые действия -->
+    <div class="tariff-actions-panel float-in texture-grain">
+        <h3>
+            <ion-icon name="options-outline" style="vertical-align: middle; margin-right: 8px; font-size: 24px !important; color: var(--ios-accent);"></ion-icon>
+            Массовые действия
+        </h3>
+        <button class="btn btn-primary glossy ripple magnetic" onclick="recalculateAllTariffs()" style="width: 100%; justify-content: flex-start;">
+            <ion-icon name="refresh-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
+            Пересчитать все записи по актуальным тарифам
+        </button>
+        <p class="hint-text">Это обновит суммы выплат во всех записях согласно тарифам, действовавшим на дату каждой записи.</p>
+    </div>
+    
+    <!-- БЛОК 3: История тарифов -->
+    <div class="card tariffs-history float-in texture-grain">
+        <h3>
+            <ion-icon name="time-outline" style="vertical-align: middle; margin-right: 8px; font-size: 24px !important; color: var(--ios-purple);"></ion-icon>
+            История тарифов
+        </h3>
+        <div id="tariffs-list" class="tariffs-list">
+            <!-- Сюда JavaScript добавит список тарифов -->
         </div>
-    </main>
+    </div>
+    
+    <!-- БЛОК 4: Экспорт данных -->
+    <div class="card float-in texture-grain">
+        <h2>
+            <ion-icon name="cloud-download-outline" style="vertical-align: middle; margin-right: 8px; font-size: 28px !important; color: var(--ios-success);"></ion-icon>
+            Экспорт данных
+        </h2>
+        <p class="hint-text" style="margin-bottom: 20px; text-align: left;">
+            Выгрузите вашу статистику в удобном формате для печати, отчетов или анализа в Excel.
+        </p>
+        <div class="form-actions" style="flex-direction: column; gap: 12px;">
+            <!-- Экспорт в Excel -->
+            <button class="btn btn-primary glossy ripple magnetic" onclick="exportToExcel()" style="width: 100%; justify-content: flex-start;">
+                <ion-icon name="grid-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
+                Экспорт в Excel (.xlsx)
+            </button>
+            
+            <!-- Экспорт в PDF -->
+            <button class="btn btn-success glossy ripple magnetic" onclick="exportToPDF()" style="width: 100%; justify-content: flex-start;">
+                <ion-icon name="print-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
+                Экспорт в PDF (Полная таблица)
+            </button>
+            
+            <!-- Резервная копия JSON -->
+            <button class="btn btn-secondary glossy ripple magnetic" onclick="exportData()" style="width: 100%; justify-content: flex-start;">
+                <ion-icon name="save-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
+                Резервная копия (JSON)
+            </button>
+        </div>
+    </div>
+    
+    <!-- БЛОК 5: Управление и восстановление -->
+    <div class="card float-in texture-grain">
+        <h2>
+            <ion-icon name="settings-outline" style="vertical-align: middle; margin-right: 8px; font-size: 28px !important; color: var(--ios-accent);"></ion-icon>
+            Управление и восстановление
+        </h2>
+        <div class="form-actions" style="flex-direction: column; gap: 12px;">
+            <!-- Импорт данных -->
+            <div style="position: relative; width: 100%;">
+                <button class="btn btn-secondary glossy magnetic" style="width: 100%; display: flex; align-items: center; justify-content: flex-start; gap: 10px;" id="import-trigger-btn">
+                    <ion-icon name="cloud-upload-outline" style="font-size: 24px !important;"></ion-icon>
+                    Импорт из резервной копии (JSON)
+                </button>
+                <input type="file" id="import-file" accept=".json" style="position: absolute; left: 0; top: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;" onchange="importData(event)">
+            </div>
+            
+            <!-- Полный сброс -->
+            <button class="btn btn-danger glossy ripple magnetic" onclick="resetAllData()" style="width: 100%; justify-content: flex-start;">
+                <ion-icon name="trash-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
+                Полный сброс локальных данных
+            </button>
+        </div>
+        <p class="hint-text" style="margin-top: 20px; text-align: center; color: var(--ios-danger); font-weight: 500;">
+            ⚠️ При сбросе удаляются локальные данные. Данные в Firebase (если подключено) сохраняются.
+        </p>
+    </div>
+    
 </div>
 
 <!-- Нижняя панель навигации (iOS Tab Bar) с горизонтальным скроллом -->
@@ -1479,7 +1458,7 @@
         <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">История</span>
     </button>
     
-    <button class="nav-item magnetic" data-tab="tariffs" onclick="switchTab('tariffs')" style="
+    <button class="nav-item magnetic" data-tab="fuel" onclick="switchTab('fuel')" style="
         flex: 0 0 auto;
         display: flex;
         flex-direction: column;
@@ -1494,14 +1473,9 @@
         border-radius: 16px;
         position: relative;
     ">
-        <ion-icon name="settings-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
-        <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">Тарифы</span>
+        <ion-icon name="flame-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
+        <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">Топливо</span>
     </button>
-    
-    <button class="nav-item" data-tab="fuel" onclick="switchTab('fuel')">
-    <ion-icon name="flame-outline"></ion-icon>
-    <span class="label">Топливо</span>
-</button>
     
     <button class="nav-item magnetic" data-tab="settings" onclick="switchTab('settings')" style="
         flex: 0 0 auto;
@@ -1518,8 +1492,8 @@
         border-radius: 16px;
         position: relative;
     ">
-        <ion-icon name="ellipsis-horizontal-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
-        <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">Ещё</span>
+        <ion-icon name="settings-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
+        <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">Настройки</span>
     </button>
 </nav>
 
