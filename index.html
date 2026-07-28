@@ -90,7 +90,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.6.1" defer></script>
+    <script src="script.js?v=2.6.2" defer></script>
+    
+    <!-- Модуль ремонта -->
+<script type="module" src="repair-module.js?v=1.0.0"></script>
+
+    <!-- Модуль ремонта -->
+    <script type="module" src="fuel-module.js?v=1.0.0"></script>
+
+
 </head>
 <body>
 
@@ -1242,6 +1250,268 @@
     </div>
 </div>
 
+<!-- ===== ВКЛАДКА: РЕМОНТ ===== -->
+<div id="tab-repair" class="tab-content">
+    <div class="card">
+        <h2><ion-icon name="construct-outline" class="section-icon"></ion-icon> Учет ремонта</h2>
+        
+        <!-- СТАТИСТИКА -->
+        <div class="repair-stats-grid">
+            <div class="repair-stat-card">
+                <h3><ion-icon name="construct-outline"></ion-icon> Всего ремонтов</h3>
+                <div class="stat-value accent-red" id="repair-total-count">0</div>
+            </div>
+            <div class="repair-stat-card">
+                <h3><ion-icon name="cash-outline"></ion-icon> Всего потрачено</h3>
+                <div class="stat-value accent-orange" id="repair-total-amount">0 ₽</div>
+            </div>
+            <div class="repair-stat-card">
+                <h3><ion-icon name="calculator-outline"></ion-icon> Средний чек</h3>
+                <div class="stat-value accent-blue" id="repair-avg-amount">0 ₽</div>
+            </div>
+            <div class="repair-stat-card">
+                <h3><ion-icon name="stats-chart-outline"></ion-icon> Частая проблема</h3>
+                <div class="stat-value accent-purple" id="repair-most-common">—</div>
+            </div>
+            <div class="repair-stat-card">
+                <h3><ion-icon name="navigate-outline"></ion-icon> Пробег на ремонты</h3>
+                <div class="stat-value accent-green" id="repair-total-mileage">0 км</div>
+            </div>
+            <div class="repair-stat-card">
+                <h3><ion-icon name="speedometer-outline"></ion-icon> ₽/км</h3>
+                <div class="stat-value accent-gold" id="repair-cost-per-km">0 ₽/км</div>
+            </div>
+        </div>
+        
+        <!-- ФОРМА -->
+        <form id="repair-form" style="margin-bottom: 24px;">
+            <div class="form-row">
+                <div class="form-group">
+                    <label><ion-icon name="calendar-outline"></ion-icon> Дата *</label>
+                    <input type="date" id="repair-date" required>
+                </div>
+                <div class="form-group">
+                    <label><ion-icon name="speedometer-outline"></ion-icon> Пробег (км) *</label>
+                    <input type="number" id="repair-mileage" placeholder="Текущий пробег" min="0" required>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label><ion-icon name="construct-outline"></ion-icon> Категория *</label>
+                    <select id="repair-category" required>
+                        <option value="engine">Двигатель</option>
+                        <option value="transmission">Трансмиссия</option>
+                        <option value="brakes">Тормозная система</option>
+                        <option value="suspension">Подвеска</option>
+                        <option value="electrics">Электрика</option>
+                        <option value="body">Кузов</option>
+                        <option value="tires">Шины/Диски</option>
+                        <option value="oil">Масло/Жидкости</option>
+                        <option value="cooling">Охлаждение</option>
+                        <option value="exhaust">Выхлопная система</option>
+                        <option value="other">Прочее</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label><ion-icon name="document-text-outline"></ion-icon> Описание</label>
+                    <input type="text" id="repair-description" placeholder="Краткое описание">
+                </div>
+            </div>
+            
+            <!-- ЧТО МЕНЯЛОСЬ? -->
+            <div class="form-section">
+                <h3>Что менялось?</h3>
+                <div class="repair-service-grid" id="repair-service-items">
+                    <label class="repair-service-item">
+                        <input type="checkbox" value="oil">
+                        <span class="service-icon">🛢️</span>
+                        <span class="service-name">Масло</span>
+                    </label>
+                    <label class="repair-service-item">
+                        <input type="checkbox" value="oilFilter">
+                        <span class="service-icon">🔵</span>
+                        <span class="service-name">Масляный фильтр</span>
+                    </label>
+                    <label class="repair-service-item">
+                        <input type="checkbox" value="airFilter">
+                        <span class="service-icon">💨</span>
+                        <span class="service-name">Воздушный фильтр</span>
+                    </label>
+                    <label class="repair-service-item">
+                        <input type="checkbox" value="cabinFilter">
+                        <span class="service-icon">🌬️</span>
+                        <span class="service-name">Салонный фильтр</span>
+                    </label>
+                    <label class="repair-service-item">
+                        <input type="checkbox" value="sparkPlugs">
+                        <span class="service-icon">⚡</span>
+                        <span class="service-name">Свечи зажигания</span>
+                    </label>
+                    <label class="repair-service-item">
+                        <input type="checkbox" value="brakePads">
+                        <span class="service-icon">🔴</span>
+                        <span class="service-name">Тормозные колодки</span>
+                    </label>
+                    <label class="repair-service-item">
+                        <input type="checkbox" value="coolant">
+                        <span class="service-icon">❄️</span>
+                        <span class="service-name">Охлаждающая жидкость</span>
+                    </label>
+                    <label class="repair-service-item">
+                        <input type="checkbox" value="brakeFluid">
+                        <span class="service-icon">💧</span>
+                        <span class="service-name">Тормозная жидкость</span>
+                    </label>
+                    <label class="repair-service-item">
+                        <input type="checkbox" value="transmissionFluid">
+                        <span class="service-icon">⚙️</span>
+                        <span class="service-name">Трансмиссионное масло</span>
+                    </label>
+                    <label class="repair-service-item">
+                        <input type="checkbox" value="tires">
+                        <span class="service-icon">🛞</span>
+                        <span class="service-name">Шины/Колёса</span>
+                    </label>
+                    <label class="repair-service-item">
+                        <input type="checkbox" value="battery">
+                        <span class="service-icon">🔋</span>
+                        <span class="service-name">Аккумулятор</span>
+                    </label>
+                    <label class="repair-service-item">
+                        <input type="checkbox" value="wipers">
+                        <span class="service-icon">🌧️</span>
+                        <span class="service-name">Дворники</span>
+                    </label>
+                </div>
+            </div>
+            
+<!-- ЗАПЧАСТИ -->
+<div class="form-section">
+    <h3><ion-icon name="cube-outline"></ion-icon> Запчасти и материалы</h3>
+    <div id="repair-parts-list" class="dynamic-list-container">
+        <!-- Элементы будут добавлены динамически -->
+    </div>
+    <button type="button" class="btn-add-dynamic" onclick="addRepairPart()">
+        <ion-icon name="add-outline"></ion-icon> Добавить деталь
+    </button>
+</div>
+
+<!-- РАБОТЫ -->
+<div class="form-section">
+    <h3><ion-icon name="settings-outline"></ion-icon> Работы</h3>
+    <div id="repair-works-list" class="dynamic-list-container">
+        <!-- Элементы будут добавлены динамически -->
+    </div>
+    <button type="button" class="btn-add-dynamic" onclick="addRepairWork()">
+        <ion-icon name="add-outline"></ion-icon> Добавить работу
+    </button>
+</div>
+            
+            <!-- КОММЕНТАРИЙ -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label><ion-icon name="chatbubble-outline"></ion-icon> Комментарий</label>
+                    <input type="text" id="repair-comment" placeholder="Дополнительная информация">
+                </div>
+            </div>
+            
+            <!-- ИТОГО -->
+            <div class="repair-calc-results">
+                <div class="repair-calc-item">
+                    <span>Запчасти:</span>
+                    <span class="value" id="repair-parts-total">0 ₽</span>
+                </div>
+                <div class="repair-calc-item">
+                    <span>Работы:</span>
+                    <span class="value" id="repair-works-total">0 ₽</span>
+                </div>
+                <div class="repair-calc-item total">
+                    <span>Итого:</span>
+                    <span class="value" id="repair-total-cost">0 ₽</span>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-success">
+                    <ion-icon name="checkmark-circle-outline"></ion-icon> Сохранить ремонт
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="clearRepairForm()">
+                    <ion-icon name="close-circle-outline"></ion-icon> Очистить
+                </button>
+            </div>
+        </form>
+        
+        <!-- ГРАФИКИ -->
+        <div class="repair-charts-grid">
+            <div class="repair-chart-box">
+                <h4>Расходы по категориям</h4>
+                <canvas id="repair-category-chart"></canvas>
+                <div id="repair-chart-empty" style="text-align: center; padding: 30px; color: var(--ios-text-tertiary, #86868b); display: none;">
+                    <ion-icon name="construct-outline" style="font-size: 36px; display: block; margin: 0 auto 8px;"></ion-icon>
+                    Нет данных
+                </div>
+            </div>
+            <div class="repair-chart-box">
+                <h4>Динамика расходов</h4>
+                <canvas id="repair-trend-chart"></canvas>
+                <div id="repair-trend-empty" style="text-align: center; padding: 30px; color: var(--ios-text-tertiary, #86868b); display: none;">
+                    <ion-icon name="analytics-outline" style="font-size: 36px; display: block; margin: 0 auto 8px;"></ion-icon>
+                    Добавьте минимум 2 записи
+                </div>
+            </div>
+        </div>
+        
+        <!-- ФИЛЬТРЫ -->
+        <div class="repair-filters">
+            <div class="filter-group">
+                <label>Период</label>
+                <select id="repair-filter-period">
+                    <option value="all">Все время</option>
+                    <option value="month">Этот месяц</option>
+                    <option value="3months">3 месяца</option>
+                    <option value="year">Год</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Категория</label>
+                <select id="repair-filter-category">
+                    <option value="all">Все категории</option>
+                    <option value="engine">Двигатель</option>
+                    <option value="transmission">Трансмиссия</option>
+                    <option value="brakes">Тормозная система</option>
+                    <option value="suspension">Подвеска</option>
+                    <option value="electrics">Электрика</option>
+                    <option value="body">Кузов</option>
+                    <option value="tires">Шины/Диски</option>
+                    <option value="oil">Масло/Жидкости</option>
+                    <option value="cooling">Охлаждение</option>
+                    <option value="exhaust">Выхлопная система</option>
+                    <option value="other">Прочее</option>
+                </select>
+            </div>
+            <div class="filter-group" style="flex: 2;">
+                <label>Поиск</label>
+                <input type="text" id="repair-filter-search" placeholder="Поиск по описанию...">
+            </div>
+        </div>
+        
+        <!-- СПИСОК -->
+        <div id="repair-list">
+            <div style="text-align: center; padding: 40px; color: var(--ios-text-tertiary, #86868b);">
+                <ion-icon name="construct-outline" style="font-size: 48px; display: block; margin: 0 auto 12px;"></ion-icon>
+                Загрузка данных о ремонте...
+            </div>
+        </div>
+        
+        <!-- ЭКСПОРТ -->
+        <div class="repair-export-btn">
+            <button class="btn btn-secondary" onclick="exportRepairData()">
+                <ion-icon name="download-outline"></ion-icon> Экспорт ремонтов (JSON)
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Вкладка: Настройки (Объединенные функции) -->
 <div id="tab-settings" class="tab-content">
     
@@ -1476,6 +1746,25 @@
         <ion-icon name="flame-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
         <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">Топливо</span>
     </button>
+    
+    <button class="nav-item magnetic" data-tab="repair" onclick="switchTab('repair')" style="
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+    min-width: 60px;
+    border-radius: 16px;
+    position: relative;
+">
+    <ion-icon name="construct-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
+    <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">Ремонт</span>
+</button>
     
     <button class="nav-item magnetic" data-tab="settings" onclick="switchTab('settings')" style="
         flex: 0 0 auto;
