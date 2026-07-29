@@ -730,21 +730,23 @@ function updateRepairCategoryChart() {
     const emptyMsg = document.getElementById('repair-chart-empty');
     if (emptyMsg) emptyMsg.style.display = 'none';
     
+    // ✅ ИСПРАВЛЕНИЕ: Используем r.category (ключ) как ключ объекта, а не лейбл
     const categoryData = {};
     repairRecords.forEach(r => {
-        const label = getCategoryLabel(r.category);
-        categoryData[label] = (categoryData[label] || 0) + (r.total || 0);
+        const catKey = r.category || 'other';
+        if (!categoryData[catKey]) {
+            categoryData[catKey] = { total: 0, label: getCategoryLabel(catKey) };
+        }
+        categoryData[catKey].total += (r.total || 0);
     });
     
-    const labels = Object.keys(categoryData);
-    const data = Object.values(categoryData);
-    const colors = labels.map(label => {
-        let cat = 'other';
-        for (const [key, value] of Object.entries(getCategoryLabel)) {
-            if (value === label) { cat = key; break; }
-        }
-        return getCategoryColor(cat) || '#636366';
-    });
+    // Формируем массивы для Chart.js
+    const catKeys = Object.keys(categoryData);
+    const labels = catKeys.map(key => categoryData[key].label);
+    const data = catKeys.map(key => categoryData[key].total);
+    
+    // ✅ ИСПРАВЛЕНИЕ: Получаем цвета напрямую по ключу категории
+    const colors = catKeys.map(key => getCategoryColor(key));
     
     repairChart = new Chart(ctx, {
         type: 'doughnut',
@@ -752,9 +754,10 @@ function updateRepairCategoryChart() {
             labels: labels,
             datasets: [{
                 data: data,
-                backgroundColor: colors.map(c => c + '80'),
+                backgroundColor: colors.map(c => c + 'CC'), // Добавляем прозрачность 80%
                 borderColor: colors,
-                borderWidth: 2
+                borderWidth: 2,
+                hoverOffset: 8
             }]
         },
         options: {
@@ -763,9 +766,21 @@ function updateRepairCategoryChart() {
             plugins: {
                 legend: {
                     position: 'bottom',
-                    labels: { padding: 12, usePointStyle: true, pointStyle: 'circle', font: { size: 12 } }
+                    labels: { 
+                        padding: 12, 
+                        usePointStyle: true, 
+                        pointStyle: 'circle', 
+                        font: { size: 12, weight: '600' },
+                        color: '#3C3C43'
+                    }
                 },
                 tooltip: {
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    titleColor: '#1d1d1f',
+                    bodyColor: '#3C3C43',
+                    borderColor: 'rgba(0,0,0,0.1)',
+                    borderWidth: 1,
+                    padding: 12,
                     callbacks: {
                         label: function(context) {
                             const total = context.dataset.data.reduce((a, b) => a + b, 0);
