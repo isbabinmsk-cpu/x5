@@ -3413,372 +3413,6 @@ TOOLTIP ДЛЯ ЯЧЕЙКИ БЕНЗИНА
     }
 }
 
-/* ============================================
-   ТЕМНАЯ ТЕМА
-   ============================================ */
-
-@media (prefers-color-scheme: dark) {
-    .dynamic-item {
-        background: var(--ios-bg-secondary, #2c2c2e);
-        border-color: var(--ios-border, rgba(255, 255, 255, 0.06));
-    }
-
-    .dynamic-item:hover {
-        border-color: var(--ios-border-strong, rgba(255, 255, 255, 0.12));
-    }
-
-    .dynamic-item input {
-        background: var(--ios-bg-input, #1c1c1e);
-        border-color: var(--ios-border, rgba(255, 255, 255, 0.06));
-        color: var(--ios-text-primary, #f5f5f7);
-    }
-
-    .dynamic-item input:focus {
-        border-color: var(--ios-accent, #007AFF);
-        background: var(--ios-bg-secondary, #2c2c2e);
-    }
-
-    .dynamic-item input::placeholder {
-        color: var(--ios-text-quaternary, #636366);
-    }
-
-    .dynamic-item .btn-remove {
-        background: rgba(255, 59, 48, 0.15);
-    }
-
-    .dynamic-item .btn-remove:hover {
-        background: var(--ios-danger, #FF3B30);
-    }
-
-    .btn-add-dynamic {
-        background: rgba(0, 122, 255, 0.12);
-        border-color: rgba(0, 122, 255, 0.3);
-    }
-
-    .btn-add-dynamic:hover {
-        background: var(--ios-accent, #007AFF);
-        color: #ffffff;
-    }
-
-    .form-section h3 {
-        color: var(--ios-text-primary, #f5f5f7);
-    }
-}
-
-/* === Итоговые калькуляции === */
-.repair-calc-results {
-    background: var(--ios-bg-tertiary, rgba(255,255,255,0.85));
-    backdrop-filter: var(--ios-blur, blur(20px) saturate(180%));
-    -webkit-backdrop-filter: var(--ios-blur, blur(20px) saturate(180%));
-    border: 1px solid var(--ios-border, rgba(0,0,0,0.06));
-    border-radius: var(--ios-radius-xl, 20px);
-    padding: var(--ios-spacing-lg, 20px);
-    margin-top: var(--ios-spacing-lg, 20px);
-}
-
-.repair-calc-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--ios-divider, rgba(0,0,0,0.04));
-    font-size: 15px;
-    color: var(--ios-text-secondary, #86868b);
-}
-
-.repair-calc-item:last-child {
-    border-bottom: none;
-}
-
-.repair-calc-item .value {
-    font-weight: 600;
-    color: var(--ios-text-primary, #1d1d1f);
-}
-
-.repair-calc-item.total {
-    font-size: 22px;
-    font-weight: 700;
-    padding-top: 14px;
-    margin-top: 6px;
-    border-top: 2px solid var(--ios-border-strong, rgba(0,0,0,0.1));
-}
-
-.repair-calc-item.total .value {
-    color: var(--ios-accent, #007AFF);
-    font-size: 26px;
-}
-
-/* === Фильтры === */
-.repair-filters {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 16px;
-}
-
-.repair-filters .filter-group {
-    flex: 1;
-    min-width: 120px;
-}
-
-.repair-filters .filter-group label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--ios-text-tertiary, #86868b);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 6px;
-}
-
-.repair-filters .filter-group select,
-.repair-filters .filter-group input {
-    width: 100%;
-    padding: 10px 14px;
-    border: 1px solid var(--ios-border, rgba(0,0,0,0.08));
-    border-radius: var(--ios-radius-md, 12px);
-    font-size: 15px;
-    background: var(--ios-bg-secondary, #ffffff);
-    color: var(--ios-text-primary, #1d1d1f);
-    transition: all 0.2s;
-    font-family: inherit;
-}
-
-.repair-filters .filter-group select:focus,
-.repair-filters .filter-group input:focus {
-    outline: none;
-    border-color: var(--ios-accent, #007AFF);
-    box-shadow: 0 0 0 3px rgba(0,122,255,0.1);
-}
-
-.repair-filters .filter-group select {
-    appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2386868b' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 14px center;
-    padding-right: 36px;
-}
-
-/* === Статистика === */
-.repair-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    margin-bottom: 20px;
-}
-
-@media (max-width: 600px) {
-    .repair-stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (max-width: 400px) {
-    .repair-stats-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-.repair-stat-card {
-    background: var(--ios-bg-card, rgba(255,255,255,0.92));
-    backdrop-filter: var(--ios-blur, blur(20px) saturate(180%));
-    -webkit-backdrop-filter: var(--ios-blur, blur(20px) saturate(180%));
-    border: 1px solid var(--ios-border, rgba(0,0,0,0.06));
-    border-radius: var(--ios-radius-xl, 20px);
-    padding: var(--ios-spacing-lg, 20px);
-    text-align: center;
-    box-shadow: var(--ios-shadow-sm, 0 2px 8px rgba(0,0,0,0.04));
-    transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-}
-
-.repair-stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--ios-shadow-md, 0 4px 16px rgba(0,0,0,0.06));
-}
-
-.repair-stat-card h3 {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--ios-text-tertiary, #86868b);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 8px;
-}
-
-.repair-stat-card .stat-value {
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--ios-text-primary, #1d1d1f);
-    word-break: break-word;
-}
-
-.repair-stat-card .stat-value.accent-blue { color: var(--ios-accent, #007AFF); }
-.repair-stat-card .stat-value.accent-red { color: var(--ios-danger, #FF3B30); }
-.repair-stat-card .stat-value.accent-orange { color: var(--ios-warning, #FF9500); }
-.repair-stat-card .stat-value.accent-green { color: var(--ios-success, #34C759); }
-.repair-stat-card .stat-value.accent-purple { color: var(--ios-purple, #AF52DE); }
-.repair-stat-card .stat-value.accent-gold { color: #B8860B; }
-
-/* === Графики === */
-.repair-charts-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    margin-bottom: 24px;
-}
-
-@media (max-width: 768px) {
-    .repair-charts-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-.repair-chart-box {
-    background: var(--ios-bg-card, rgba(255,255,255,0.92));
-    backdrop-filter: var(--ios-blur, blur(20px) saturate(180%));
-    -webkit-backdrop-filter: var(--ios-blur, blur(20px) saturate(180%));
-    border: 1px solid var(--ios-border, rgba(0,0,0,0.06));
-    border-radius: var(--ios-radius-xl, 20px);
-    padding: var(--ios-spacing-lg, 20px);
-    box-shadow: var(--ios-shadow-sm, 0 2px 8px rgba(0,0,0,0.04));
-}
-
-.repair-chart-box h4 {
-    text-align: center;
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--ios-text-secondary, #86868b);
-    margin-bottom: 12px;
-}
-
-.repair-chart-box canvas {
-    max-width: 100%;
-    max-height: 250px;
-}
-
-/* === Общая информация === */
-.repair-total-info {
-    text-align: center;
-    font-weight: 600;
-    color: var(--ios-text-secondary, #86868b);
-    padding: 12px;
-    background: var(--ios-bg-tertiary, rgba(255,255,255,0.5));
-    border-radius: var(--ios-radius-md, 12px);
-    margin-bottom: 16px;
-}
-
-/* === Кнопка экспорта === */
-.repair-export-btn {
-    margin-top: 16px;
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
-/* === Адаптивность для мобильных === */
-@media (max-width: 480px) {
-    .repair-item {
-        padding: 14px;
-    }
-    
-    .repair-item .repair-title {
-        font-size: 15px;
-    }
-    
-    .repair-item .repair-amount {
-        font-size: 18px;
-    }
-    
-    .repair-item .repair-meta {
-        font-size: 13px;
-        gap: 8px;
-    }
-    
-    .repair-item .repair-actions .btn {
-        font-size: 12px;
-        padding: 6px 12px;
-    }
-    
-    .repair-dynamic-item {
-        grid-template-columns: 1fr;
-        gap: 8px;
-        padding: 10px 12px;
-    }
-    
-    .repair-service-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .repair-service-item {
-        padding: 10px 14px;
-    }
-    
-    .repair-service-item .service-name {
-        font-size: 13px;
-    }
-    
-    .repair-calc-item.total {
-        font-size: 18px;
-    }
-    
-    .repair-calc-item.total .value {
-        font-size: 22px;
-    }
-    
-    .repair-filters .filter-group {
-        min-width: 100%;
-    }
-    
-    .repair-stat-card .stat-value {
-        font-size: 20px;
-    }
-}
-
-/* === Для очень маленьких экранов === */
-@media (max-width: 360px) {
-    .repair-item {
-        padding: 12px;
-    }
-    
-    .repair-item .repair-title {
-        font-size: 14px;
-    }
-    
-    .repair-item .repair-amount {
-        font-size: 16px;
-    }
-    
-    .repair-item .repair-meta {
-        font-size: 12px;
-    }
-    
-    .repair-stat-card {
-        padding: 14px;
-    }
-    
-    .repair-stat-card .stat-value {
-        font-size: 18px;
-    }
-}
-
-/* === Dark mode поддержка (через переменные) === */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --ios-bg-primary: #1c1c1e;
-        --ios-bg-secondary: #2c2c2e;
-        --ios-bg-tertiary: rgba(44, 44, 46, 0.85);
-        --ios-bg-card: rgba(44, 44, 46, 0.92);
-        --ios-text-primary: #f5f5f7;
-        --ios-text-secondary: #aeaeb2;
-        --ios-text-tertiary: #8e8e93;
-        --ios-text-quaternary: #636366;
-        --ios-border: rgba(255,255,255,0.08);
-        --ios-border-strong: rgba(255,255,255,0.15);
-        --ios-divider: rgba(255,255,255,0.06);
-        --ios-shadow-sm: 0 2px 8px rgba(0,0,0,0.2);
-        --ios-shadow-md: 0 4px 16px rgba(0,0,0,0.3);
-        --ios-bg-input: #1c1c1e;
-    }
-}
 
 /* ============================================
 TOOLTIP ДЛЯ ЯЧЕЙКИ РЕМОНТА
@@ -3965,5 +3599,234 @@ padding: 12px;
         left: 50% !important;
         top: 50% !important;
         transform: translate(-50%, -50%) scale(1) !important;
+    }
+}
+
+/* ============================================
+КОМПАКТНЫЙ МОБИЛЬНЫЙ ИНТЕРФЕЙС
+============================================ */
+@media (max-width: 480px) {
+    /* Уменьшаем общие отступы */
+    body {
+        padding: 8px !important;
+        padding-bottom: 100px !important;
+    }
+    
+    /* Карточки */
+    .card {
+        padding: 12px !important;
+        margin-bottom: 12px !important;
+        border-radius: 16px !important;
+    }
+    
+    .card h2 {
+        font-size: 18px !important;
+        margin-bottom: 12px !important;
+    }
+    
+    /* Статистика - делаем компактнее */
+    .stats-grid,
+    .efficiency-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+    
+    .stat-card {
+        padding: 10px !important;
+        min-height: 80px !important;
+        border-radius: 12px !important;
+    }
+    
+    .stat-card h3 {
+        font-size: 10px !important;
+        margin-bottom: 6px !important;
+    }
+    
+    .stat-card h3 ion-icon {
+        font-size: 20px !important;
+    }
+    
+    .stat-value {
+        font-size: 18px !important;
+    }
+    
+    /* Лучший день */
+    #tab-home .card:first-child h2 {
+        font-size: 18px !important;
+    }
+    
+    .best-day-income {
+        font-size: 28px !important;
+    }
+    
+    .best-day-date {
+        font-size: 14px !important;
+    }
+    
+    .best-day-stats {
+        font-size: 12px !important;
+    }
+    
+    /* Тренды */
+    .trend-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+    
+    .trend-item {
+        padding: 10px !important;
+    }
+    
+    .trend-label {
+        font-size: 10px !important;
+    }
+    
+    .trend-value {
+        font-size: 16px !important;
+    }
+    
+    /* Цели */
+    .goal-item {
+        padding: 10px 0 !important;
+    }
+    
+    .goal-label {
+        font-size: 13px !important;
+    }
+    
+    .goal-value {
+        font-size: 13px !important;
+    }
+    
+    .goal-bar {
+        height: 6px !important;
+    }
+    
+    /* Достижения */
+    .achievement-badge {
+        font-size: 11px !important;
+        padding: 6px 10px !important;
+    }
+    
+    /* Детальная статистика */
+    .detail-stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+    
+    .detail-stat-card {
+        padding: 10px !important;
+    }
+    
+    .detail-stat-label {
+        font-size: 10px !important;
+    }
+    
+    .detail-stat-value {
+        font-size: 18px !important;
+    }
+    
+    /* Последние записи */
+    .recent-record-item {
+        padding: 10px 0 !important;
+    }
+    
+    .recent-record-date {
+        font-size: 14px !important;
+    }
+    
+    .recent-record-meta {
+        font-size: 11px !important;
+    }
+    
+    .recent-record-profit {
+        font-size: 14px !important;
+    }
+    
+    /* Быстрые действия */
+    .quick-actions .btn {
+        padding: 10px 14px !important;
+        font-size: 13px !important;
+    }
+    
+    /* Нижняя навигация */
+    .bottom-nav {
+        padding: 6px 4px !important;
+        bottom: 8px !important;
+        border-radius: 16px !important;
+    }
+    
+    .nav-item {
+        padding: 4px 6px !important;
+        min-width: 40px !important;
+    }
+    
+    .nav-item ion-icon {
+        font-size: 16px !important;
+    }
+    
+    .nav-item .label {
+        font-size: 8px !important;
+    }
+    
+    /* FAB кнопка */
+    #fab-add {
+        width: 44px !important;
+        height: 44px !important;
+        bottom: 70px !important;
+        right: 12px !important;
+    }
+    
+    #fab-add ion-icon {
+        font-size: 22px !important;
+    }
+    
+    /* Заголовки секций */
+    .section-title {
+        font-size: 18px !important;
+        padding: 12px !important;
+        margin: 20px 0 12px 0 !important;
+    }
+}
+
+/* Для очень маленьких экранов (iPhone SE и т.д.) */
+@media (max-width: 360px) {
+    body {
+        padding: 6px !important;
+    }
+    
+    .card {
+        padding: 10px !important;
+        margin-bottom: 10px !important;
+    }
+    
+    .stat-card {
+        padding: 8px !important;
+        min-height: 70px !important;
+    }
+    
+    .stat-value {
+        font-size: 16px !important;
+    }
+    
+    .stat-card h3 {
+        font-size: 9px !important;
+    }
+    
+    .bottom-nav {
+        padding: 4px 2px !important;
+    }
+    
+    .nav-item {
+        padding: 3px 4px !important;
+        min-width: 36px !important;
+    }
+    
+    .nav-item ion-icon {
+        font-size: 14px !important;
+    }
+    
+    .nav-item .label {
+        font-size: 7px !important;
     }
 }
