@@ -3876,3 +3876,26 @@ padding: 12px;
     margin-bottom: 0;
 }
 }
+
+/* ============================================
+ЦЕНТРИРОВАНИЕ ВСПЛЫВАЮЩИХ ОКОН НА МОБИЛЬНЫХ
+============================================ */
+@media (max-width: 480px) {
+    .fuel-tooltip,
+    .repair-tooltip {
+        left: 50% !important;
+        top: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        max-width: 90%;
+        width: auto;
+        max-height: 80vh;
+        overflow-y: auto;
+    }
+    
+    .fuel-tooltip.visible,
+    .repair-tooltip.visible {
+        left: 50% !important;
+        top: 50% !important;
+        transform: translate(-50%, -50%) scale(1) !important;
+    }
+}
