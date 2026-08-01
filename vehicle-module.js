@@ -322,6 +322,16 @@ document.addEventListener('DOMContentLoaded', () => {
   loadVehicles();
 });
 
+// Вспомогательная функция для получения имени автомобиля по ID
+function getVehicleNameById(vehicleId) {
+    if (!vehicleId) return 'Неизвестный автомобиль';
+    const vehicle = vehicles.find(v => v.id === vehicleId);
+    if (vehicle) {
+        return `${vehicle.name} (${vehicle.plate})`;
+    }
+    return 'Неизвестный автомобиль';
+}
+
 // Экспорт для использования в других модулях
 window.getCurrentVehicleId = () => currentVehicleId;
 window.getVehicles = () => vehicles;
@@ -330,3 +340,4 @@ window.editVehicle = editVehicle;
 window.cancelEditVehicle = cancelEditVehicle;
 window.deleteVehicle = deleteVehicle;
 window.selectVehicle = selectVehicle;
+window.getVehicleNameById = getVehicleNameById; // ✅ ДОБАВЛЕНО

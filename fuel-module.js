@@ -668,9 +668,17 @@ function showFuelTooltip(event, cell) {
     `;
     
     fuelDetails.forEach((detail) => {
+        // ✅ ДОБАВЛЕНО: Получаем название автомобиля
+        const vehicleName = typeof window.getVehicleNameById === 'function' ?
+            window.getVehicleNameById(detail.vehicleId) :
+            'Неизвестный автомобиль';
+        
         html += `
             <div class="fuel-tooltip-detail-item">
                 <div class="detail-info">
+                    <div style="font-weight: 600; color: var(--ios-accent); font-size: 12px; margin-bottom: 4px;">
+                        ${vehicleName}
+                    </div>
                     <div class="detail-liters">⛽ ${detail.liters} л ${detail.mileage ? `· ${detail.mileage} км` : ''}</div>
                     ${detail.comment ? `<div class="detail-comment">${detail.comment}</div>` : ''}
                 </div>
@@ -683,9 +691,8 @@ function showFuelTooltip(event, cell) {
     tooltip.innerHTML = html;
     
     const rect = cell.getBoundingClientRect();
-    const tooltipWidth = 300;
-    const tooltipHeight = tooltip.offsetHeight || 200;
-    
+    const tooltipWidth = 350;
+    const tooltipHeight = tooltip.offsetHeight || 250;
     let left = rect.right + 10;
     let top = rect.top;
     

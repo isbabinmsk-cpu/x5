@@ -2469,8 +2469,8 @@ TOOLTIP ДЛЯ ЯЧЕЙКИ БЕНЗИНА
     padding: 16px;
     box-shadow: var(--ios-shadow-lg);
     z-index: 10000;
-    min-width: 280px;
-    max-width: 350px;
+    min-width: 350px !important;  /* ✅ УВЕЛИЧЬТЕ ЭТО (было 280px или 300px) */
+    max-width: 400px !important;  /* ✅ УВЕЛИЧЬТЕ ЭТО (было 350px) */
     pointer-events: none;
     opacity: 0;
     transform: translateY(10px);
@@ -3728,21 +3728,21 @@ transform: scale(1.05);
 /* Tooltip контейнер для ремонта */
 .repair-tooltip {
 position: fixed;
-background: rgba(255, 255, 255, 0.98);
-backdrop-filter: blur(20px);
--webkit-backdrop-filter: blur(20px);
-border: 1px solid var(--ios-border);
-border-radius: var(--ios-radius-lg);
-padding: 16px;
-box-shadow: var(--ios-shadow-lg);
-z-index: 10000;
-min-width: 320px;
-max-width: 400px;
-pointer-events: none;
-opacity: 0;
-transform: translateY(10px);
-transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--ios-border);
+    border-radius: var(--ios-radius-lg);
+    padding: 16px;
+    box-shadow: var(--ios-shadow-lg);
+    z-index: 10000;
+    min-width: 350px !important;  /* ✅ УВЕЛИЧЬТЕ ЭТО (было 280px или 300px) */
+    max-width: 400px !important;  /* ✅ УВЕЛИЧЬТЕ ЭТО (было 350px) */
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
 }
 .repair-tooltip.visible {
 opacity: 1;

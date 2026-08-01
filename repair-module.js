@@ -1136,16 +1136,15 @@ return repairTooltipElement;
 }
 
 function showRepairTooltip(event, cell) {
-const details = cell.getAttribute('data-repair-details');
-const total = cell.getAttribute('data-repair-total');
-const count = cell.getAttribute('data-repair-count');
-if (!details) return;
-
- const repairDetails = JSON.parse(details.replace(/&apos;/g, "'"));
- const tooltip = createRepairTooltip();
- 
- // Формируем HTML tooltip
- let html = `
+    const details = cell.getAttribute('data-repair-details');
+    const total = cell.getAttribute('data-repair-total');
+    const count = cell.getAttribute('data-repair-count');
+    if (!details) return;
+    
+    const repairDetails = JSON.parse(details.replace(/&apos;/g, "'"));
+    const tooltip = createRepairTooltip();
+    
+    let html = `
      <div class="repair-tooltip-header">
          <ion-icon name="construct-outline"></ion-icon>
          <h4>Подробности ремонта</h4>
@@ -1162,25 +1161,34 @@ if (!details) return;
      </div>
      <div class="repair-tooltip-details">
  `;
- 
- repairDetails.forEach((detail, index) => {
-     const categoryLabel = getCategoryLabel ? getCategoryLabel(detail.category) : detail.category;
-     const partsHTML = (detail.parts || []).length > 0 ? `
+    
+    repairDetails.forEach((detail, index) => {
+        const categoryLabel = getCategoryLabel ? getCategoryLabel(detail.category) : detail.category;
+        
+        // ✅ ДОБАВЛЕНО: Получаем название автомобиля
+        const vehicleName = typeof window.getVehicleNameById === 'function' ?
+            window.getVehicleNameById(detail.vehicleId) :
+            'Неизвестный автомобиль';
+        
+        const partsHTML = (detail.parts || []).length > 0 ? `
          <div class="repair-tooltip-detail-parts">
              <div class="label">Запчасти:</div>
              ${detail.parts.map(p => `<div class="item">• ${p.name} - ${formatMoney(p.cost)}</div>`).join('')}
          </div>
      ` : '';
-     
-     const worksHTML = (detail.works || []).length > 0 ? `
+        
+        const worksHTML = (detail.works || []).length > 0 ? `
          <div class="repair-tooltip-detail-works">
              <div class="label">Работы:</div>
              ${detail.works.map(w => `<div class="item">• ${w.name} - ${formatMoney(w.cost)}</div>`).join('')}
          </div>
      ` : '';
-     
-     html += `
+        
+        html += `
          <div class="repair-tooltip-detail-item">
+             <div style="font-weight: 600; color: var(--ios-accent); font-size: 12px; margin-bottom: 6px;">
+                 ${vehicleName}
+             </div>
              <div class="repair-tooltip-detail-header">
                  <div class="repair-tooltip-detail-title">${categoryLabel}</div>
                  <div class="repair-tooltip-detail-amount">${formatMoney(detail.total)}</div>
@@ -1191,36 +1199,33 @@ if (!details) return;
              ${worksHTML}
          </div>
      `;
- });
- 
- html += `
+    });
+    
+    html += `
      </div>
      <div class="repair-tooltip-hint">
          Наведите для просмотра деталей
      </div>
  `;
- 
- tooltip.innerHTML = html;
- 
- // Позиционируем tooltip
- const rect = cell.getBoundingClientRect();
- const tooltipWidth = 350;
- const tooltipHeight = tooltip.offsetHeight || 250;
- let left = rect.right + 10;
- let top = rect.top;
- 
- // Проверяем, не выходит ли за правый край
- if (left + tooltipWidth > window.innerWidth) {
-     left = rect.left - tooltipWidth - 10;
- }
- // Проверяем, не выходит ли за нижний край
- if (top + tooltipHeight > window.innerHeight) {
-     top = window.innerHeight - tooltipHeight - 10;
- }
- 
- tooltip.style.left = left + 'px';
- tooltip.style.top = top + 'px';
- tooltip.classList.add('visible');
+    
+    tooltip.innerHTML = html;
+    
+    const rect = cell.getBoundingClientRect();
+    const tooltipWidth = 350;
+    const tooltipHeight = tooltip.offsetHeight || 250;
+    let left = rect.right + 10;
+    let top = rect.top;
+    
+    if (left + tooltipWidth > window.innerWidth) {
+        left = rect.left - tooltipWidth - 10;
+    }
+    if (top + tooltipHeight > window.innerHeight) {
+        top = window.innerHeight - tooltipHeight - 10;
+    }
+    
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+    tooltip.classList.add('visible');
 }
 
 function hideRepairTooltip() {
