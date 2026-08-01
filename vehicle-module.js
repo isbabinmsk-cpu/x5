@@ -4,20 +4,23 @@
 const VEHICLES_STORAGE_KEY = 'driverVehicles';
 const CURRENT_VEHICLE_KEY = 'currentVehicleId';
 
+// Глобальные переменные состояния модуля
 let vehicles = [];
 let currentVehicleId = 'default';
+let vehicleUnsubscribe = null; // Для хранения подписки на real-time обновления Firebase
 let editingVehicleId = null; // НОВОЕ: для отслеживания режима редактирования
 
 // 1. ЗАГРУЗКА АВТОМОБИЛЕЙ
 async function loadVehicles() {
   try {
+    // 1. Локальная загрузка для мгновенного отображения
     const saved = localStorage.getItem(VEHICLES_STORAGE_KEY);
     if (saved) vehicles = JSON.parse(saved);
     
     const savedCurrent = localStorage.getItem(CURRENT_VEHICLE_KEY);
     if (savedCurrent) currentVehicleId = savedCurrent;
     
-    // Всегда добавляем автомобиль по умолчанию, если его нет
+    // 2. Гарантируем наличие автомобиля по умолчанию
     const hasDefault = vehicles.some(v => v.id === 'default');
     if (!hasDefault) {
       const defaultCar = {
@@ -30,7 +33,7 @@ async function loadVehicles() {
       console.log('✅ Добавлен автомобиль по умолчанию');
     }
     
-    // Если текущий автомобиль не существует, переключаемся на default
+    // 3. Проверка текущего выбранного автомобиля
     const currentExists = vehicles.some(v => v.id === currentVehicleId);
     if (!currentExists) {
       currentVehicleId = 'default';
@@ -38,26 +41,61 @@ async function loadVehicles() {
     }
     
     saveVehiclesLocal();
-    
-    // Синхронизация с Firebase
-    if (typeof auth !== 'undefined' && auth.currentUser && typeof db !== 'undefined') {
-      const snap = await db.collection('users').doc(auth.currentUser.uid).collection('vehicles').get();
-      if (!snap.empty) {
-        const fbVehicles = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        // Добавляем автомобили из Firebase, которых нет локально
-        fbVehicles.forEach(fbCar => {
-          const exists = vehicles.some(v => v.id === fbCar.id);
-          if (!exists) vehicles.push(fbCar);
-        });
-        
-        saveVehiclesLocal();
-      }
-    }
-    
     renderVehicleSelector();
     renderVehicleList();
-    notifyVehicleChanged();
+    
+    // 4. Real-time синхронизация с Firebase
+    if (typeof auth !== 'undefined' && auth.currentUser && typeof db !== 'undefined') {
+      console.log('☁️ Подключение real-time слушателя автомобилей...');
+      
+      // Отключаем старый слушатель, если он был (защита от дублирования)
+      if (vehicleUnsubscribe) {
+        vehicleUnsubscribe();
+      }
+      
+      // onSnapshot срабатывает при ЛЮБОМ изменении: добавление, изменение, удаление
+      vehicleUnsubscribe = db.collection('users')
+        .doc(auth.currentUser.uid)
+        .collection('vehicles')
+        .onSnapshot((snapshot) => {
+          console.log('🔄 Получены изменения автомобилей из Firebase');
+          
+          let fbVehicles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          
+          // Гарантируем, что 'default' всегда есть в списке из Firebase
+          const hasDefaultInFb = fbVehicles.some(v => v.id === 'default');
+          if (!hasDefaultInFb) {
+            fbVehicles.unshift({
+              id: 'default',
+              name: 'Основной автомобиль',
+              plate: 'Не указан',
+              year: new Date().getFullYear()
+            });
+          }
+          
+          // Обновляем глобальный массив
+          vehicles = fbVehicles;
+          
+          // Проверяем, не удалили ли текущий автомобиль на другом устройстве
+          const currentStillExists = vehicles.some(v => v.id === currentVehicleId);
+          if (!currentStillExists) {
+            currentVehicleId = 'default';
+            console.log('⚠️ Текущий автомобиль был удален, переключено на default');
+          }
+          
+          saveVehiclesLocal();
+          renderVehicleSelector();
+          renderVehicleList();
+          notifyVehicleChanged();
+          
+          console.log(`✅ Синхронизировано автомобилей: ${vehicles.length}`);
+        }, (error) => {
+          console.error('❌ Ошибка real-time слушателя автомобилей:', error);
+        });
+    } else {
+      // Если Firebase недоступен, просто уведомляем другие модули
+      notifyVehicleChanged();
+    }
     
   } catch (error) {
     console.error('❌ Ошибка загрузки автомобилей:', error);
