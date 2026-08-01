@@ -90,13 +90,16 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.6.2" defer></script>
+    <script src="script.js?v=2.6.3" defer></script>
+    
+    <!-- 1. МОДУЛЬ АВТОМОБИЛЕЙ (ОБЯЗАТЕЛЬНО ПЕРВЫМ) -->
+<script src="vehicle-module.js?v=1.0.2"></script>
     
     <!-- Модуль ремонта -->
-<script type="module" src="repair-module.js?v=1.0.1"></script>
+<script type="module" src="repair-module.js?v=1.0.2"></script>
 
     <!-- Модуль топлива -->
-    <script type="module" src="fuel-module.js?v=1.0.0"></script>
+    <script type="module" src="fuel-module.js?v=1.0.2"></script>
 
 
 </head>
@@ -1169,6 +1172,12 @@
     <!-- Форма добавления заправки -->
     <div class="card">
         <h2><ion-icon name="add-circle-outline" class="section-icon"></ion-icon> Добавить заправку</h2>
+        <div class="form-group">
+    <label>Автомобиль</label>
+    <select id="fuel-vehicle-select" class="form-control">
+        <!-- Заполняется через JS -->
+    </select>
+</div>
         <form id="fuel-form">
             <div class="form-row">
                 <div class="form-group">
@@ -1286,6 +1295,13 @@
         <!-- ФОРМА -->
         <form id="repair-form" style="margin-bottom: 24px;">
             <div class="form-row">
+                <!-- Внутри формы ремонта, после поля "Дата" -->
+                <div class="form-group">
+                    <label>Автомобиль</label>
+                    <select id="repair-vehicle-select" class="form-control">
+                        <!-- Заполняется через JS -->
+                    </select>
+                </div>
                 <div class="form-group">
                     <label><ion-icon name="calendar-outline"></ion-icon> Дата *</label>
                     <input type="date" id="repair-date" required>
@@ -1577,6 +1593,52 @@
             <!-- Сюда JavaScript добавит список тарифов -->
         </div>
     </div>
+    
+    <!-- УПРАВЛЕНИЕ АВТОМОБИЛЯМИ -->
+<div class="card">
+    <h2><ion-icon name="car-sport-outline" class="section-icon"></ion-icon> Мои автомобили</h2>
+    
+    <!-- Текущий выбор -->
+    <div class="form-group" style="margin-bottom: 20px;">
+        <label>Активный автомобиль для записей:</label>
+        <select id="vehicle-selector" class="form-control" style="padding: 12px; font-size: 16px; border-radius: 12px; border: 1px solid var(--ios-border);">
+            <!-- Заполняется через JS -->
+        </select>
+    </div>
+
+    <!-- Форма добавления -->
+    <form id="vehicle-form" class="tariff-form" style="margin-bottom: 20px;">
+    <h3 style="margin-bottom: 12px; font-size: 16px;">Добавить новый автомобиль</h3>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Название / Модель *</label>
+            <input type="text" id="vehicle-name" placeholder="Например: Kia K5" required>
+        </div>
+        <div class="form-group">
+            <label>Гос. номер</label>
+            <input type="text" id="vehicle-plate" placeholder="А 000 АА 00">
+        </div>
+        <div class="form-group">
+            <label>Год выпуска</label>
+            <input type="number" id="vehicle-year" placeholder="2020" min="1900" max="2030">
+        </div>
+    </div>
+    <div style="display: flex; gap: 12px; margin-top: 12px;">
+        <button type="submit" class="btn btn-success" style="flex: 1;">
+            <ion-icon name="add-circle-outline"></ion-icon> Добавить автомобиль
+        </button>
+        <!-- НОВАЯ КНОПКА: Отмена редактирования (скрыта по умолчанию) -->
+        <button type="button" id="cancel-edit-vehicle" class="btn btn-secondary" style="display: none;" onclick="cancelEditVehicle()">
+            <ion-icon name="close-circle-outline"></ion-icon> Отмена
+        </button>
+    </div>
+</form>
+
+    <!-- Список автомобилей -->
+    <div id="vehicle-list" class="vehicle-list-container">
+        <!-- Заполняется через JS -->
+    </div>
+</div>
     
     <!-- БЛОК 4: Экспорт данных -->
     <div class="card float-in texture-grain">

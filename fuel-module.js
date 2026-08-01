@@ -44,16 +44,34 @@ async function loadFuelLogs() {
         if (saved) fuelLogs = JSON.parse(saved);
         
         if (typeof currentUser !== 'undefined' && currentUser && typeof db !== 'undefined') {
+            // Получаем ID текущего автомобиля (или 'default', если модуль еще не инициализирован)
+            const vId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
+            
+            // ИСПРАВЛЕНИЕ: Убрали .orderBy('date', 'desc'), чтобы избежать ошибки failed-precondition
             const snapshot = await db.collection('users')
                 .doc(currentUser.uid)
                 .collection('fuelLogs')
-                .orderBy('date', 'desc')
+                .where('vehicleId', '==', vId)
                 .get();
             
             if (!snapshot.empty) {
-                fuelLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                let loadedLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                // ИСПРАВЛЕНИЕ: Сортируем в JavaScript после получения данных (по убыванию даты)
+                loadedLogs.sort((a, b) => {
+                    const dateA = parseLocalDate(a.date) || 0;
+                    const dateB = parseLocalDate(b.date) || 0;
+                    return dateB - dateA;
+                });
+                
+                fuelLogs = loadedLogs;
                 localStorage.setItem(FUEL_STORAGE_KEY, JSON.stringify(fuelLogs));
-                console.log('✅ Топливо загружено из Firebase:', fuelLogs.length);
+                console.log('✅ Топливо загружено из Firebase для авто:', vId, '(', fuelLogs.length, 'заправок)');
+            } else {
+                // Если для этого авто нет записей, очищаем массив, чтобы не показывать данные другой машины
+                fuelLogs = [];
+                localStorage.setItem(FUEL_STORAGE_KEY, JSON.stringify(fuelLogs));
+                console.log('ℹ️ Для выбранного автомобиля записей о топливе нет');
             }
         }
         
@@ -87,58 +105,71 @@ async function saveFuelLogToFirebase(log) {
 // 4. ОБРАБОТЧИК ФОРМЫ (ДОБАВЛЕНИЕ И РЕДАКТИРОВАНИЕ)
 async function handleFuelSubmit(e) {
     e.preventDefault();
-    
-    const date = document.getElementById('fuel-date')?.value;
-    const mileage = parseFloat(document.getElementById('fuel-mileage')?.value);
-    const liters = parseFloat(document.getElementById('fuel-liters')?.value);
-    const amount = parseFloat(document.getElementById('fuel-amount')?.value);
-    const comment = document.getElementById('fuel-comment')?.value || '';
+    const date = document.getElementById('fuel-date').value;
+    const mileage = parseFloat(document.getElementById('fuel-mileage').value);
+    const liters = parseFloat(document.getElementById('fuel-liters').value);
+    const amount = parseFloat(document.getElementById('fuel-amount').value);
+    const comment = document.getElementById('fuel-comment').value || '';
+    // ✅ ЧИТАЕМ ВЫБРАННЫЙ АВТОМОБИЛЬ ИЗ ФОРМЫ
+    const vehicleId = document.getElementById('fuel-vehicle-select')?.value || 'default';
     
     if (!date || !mileage || !liters || !amount) {
         alert('❌ Заполните все обязательные поля');
         return;
     }
-
+    
     const isEditing = !!editingFuelId;
     
     if (isEditing) {
+        // Режим обновления
         const index = fuelLogs.findIndex(l => l.id === editingFuelId);
         if (index !== -1) {
-            fuelLogs[index] = { ...fuelLogs[index], date, mileage, liters, amount, comment, updatedAt: new Date().toISOString() };
-            
-            if (typeof currentUser !== 'undefined' && currentUser && typeof db !== 'undefined') {
+            fuelLogs[index] = {
+                ...fuelLogs[index],
+                date,
+                mileage,
+                liters,
+                amount,
+                comment,
+                vehicleId, // ✅ СОХРАНЯЕМ НОВЫЙ vehicleId
+                updatedAt: new Date().toISOString()
+            };
+            if (currentUser && typeof db !== 'undefined') {
                 try {
                     const logToSave = { ...fuelLogs[index] };
                     delete logToSave.id;
                     await db.collection('users').doc(currentUser.uid).collection('fuelLogs').doc(editingFuelId).set(logToSave);
                 } catch (error) {
-                    console.error('❌ Ошибка обновления в Firebase:', error);
+                    console.error(' Ошибка обновления в Firebase:', error);
                 }
             }
         }
     } else {
-        const newLog = { id: Date.now().toString(), date, mileage, liters, amount, comment, createdAt: new Date().toISOString() };
+        // Режим создания
+        const newLog = {
+            id: Date.now().toString(),
+            vehicleId, // ✅ ДОБАВЛЯЕМ vehicleId
+            date,
+            mileage,
+            liters,
+            amount,
+            comment,
+            createdAt: new Date().toISOString()
+        };
         fuelLogs.push(newLog);
         await saveFuelLogToFirebase(newLog);
     }
     
     localStorage.setItem(FUEL_STORAGE_KEY, JSON.stringify(fuelLogs));
     calculateFuelConsumption(fuelLogs);
-    
-    if (typeof renderFuelLogs === 'function') renderFuelLogs();
-    if (typeof updateFuelStats === 'function') updateFuelStats();
-    if (typeof updateFuelChart === 'function') updateFuelChart();
+    renderFuelLogs();
+    updateFuelStats();
+    updateFuelChart();
     clearFuelForm();
-    
     if (typeof syncFuelToRecords === 'function') {
         await syncFuelToRecords();
     }
-    
-    if (typeof showToast === 'function') {
-        showToast(isEditing ? '✅ Заправка обновлена и синхронизирована!' : '✅ Заправка добавлена и синхронизирована!');
-    } else {
-        alert(isEditing ? 'Заправка обновлена!' : 'Заправка добавлена!');
-    }
+    showToast(isEditing ? '✅ Заправка обновлена и синхронизирована!' : '✅ Заправка добавлена и синхронизирована!');
 }
 
 // 5. РЕДАКТИРОВАНИЕ
@@ -445,44 +476,68 @@ window.switchTab = function(tabName) {
 // ИСПРАВЛЕННАЯ СИНХРОНИЗАЦИЯ ТОПЛИВА С ИСТОРИЕЙ
 // ============================================
 async function syncFuelToRecords() {
-    console.log('🔄 Запуск синхронизации топлива с историей...');
+    console.log('🔄 Запуск синхронизации топлива с историей (ВСЕ АВТОМОБИЛИ)...');
     
-    if (typeof fuelLogs === 'undefined' || fuelLogs.length === 0) {
-        console.log('ℹ️ Нет записей о топливе для синхронизации');
-        // Даже если топлива нет, нужно проверить — возможно, были удалены все заправки,
-        // и нужно обнулить связанные записи
-    }
+    let allFuelLogs = [];
     
-    // Группируем заправки по дате
-    const fuelByDate = {};
-    if (fuelLogs && fuelLogs.length > 0) {
-        fuelLogs.forEach(log => {
-            if (!log.date) return;
-            if (!fuelByDate[log.date]) {
-                fuelByDate[log.date] = {
-                    totalAmount: 0,
-                    totalLiters: 0,
-                    count: 0,
-                    details: []
-                };
+    // 1. Загружаем ВСЕ заправки из Firebase, БЕЗ фильтра по автомобилю
+    if (currentUser && typeof db !== 'undefined') {
+        try {
+            const snapshot = await db.collection('users')
+                .doc(currentUser.uid)
+                .collection('fuelLogs')
+                .get(); // Убрали .where('vehicleId', '==', ...), чтобы получить все записи
+            
+            if (!snapshot.empty) {
+                allFuelLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                console.log('✅ Загружено заправок для синхронизации (все авто):', allFuelLogs.length);
             }
-            fuelByDate[log.date].totalAmount += log.amount || 0;
-            fuelByDate[log.date].totalLiters += log.liters || 0;
-            fuelByDate[log.date].count += 1;
-            fuelByDate[log.date].details.push({
-                amount: log.amount,
-                liters: log.liters,
-                mileage: log.mileage,
-                comment: log.comment || ''
-            });
-        });
+        } catch (error) {
+            console.error('❌ Ошибка загрузки всех заправок для синхронизации:', error);
+        }
+    } else {
+        // Fallback на localStorage, если Firebase недоступен
+        const saved = localStorage.getItem(FUEL_STORAGE_KEY);
+        if (saved) {
+            allFuelLogs = JSON.parse(saved);
+        }
     }
+    
+    if (allFuelLogs.length === 0) {
+        console.log('ℹ️ Нет записей о топливе для синхронизации');
+        return 0;
+    }
+    
+    // 2. Группируем заправки по дате
+    const fuelByDate = {};
+    allFuelLogs.forEach(log => {
+        if (!log.date) return;
+        if (!fuelByDate[log.date]) {
+            fuelByDate[log.date] = {
+                totalAmount: 0,
+                totalLiters: 0,
+                count: 0,
+                details: []
+            };
+        }
+        fuelByDate[log.date].totalAmount += log.amount || 0;
+        fuelByDate[log.date].totalLiters += log.liters || 0;
+        fuelByDate[log.date].count += 1;
+        fuelByDate[log.date].details.push({
+            amount: log.amount,
+            liters: log.liters,
+            mileage: log.mileage,
+            comment: log.comment || '',
+            vehicleId: log.vehicleId || 'default' // Добавляем ID авто для справки в tooltip
+        });
+    });
+    
     console.log('📊 Найдено топлива по датам:', Object.keys(fuelByDate).length, 'дат');
     
     let updatedCount = 0;
     let changedDates = [];
     
-    // Обновляем записи в records
+    // 3. Обновляем записи в основной таблице (records)
     records.forEach(record => {
         if (!record.date) return;
         
@@ -490,22 +545,18 @@ async function syncFuelToRecords() {
         const oldFuelCost = record.fuelCost || 0;
         
         // Проверяем, связана ли запись с модулем топлива
-        // (есть fuelDetails или fuelLogCount — значит, данные пришли из модуля топлива)
-        const isLinkedToFuelModule = record.fuelDetails || record.fuelLogCount > 0;
+        const isLinkedToFuelModule = record.fuelDetails || (record.fuelLogCount > 0);
         
         if (fuelData) {
-            // ✅ Для этой даты есть заправки в модуле топлива
+            // ✅ Для этой даты есть заправки (любого автомобиля)
             const newFuelCost = fuelData.totalAmount;
             
-            // Обновляем если:
-            // 1. Сумма изменилась, ИЛИ
-            // 2. Нет деталей заправок (нужно добавить для tooltip)
             const needsUpdate = newFuelCost !== oldFuelCost ||
                 !record.fuelDetails ||
                 record.fuelDetails.length === 0;
             
             if (needsUpdate) {
-                console.log(`📝 Обновление за ${record.date}: ${oldFuelCost} ₽ → ${newFuelCost} ₽`);
+                console.log(`📝 Обновление топлива за ${record.date}: ${oldFuelCost} ₽ → ${newFuelCost} ₽`);
                 record.fuelCost = newFuelCost;
                 record.fuelDetails = fuelData.details;
                 record.fuelLiters = fuelData.totalLiters;
@@ -520,15 +571,14 @@ async function syncFuelToRecords() {
             }
         } else if (isLinkedToFuelModule) {
             // ⚠️ Для этой даты НЕТ заправок, НО запись была связана с модулем топлива
-            // (значит, заправку удалили — нужно обнулить)
+            // (значит, все заправки за эту дату были удалены — нужно обнулить)
             if (oldFuelCost > 0 || record.fuelDetails) {
-                console.log(`🗑️ Обнуление топлива за ${record.date}: было ${oldFuelCost} ₽ (заправка удалена)`);
+                console.log(`🗑️ Обнуление топлива за ${record.date}: было ${oldFuelCost} ₽ (все заправки удалены)`);
                 record.fuelCost = 0;
                 record.fuelDetails = [];
                 record.fuelLiters = 0;
                 record.fuelLogCount = 0;
                 
-                // Пересчитываем расходы и прибыль
                 record.totalExpenses = calcExpenses(record);
                 record.netProfit = calcIncome(record) - record.totalExpenses;
                 
@@ -536,14 +586,14 @@ async function syncFuelToRecords() {
                 changedDates.push(record.date);
             }
         } else {
-            // ️ Для этой даты нет заправок и запись НЕ связана с модулем топлива
+            // ⏭️ Для этой даты нет заправок и запись НЕ связана с модулем топлива
             // (старые ручные данные — не трогаем!)
-            console.log(`⏭️ Пропуск за ${record.date}: нет заправок, запись не связана с модулем топлива`);
         }
     });
     
-    console.log(`📊 Итог синхронизации: Обновлено ${updatedCount}, Пропущено ${records.length - updatedCount}`);
+    console.log(`📊 Итог синхронизации топлива: Обновлено ${updatedCount}, Пропущено ${records.length - updatedCount}`);
     
+    // 4. Сохраняем изменения
     if (updatedCount > 0) {
         saveData();
         if (currentUser && typeof db !== 'undefined') {
@@ -558,16 +608,13 @@ async function syncFuelToRecords() {
                     }
                 });
                 await batch.commit();
-                console.log('✅ Записи синхронизированы с Firebase');
+                console.log('✅ Записи истории синхронизированы с Firebase');
             } catch (error) {
-                console.error('❌ Ошибка синхронизации с Firebase:', error);
+                console.error('❌ Ошибка синхронизации истории с Firebase:', error);
             }
         }
         renderTable();
         updateAnalytics();
-        showToast(`✅ Синхронизировано ${updatedCount} записей`);
-    } else {
-        showToast('ℹ️ Все данные актуальны');
     }
     
     return updatedCount;

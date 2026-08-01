@@ -3899,3 +3899,48 @@ padding: 12px;
         transform: translate(-50%, -50%) scale(1) !important;
     }
 }
+
+/* ============================================
+МОДУЛЬ АВТОМОБИЛЕЙ
+============================================ */
+.vehicle-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.vehicle-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    background: var(--ios-bg-secondary, #ffffff);
+    border: 1px solid var(--ios-border, rgba(0,0,0,0.08));
+    border-radius: var(--ios-radius-lg, 16px);
+    transition: all 0.2s;
+}
+
+.vehicle-item.active {
+    border-color: var(--ios-success, #34C759);
+    background: var(--ios-success-light, rgba(52, 199, 89, 0.08));
+}
+
+.vehicle-info { flex: 1; }
+.vehicle-name { font-weight: 700; font-size: 16px; color: var(--ios-text-primary, #1d1d1f); margin-bottom: 4px; }
+.vehicle-meta { font-size: 13px; color: var(--ios-text-tertiary, #86868b); }
+
+.vehicle-actions { display: flex; gap: 8px; align-items: center; }
+
+.current-badge {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ios-success, #34C759);
+    background: rgba(52, 199, 89, 0.15);
+    padding: 4px 10px;
+    border-radius: 100px;
+}
+
+@media (max-width: 480px) {
+    .vehicle-item { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .vehicle-actions { width: 100%; justify-content: flex-end; }
+}

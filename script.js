@@ -315,31 +315,39 @@ auth.onAuthStateChanged(async (user) => {
         firebaseErrorReason = '';
         updateConnectionIndicator();
 
-        // ⭐⭐⭐ ТЕПЕРЬ грузим данные (имя уже показано!)
-        try {
-            // 1. Загружаем записи, тарифы, аватар и цели
-            await loadUserData();
-            
-            // После загрузки основных данных — загружаем ремонты
-if (typeof loadRepairRecords === 'function') {
-    setTimeout(() => {
-        console.log('🔄 Загрузка модуля ремонта после авторизации...');
-        loadRepairRecords();
-    }, 1000);
+// ⭐⭐⭐ ТЕПЕРЬ грузим данные (имя и email уже показаны!)
+try {
+    // 1. Загружаем основные данные: записи, тарифы, аватар и цели
+    await loadUserData();
+    
+    // 2. ⭐ КЛЮЧЕВОЕ: Загружаем автомобили ПЕРЕД топливом и ремонтом!
+    // Это гарантирует, что currentVehicleId будет определен, и модули загрузят правильные данные
+    if (typeof loadVehicles === 'function') {
+        await loadVehicles();
+        console.log('✅ Модуль автомобилей инициализирован');
+    }
+
+    // 3. Загружаем топливо (теперь оно автоматически отфильтруется по currentVehicleId)
+    if (typeof loadFuelLogs === 'function') {
+        await loadFuelLogs();
+        console.log('✅ Модуль топлива инициализирован');
+    }
+
+    // 4. Загружаем ремонты (также отфильтруется по currentVehicleId и включит onSnapshot)
+    if (typeof loadRepairRecords === 'function') {
+        await loadRepairRecords();
+        console.log('✅ Модуль ремонта инициализирован');
+    }
+    
+    // 5. Проверяем подключение к Firebase
+    setTimeout(() => checkFirebaseConnection(), 1000);
+    
+} catch (error) {
+    console.error('❌ Ошибка загрузки данных:', error);
+    connectionMode = 'local';
+    firebaseErrorReason = 'Ошибка загрузки данных: ' + error.message;
+    updateConnectionIndicator();
 }
-            
-            // 2. ⭐⭐⭐ КЛЮЧЕВОЕ ДОБАВЛЕНИЕ: Загружаем топливо ПОСЛЕ авторизации
-            await loadFuelLogs();
-            
-            // 3. Проверяем подключение
-            setTimeout(() => checkFirebaseConnection(), 1000);
-            
-        } catch (error) {
-            console.error('❌ Ошибка загрузки данных:', error);
-            connectionMode = 'local';
-            firebaseErrorReason = 'Ошибка загрузки данных: ' + error.message;
-            updateConnectionIndicator();
-        }
 
     } else {
         // ===== ПОЛЬЗОВАТЕЛЬ ВЫШЕЛ =====
@@ -2557,14 +2565,58 @@ async function deleteRecord(id, confirmDelete = true) {
 
 function exportData() {
     try {
-        const data = { records, tariffs, exportDate: new Date().toISOString() };
-        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+        // Получаем данные из глобальных переменных ИЛИ из localStorage
+        const recordsToExport = records || [];
+        const tariffsToExport = tariffs || [];
+        
+        // Получаем топливо: сначала пробуем window.fuelLogs, потом localStorage
+        let fuelToExport = [];
+        if (window.fuelLogs && window.fuelLogs.length > 0) {
+            fuelToExport = window.fuelLogs;
+        } else {
+            const localFuel = localStorage.getItem('driverFuelLogs');
+            if (localFuel) {
+                try {
+                    fuelToExport = JSON.parse(localFuel);
+                } catch (e) {
+                    console.error('❌ Ошибка парсинга топлива из localStorage:', e);
+                }
+            }
+        }
+        
+        // Получаем ремонты: сначала пробуем window.repairRecords, потом localStorage
+        let repairToExport = [];
+        if (window.repairRecords && window.repairRecords.length > 0) {
+            repairToExport = window.repairRecords;
+        } else {
+            const localRepair = localStorage.getItem('repair_records');
+            if (localRepair) {
+                try {
+                    repairToExport = JSON.parse(localRepair);
+                } catch (e) {
+                    console.error(' Ошибка парсинга ремонтов из localStorage:', e);
+                }
+            }
+        }
+        
+        const data = {
+            records: recordsToExport,
+            tariffs: tariffsToExport,
+            fuelLogs: fuelToExport,
+            repairRecords: repairToExport,
+            exportDate: new Date().toISOString(),
+            version: '2.0'
+        };
+        
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `driver-data-${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `driver-full-backup-${new Date().toISOString().split('T')[0]}.json`;
         a.click();
-        alert('✅ Данные экспортированы!');
-    } catch(err) {
+        URL.revokeObjectURL(a.href);
+        
+        alert(`✅ Полная резервная копия экспортирована!\n\n📝 Записей: ${recordsToExport.length}\n⛽ Заправок: ${fuelToExport.length}\n🔧 Ремонтов: ${repairToExport.length}`);
+    } catch (err) {
         alert('❌ Ошибка при экспорте: ' + err.message);
     }
 }
@@ -2572,56 +2624,116 @@ function exportData() {
 async function importData(e) {
     const file = e.target.files[0];
     if (!file) return;
+    
     const importBtn = e.target.previousElementSibling;
     const originalText = importBtn.textContent;
-    importBtn.textContent = ' Загрузка...';
+    importBtn.textContent = '⏳ Загрузка...';
     importBtn.disabled = true;
+    
     const reader = new FileReader();
     reader.onload = async (ev) => {
         try {
             const data = JSON.parse(ev.target.result);
+            
             if (data.records) {
+                // 1. Восстанавливаем основные записи и тарифы
                 records = data.records.map(normalizeRecord);
                 if (data.tariffs) tariffs = data.tariffs.map(normalizeTariff);
-                saveData();
                 
-                // Если есть Firebase - сохраняем туда новые данные
-                if (typeof db !== 'undefined') {
-                    await syncToFirebase();
+                // 2. Восстанавливаем данные топлива
+                if (data.fuelLogs) {
+                    window.fuelLogs = data.fuelLogs;
+                    localStorage.setItem('driverFuelLogs', JSON.stringify(window.fuelLogs));
+                    console.log('✅ Импортировано заправок:', window.fuelLogs.length);
                 }
                 
+                // 3. Восстанавливаем данные ремонтов
+                if (data.repairRecords) {
+                    window.repairRecords = data.repairRecords;
+                    localStorage.setItem('repair_records', JSON.stringify(window.repairRecords));
+                    console.log('✅ Импортировано ремонтов:', window.repairRecords.length);
+                }
+                
+                // 4. Сохраняем основные данные в localStorage
+                saveData();
+                
+                // 5. Синхронизация с Firebase (если пользователь авторизован)
+                if (typeof db !== 'undefined' && currentUser) {
+                    // Синхронизируем записи и тарифы
+                    await syncToFirebase();
+                    
+                    // Синхронизируем топливо
+                    if (data.fuelLogs && typeof window.saveFuelLogToFirebase === 'function') {
+                        for (const log of data.fuelLogs) {
+                            await window.saveFuelLogToFirebase(log);
+                        }
+                    }
+                    
+                    // Синхронизируем ремонты
+                    if (data.repairRecords && typeof window.syncRepairToFirebase === 'function') {
+                        for (const rec of data.repairRecords) {
+                            await window.syncRepairToFirebase(rec);
+                        }
+                    }
+                }
+                
+                // 6. Обновляем интерфейс основной таблицы
                 renderTable();
                 renderTariffs();
                 populateFilters();
                 updateAnalytics();
-                alert('✅ Импортировано ' + records.length + ' записей');
+                
+                // 7. Обновляем интерфейс модуля топлива
+                if (typeof window.renderFuelLogs === 'function') window.renderFuelLogs();
+                if (typeof window.updateFuelStats === 'function') window.updateFuelStats();
+                if (typeof window.updateFuelChart === 'function') window.updateFuelChart();
+                
+                // 8. Обновляем интерфейс модуля ремонта
+                if (typeof window.renderRepairList === 'function') window.renderRepairList();
+                if (typeof window.updateRepairStats === 'function') window.updateRepairStats();
+                if (typeof window.updateRepairCharts === 'function') window.updateRepairCharts();
+                
+                // 9. КРИТИЧЕСКИ ВАЖНО: Пересчитываем расходы в основной таблице на основе импортированных данных
+                if (typeof window.syncFuelToRecords === 'function') await window.syncFuelToRecords();
+                if (typeof window.syncRepairToMainRecords === 'function') await window.syncRepairToMainRecords();
+                
+                const fuelCount = data.fuelLogs ? data.fuelLogs.length : 0;
+                const repairCount = data.repairRecords ? data.repairRecords.length : 0;
+                
+                alert(`✅ Успешно импортировано:\n📝 Записей: ${records.length}\n⛽ Заправок: ${fuelCount}\n🔧 Ремонтов: ${repairCount}`);
+                
             } else if (Array.isArray(data)) {
+                // Поддержка старого формата (только массив записей)
                 records = data.map(normalizeRecord);
                 saveData();
                 
-                if (typeof db !== 'undefined') {
+                if (typeof db !== 'undefined' && currentUser) {
                     await syncToFirebase();
                 }
                 
                 renderTable();
                 populateFilters();
                 updateAnalytics();
-                alert('✅ Импортировано ' + records.length + ' записей');
+                alert('✅ Импортировано ' + records.length + ' записей (старый формат)');
+            } else {
+                alert('❌ Неверный формат файла резервной копии');
             }
-        } catch(err) {
+        } catch (err) {
             alert('❌ Ошибка при импорте: ' + err.message);
         } finally {
             importBtn.textContent = originalText;
             importBtn.disabled = false;
-            e.target.value = '';
+            e.target.value = ''; // Сброс input для возможности повторного выбора того же файла
         }
     };
+    
     reader.onerror = () => {
         alert('❌ Ошибка при чтении файла');
         importBtn.textContent = originalText;
         importBtn.disabled = false;
         e.target.value = '';
     };
+    
     reader.readAsText(file);
 }
 
@@ -4796,3 +4908,28 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('❌ Строка фильтров #filter-row НЕ НАЙДЕНА в HTML!');
     }
 });
+
+// Заполняет выпадающие списки автомобилей в формах топлива и ремонта
+function updateFormVehicleSelects() {
+    const vehicles = typeof window.getVehicles === 'function' ? window.getVehicles() : [{ id: 'default', name: 'Основной автомобиль', plate: 'Не указан' }];
+    
+    const optionsHTML = vehicles.map(v => `<option value="${v.id}">${v.name} (${v.plate})</option>`).join('');
+    
+    const fuelSelect = document.getElementById('fuel-vehicle-select');
+    const repairSelect = document.getElementById('repair-vehicle-select');
+    
+    if (fuelSelect) fuelSelect.innerHTML = optionsHTML;
+    if (repairSelect) repairSelect.innerHTML = optionsHTML;
+}
+
+// Вызываем эту функцию при загрузке страницы и при смене автомобиля
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(updateFormVehicleSelects, 500); // Небольшая задержка, чтобы модуль автомобилей успел загрузиться
+});
+
+// Переопределяем notifyVehicleChanged, чтобы обновлять формы при смене авто
+const originalNotifyVehicleChanged = window.notifyVehicleChanged || function() {};
+window.notifyVehicleChanged = function() {
+    originalNotifyVehicleChanged();
+    updateFormVehicleSelects();
+};

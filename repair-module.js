@@ -167,7 +167,7 @@ let repairUnsubscribe = null; // Переменная для хранения п
 async function loadRepairRecords() {
     console.log('🔧 Инициализация модуля ремонта...');
     try {
-        // 1. МГНОВЕННО показываем то, что уже есть в localStorage (чтобы не было пустого экрана)
+        // 1. МГНОВЕННО показываем то, что уже есть в localStorage
         const saved = localStorage.getItem(REPAIR_STORAGE_KEY);
         if (saved) {
             repairRecords = JSON.parse(saved);
@@ -176,53 +176,61 @@ async function loadRepairRecords() {
             updateRepairCharts();
         }
         
-        // 2. Если есть подключение к Firebase и пользователь авторизован, включаем real-time синхронизацию
+        // 2. Если есть подключение к Firebase и пользователь авторизован
         if (typeof connectionMode !== 'undefined' && connectionMode === 'firebase' &&
             typeof auth !== 'undefined' && auth.currentUser) {
             
-            console.log('☁️ Подключение real-time слушателя ремонтов (включая удаления)...');
+            console.log('☁️ Подключение real-time слушателя ремонтов...');
             
-            // Если слушатель уже был, отключаем его перед созданием нового (защита от дублирования)
-            if (repairUnsubscribe) {
+            // Получаем ID текущего автомобиля
+            const vId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
+            
+            // Если слушатель уже был, отключаем его
+            if (typeof repairUnsubscribe === 'function') {
                 repairUnsubscribe();
             }
             
-            // onSnapshot срабатывает при ЛЮБОМ изменении в коллекции: добавление, изменение или УДАЛЕНИЕ
-            repairUnsubscribe = db.collection('users')
-                .doc(auth.currentUser.uid)
-                .collection(COLLECTION_REPAIR)
-                .orderBy('date', 'desc')
-                .onSnapshot((snapshot) => {
-                    console.log('🔄 Получены изменения из Firebase (onSnapshot)');
-                    
-                    // Получаем актуальный список записей прямо из облака
-                    const fbData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    
-                    // ВАЖНО: Мы делаем облако "Единственным источником истины" (Source of Truth).
-                    // Если запись удалена в облаке, в fbData её просто не будет.
-                    // Мы полностью заменяем локальный массив на актуальный облачный.
-                    repairRecords = fbData;
-                    
-                    // Сохраняем это актуальное состояние в localStorage второго устройства
-                    saveRepairLocal();
-                    
-                    // Мгновенно обновляем интерфейс
-                    renderRepairList();
-                    updateRepairStats();
-                    updateRepairCharts();
-                    syncRepairToMainRecords();
-                    
-                    console.log(`✅ Синхронизировано. Актуально записей: ${repairRecords.length}`);
-                }, (error) => {
-                    console.error('❌ Ошибка real-time слушателя ремонтов:', error);
-                });
+            // ИСПРАВЛЕНИЕ: Убрали .orderBy('date', 'desc'), чтобы избежать ошибки failed-precondition
+            // onSnapshot срабатывает при ЛЮБОМ изменении
+// Загружаем ВСЕ записи без фильтра vehicleId
+repairUnsubscribe = db.collection('users')
+    .doc(auth.currentUser.uid)
+    .collection(COLLECTION_REPAIR)
+    .orderBy('date', 'desc')
+    .onSnapshot((snapshot) => {
+        console.log('🔄 Получены изменения из Firebase (onSnapshot)');
+        
+        const vId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
+        
+        // Фильтруем в JavaScript: берем записи нужного авто ИЛИ без vehicleId (считаем их default)
+        let fbData = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(r => (r.vehicleId || 'default') === vId);
+        
+        // Сортируем по дате
+        fbData.sort((a, b) => {
+            const dateA = parseLocalDate(a.date) || 0;
+            const dateB = parseLocalDate(b.date) || 0;
+            return dateB - dateA;
+        });
+        
+        repairRecords = fbData;
+        saveRepairLocal();
+        renderRepairList();
+        updateRepairStats();
+        updateRepairCharts();
+        syncRepairToMainRecords();
+        
+        console.log(`✅ Синхронизировано для авто ${vId}. Актуально записей: ${repairRecords.length}`);
+    }, (error) => {
+        console.error('❌ Ошибка real-time слушателя ремонтов:', error);
+    });
         } else {
             console.log('⚠️ Пропуск real-time синхронизации (режим:', typeof connectionMode !== 'undefined' ? connectionMode : 'undefined', ')');
         }
         
     } catch (error) {
         console.error('❌ Критическая ошибка загрузки ремонтов:', error);
-        // Fallback на локальные данные при ошибке
         const saved = localStorage.getItem(REPAIR_STORAGE_KEY);
         if (saved) {
             repairRecords = JSON.parse(saved);
@@ -295,6 +303,9 @@ async function handleRepairSubmit(e) {
     const category = document.getElementById('repair-category')?.value;
     const description = document.getElementById('repair-description')?.value.trim();
     const comment = document.getElementById('repair-comment')?.value.trim();
+    // ✅ ЧИТАЕМ ВЫБРАННЫЙ АВТОМОБИЛЬ ИЗ ФОРМЫ
+    const vehicleId = document.getElementById('repair-vehicle-select')?.value || 'default';
+    
     const isEditing = !!editingRepairId;
     
     if (!date || !mileage || mileage <= 0 || !category) {
@@ -303,6 +314,7 @@ async function handleRepairSubmit(e) {
         return;
     }
     
+    // ... (остальной код сбора запчастей и работ остается без изменений) ...
     // Собираем запчасти
     const parts = [];
     document.querySelectorAll('#repair-parts-list .dynamic-item').forEach(item => {
@@ -348,12 +360,17 @@ async function handleRepairSubmit(e) {
         if (isEditing) {
             const index = repairRecords.findIndex(r => r.id === editingRepairId);
             if (index !== -1) {
-                repairRecords[index] = { ...repairRecords[index], ...repairData };
+                repairRecords[index] = {
+                    ...repairRecords[index],
+                    ...repairData,
+                    vehicleId // ✅ СОХРАНЯЕМ НОВЫЙ vehicleId
+                };
                 await syncRepairToFirebase(repairRecords[index]);
             }
         } else {
             const newRecord = {
                 id: 'repair_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+                vehicleId, // ✅ ДОБАВЛЯЕМ vehicleId
                 userId: typeof auth !== 'undefined' && auth.currentUser ? auth.currentUser.uid : null,
                 ...repairData,
                 createdAt: new Date().toISOString()
@@ -391,6 +408,12 @@ function editRepairRecord(id) {
     document.getElementById('repair-category').value = record.category;
     document.getElementById('repair-description').value = record.description || '';
     document.getElementById('repair-comment').value = record.comment || '';
+    
+    // ✅ НОВОЕ: Выбираем нужный автомобиль в списке (или 'default' для старых записей)
+    const vehicleSelect = document.getElementById('repair-vehicle-select');
+    if (vehicleSelect) {
+        vehicleSelect.value = record.vehicleId || 'default';
+    }
     
     // Заполняем чекбоксы
     const serviceItems = record.serviceItems || [];
@@ -848,16 +871,46 @@ function updateRepairTrendChart() {
 }
 
 // ===== 16. СИНХРОНИЗАЦИЯ С ОСНОВНОЙ ТАБЛИЦЕЙ =====
+// ===== 16. СИНХРОНИЗАЦИЯ С ОСНОВНОЙ ТАБЛИЦЕЙ (ВСЕ АВТОМОБИЛИ) =====
 async function syncRepairToMainRecords() {
-    console.log('🔄 Синхронизация ремонтов с основной таблицей...');
+    console.log('🔄 Синхронизация ремонтов с основной таблицей (ВСЕ АВТОМОБИЛИ)...');
     
-    if (!repairRecords || repairRecords.length === 0 || typeof records === 'undefined') {
+    if (typeof records === 'undefined') return 0;
+    
+    let allRepairRecords = [];
+    
+    // 1. Загружаем ВСЕ ремонты из Firebase, БЕЗ фильтра по vehicleId
+    if (typeof connectionMode !== 'undefined' && connectionMode === 'firebase' &&
+        typeof auth !== 'undefined' && auth.currentUser) {
+        try {
+            const snap = await db.collection('users')
+                .doc(auth.currentUser.uid)
+                .collection(COLLECTION_REPAIR)
+                .get(); // Убрали .where('vehicleId', '==', ...), чтобы получить все записи
+            
+            if (!snap.empty) {
+                allRepairRecords = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                console.log('✅ Загружено ремонтов для синхронизации (все авто):', allRepairRecords.length);
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки всех ремонтов для синхронизации:', error);
+        }
+    } else {
+        // Fallback на localStorage, если Firebase недоступен или локальный режим
+        const saved = localStorage.getItem(REPAIR_STORAGE_KEY);
+        if (saved) {
+            allRepairRecords = JSON.parse(saved);
+        }
+    }
+    
+    if (allRepairRecords.length === 0) {
+        console.log('ℹ️ Нет записей о ремонте для синхронизации');
         return 0;
     }
     
-    // 1. Группируем ремонты по дате
+    // 2. Группируем ремонты по дате
     const repairsByDate = {};
-    repairRecords.forEach(r => {
+    allRepairRecords.forEach(r => {
         if (!r.date) return;
         if (!repairsByDate[r.date]) {
             repairsByDate[r.date] = { totalAmount: 0, count: 0, details: [] };
@@ -871,14 +924,15 @@ async function syncRepairToMainRecords() {
             works: r.works || [],
             total: r.total || 0,
             mileage: r.mileage,
-            comment: r.comment
+            comment: r.comment,
+            vehicleId: r.vehicleId || 'default' // Добавляем ID авто для справки в tooltip
         });
     });
     
     let updatedCount = 0;
     let changedDates = [];
     
-    // 2. Проходим по всем записям в Истории
+    // 3. Проходим по всем записям в Истории
     records.forEach(record => {
         if (!record.date) return;
         
@@ -886,21 +940,17 @@ async function syncRepairToMainRecords() {
         const oldRepairCost = record.repairCost || 0;
         
         // Проверяем, связана ли запись с модулем ремонта
-        // (наличие repairDetails означает, что данные пришли из модуля, а не введены вручную)
         const isLinkedToRepairModule = record.repairDetails && Array.isArray(record.repairDetails) && record.repairDetails.length > 0;
         
         if (repairData) {
-            // ✅ Для этой даты ЕСТЬ записи в модуле ремонта
+            // ✅ Для этой даты ЕСТЬ записи в модуле ремонта (любого автомобиля)
             const newRepairCost = repairData.totalAmount;
             
-            // Обновляем, если:
-            // 1. Запись уже была связана с модулем (можно менять в любую сторону: и вверх, и вниз)
-            // 2. ИЛИ у записи еще нет деталей ремонта (нужно инициализировать связь с модулем)
             const needsUpdate = isLinkedToRepairModule || !record.repairDetails || record.repairDetails.length === 0;
             
             if (needsUpdate) {
                 console.log(`📝 Обновление ремонта за ${record.date}: ${oldRepairCost} ₽ → ${newRepairCost} ₽`);
-                record.repairCost = newRepairCost; // Теперь разрешено уменьшение!
+                record.repairCost = newRepairCost;
                 record.repairDetails = repairData.details;
                 record.repairLogCount = repairData.count;
                 
@@ -913,14 +963,13 @@ async function syncRepairToMainRecords() {
             }
         } else if (isLinkedToRepairModule) {
             // ⚠️ Для этой даты НЕТ записей в модуле, НО запись была связана с ним
-            // (значит, пользователь удалил ремонт в модуле — нужно обнулить в Истории)
+            // (значит, все ремонты за эту дату были удалены — нужно обнулить)
             if (oldRepairCost > 0 || record.repairDetails) {
-                console.log(`🗑️ Обнуление ремонта за ${record.date}: было ${oldRepairCost} ₽ (ремонт удален в модуле)`);
+                console.log(`🗑️ Обнуление ремонта за ${record.date}: было ${oldRepairCost} ₽ (все ремонты удалены)`);
                 record.repairCost = 0;
                 record.repairDetails = [];
                 record.repairLogCount = 0;
                 
-                // Пересчитываем расходы и прибыль
                 record.totalExpenses = calcExpenses(record);
                 record.netProfit = calcIncome(record) - record.totalExpenses;
                 
@@ -928,15 +977,14 @@ async function syncRepairToMainRecords() {
                 changedDates.push(record.date);
             }
         } else {
-            // ⏭️ Для этой даты нет ремонтов в модуле, и запись НЕ связана с модулем
-            // (это старая ручная запись — НЕ ТРОГАЕМ!)
-            console.log(`⏭️ Пропуск за ${record.date}: нет данных в модуле, запись не связана с модулем (ручной ввод)`);
+            // ⏭️ Для этой даты нет ремонтов в модуле и запись НЕ связана с модулем
+            // (старые ручные данные — не трогаем!)
         }
     });
     
     console.log(`📊 Итог синхронизации ремонта: Обновлено ${updatedCount}, Пропущено ${records.length - updatedCount}`);
     
-    // 3. Сохраняем изменения
+    // 4. Сохраняем изменения
     if (updatedCount > 0) {
         if (typeof saveData === 'function') saveData();
         
@@ -947,7 +995,7 @@ async function syncRepairToMainRecords() {
                 const recordsToUpdate = records.filter(r => changedDates.includes(r.date));
                 await saveRecordsBatchToFirebase(recordsToUpdate);
             } catch (error) {
-                console.error('❌ Ошибка синхронизации ремонтов с основной таблицей в Firebase:', error);
+                console.error('❌ Ошибка синхронизации с Firebase:', error);
             }
         }
         if (typeof renderTable === 'function') renderTable();
