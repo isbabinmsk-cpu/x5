@@ -870,7 +870,6 @@ function updateRepairTrendChart() {
     });
 }
 
-// ===== 16. СИНХРОНИЗАЦИЯ С ОСНОВНОЙ ТАБЛИЦЕЙ =====
 // ===== 16. СИНХРОНИЗАЦИЯ С ОСНОВНОЙ ТАБЛИЦЕЙ (ВСЕ АВТОМОБИЛИ) =====
 async function syncRepairToMainRecords() {
     console.log('🔄 Синхронизация ремонтов с основной таблицей (ВСЕ АВТОМОБИЛИ)...');
@@ -879,14 +878,14 @@ async function syncRepairToMainRecords() {
     
     let allRepairRecords = [];
     
-    // 1. Загружаем ВСЕ ремонты из Firebase, БЕЗ фильтра по vehicleId
+    // 1. Загружаем ВСЕ ремонты из Firebase
     if (typeof connectionMode !== 'undefined' && connectionMode === 'firebase' &&
         typeof auth !== 'undefined' && auth.currentUser) {
         try {
             const snap = await db.collection('users')
                 .doc(auth.currentUser.uid)
                 .collection(COLLECTION_REPAIR)
-                .get(); // Убрали .where('vehicleId', '==', ...), чтобы получить все записи
+                .get();
             
             if (!snap.empty) {
                 allRepairRecords = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -896,7 +895,6 @@ async function syncRepairToMainRecords() {
             console.error('❌ Ошибка загрузки всех ремонтов для синхронизации:', error);
         }
     } else {
-        // Fallback на localStorage, если Firebase недоступен или локальный режим
         const saved = localStorage.getItem(REPAIR_STORAGE_KEY);
         if (saved) {
             allRepairRecords = JSON.parse(saved);
@@ -925,7 +923,7 @@ async function syncRepairToMainRecords() {
             total: r.total || 0,
             mileage: r.mileage,
             comment: r.comment,
-            vehicleId: r.vehicleId || 'default' // Добавляем ID авто для справки в tooltip
+            vehicleId: r.vehicleId || 'default'
         });
     });
     
@@ -938,34 +936,64 @@ async function syncRepairToMainRecords() {
         
         const repairData = repairsByDate[record.date];
         const oldRepairCost = record.repairCost || 0;
-        
-        // Проверяем, связана ли запись с модулем ремонта
         const isLinkedToRepairModule = record.repairDetails && Array.isArray(record.repairDetails) && record.repairDetails.length > 0;
         
         if (repairData) {
-            // ✅ Для этой даты ЕСТЬ записи в модуле ремонта (любого автомобиля)
             const newRepairCost = repairData.totalAmount;
             
-            const needsUpdate = isLinkedToRepairModule || !record.repairDetails || record.repairDetails.length === 0;
+            // ✅ УМНАЯ ПРОВЕРКА ИЗМЕНЕНИЙ
+            let needsUpdate = false;
+            
+            // 1. Проверяем, изменилась ли сумма
+            if (newRepairCost !== oldRepairCost) {
+                needsUpdate = true;
+                console.log(`📝 Обновление ремонта за ${record.date}: ${oldRepairCost} ₽ → ${newRepairCost} ₽ (изменилась сумма)`);
+            }
+            // 2. Если сумма не изменилась, проверяем количество записей
+            else if (!record.repairDetails || record.repairDetails.length !== repairData.count) {
+                needsUpdate = true;
+                console.log(`📝 Обновление ремонта за ${record.date}: ${oldRepairCost} ₽ (изменилось количество: ${record.repairDetails?.length || 0} → ${repairData.count})`);
+            }
+            // 3. Если и количество совпало, проверяем только ключевые поля (без vehicleId)
+            else if (record.repairDetails && record.repairDetails.length > 0) {
+                // Сравниваем только основные поля, игнорируя vehicleId
+                const oldDetailsSimple = record.repairDetails.map(d => ({
+                    category: d.category,
+                    description: d.description,
+                    total: d.total,
+                    mileage: d.mileage
+                })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+                
+                const newDetailsSimple = repairData.details.map(d => ({
+                    category: d.category,
+                    description: d.description,
+                    total: d.total,
+                    mileage: d.mileage
+                })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+                
+                if (JSON.stringify(oldDetailsSimple) !== JSON.stringify(newDetailsSimple)) {
+                    needsUpdate = true;
+                    console.log(`📝 Обновление ремонта за ${record.date}: ${oldRepairCost} ₽ (изменились детали)`);
+                } else {
+                    console.log(`⏭️ Пропуск за ${record.date}: данные не изменились (${oldRepairCost} ₽, ${repairData.count} записей)`);
+                }
+            }
             
             if (needsUpdate) {
-                console.log(`📝 Обновление ремонта за ${record.date}: ${oldRepairCost} ₽ → ${newRepairCost} ₽`);
                 record.repairCost = newRepairCost;
                 record.repairDetails = repairData.details;
                 record.repairLogCount = repairData.count;
                 
-                // Пересчитываем расходы и прибыль
                 record.totalExpenses = calcExpenses(record);
                 record.netProfit = calcIncome(record) - record.totalExpenses;
                 
                 updatedCount++;
                 changedDates.push(record.date);
             }
+            
         } else if (isLinkedToRepairModule) {
-            // ⚠️ Для этой даты НЕТ записей в модуле, НО запись была связана с ним
-            // (значит, все ремонты за эту дату были удалены — нужно обнулить)
             if (oldRepairCost > 0 || record.repairDetails) {
-                console.log(`🗑️ Обнуление ремонта за ${record.date}: было ${oldRepairCost} ₽ (все ремонты удалены)`);
+                console.log(`🗑️ Обнуление ремонта за ${record.date}: было ${oldRepairCost} ₽`);
                 record.repairCost = 0;
                 record.repairDetails = [];
                 record.repairLogCount = 0;
@@ -976,15 +1004,12 @@ async function syncRepairToMainRecords() {
                 updatedCount++;
                 changedDates.push(record.date);
             }
-        } else {
-            // ⏭️ Для этой даты нет ремонтов в модуле и запись НЕ связана с модулем
-            // (старые ручные данные — не трогаем!)
         }
     });
     
     console.log(`📊 Итог синхронизации ремонта: Обновлено ${updatedCount}, Пропущено ${records.length - updatedCount}`);
     
-    // 4. Сохраняем изменения
+    // 4. Сохраняем ТОЛЬКО если что-то реально изменилось
     if (updatedCount > 0) {
         if (typeof saveData === 'function') saveData();
         
@@ -1004,7 +1029,6 @@ async function syncRepairToMainRecords() {
     
     return updatedCount;
 }
-
 // ===== 17. ЭКСПОРТ =====
 function exportRepairData() {
     if (repairRecords.length === 0) {
