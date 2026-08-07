@@ -522,84 +522,195 @@ body.authenticated .auth-screen {
 }
 
 /* ============================================
-   8. НИЖНЯЯ НАВИГАЦИЯ
-   ============================================ */
+8. НИЖНЯЯ НАВИГАЦИЯ — НОВАЯ ВЕРСИЯ
+(Профиль · Отчёты | FAB в вырезе | Авто · Настройки)
+============================================ */
 
-.bottom-nav {
+/* Обёртка: панель + FAB + вырез */
+.bottom-nav-wrap {
     position: fixed;
-    bottom: 24px;
+    bottom: 16px;
     left: 50%;
     transform: translateX(-50%);
-    width: calc(100% - 32px);
-    max-width: 520px;
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: var(--ios-blur-heavy);
-    -webkit-backdrop-filter: var(--ios-blur-heavy);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    border-radius: var(--ios-radius-2xl);
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    padding: 12px 8px;
+    width: calc(100% - 24px);
+    max-width: 600px;
     z-index: 1000;
-    box-shadow: var(--ios-shadow-xl);
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    gap: 4px;
 }
 
+/* Панель: белое стекло + тень + плавный вырез под FAB */
+.bottom-nav {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 28px;
+    display: flex;
+    align-items: center;
+    padding: 8px 6px;
+    gap: 2px;
+    overflow: visible; /* FAB выступает над панелью */
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12),
+                0 4px 16px rgba(0, 0, 0, 0.08),
+                0 2px 8px rgba(0, 0, 0, 0.06);
+    /* Плавное обтекание выреза — одна непрерывная кривая */
+    -webkit-mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000),
+        url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%2064'%20preserveAspectRatio='none'%3E%3Cpath%20fill='%23000'%20d='M0%2064L0%200L19.2%200A10%2010%200%200%201%2028.9%207.6A32%2032%200%200%200%2091.1%207.6A10%2010%200%200%201%20100.8%200L120%200L120%2064Z'/%3E%3C/svg%3E");
+    -webkit-mask-size: calc(50% - 60px) 100%, calc(50% - 60px) 100%, 120px 100%;
+    -webkit-mask-position: left top, right top, center top;
+    -webkit-mask-repeat: no-repeat;
+    mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000),
+        url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%2064'%20preserveAspectRatio='none'%3E%3Cpath%20fill='%23000'%20d='M0%2064L0%200L19.2%200A10%2010%200%200%201%2028.9%207.6A32%2032%200%200%200%2091.1%207.6A10%2010%200%200%201%20100.8%200L120%200L120%2064Z'/%3E%3C/svg%3E");
+    mask-size: calc(50% - 60px) 100%, calc(50% - 60px) 100%, 120px 100%;
+    mask-position: left top, right top, center top;
+    mask-repeat: no-repeat;
+}
 .bottom-nav::-webkit-scrollbar { display: none; }
-.bottom-nav { -ms-overflow-style: none; }
 
+/* Пункты меню — резиновые, всегда помещаются */
 .nav-item {
-    flex: 0 0 auto;
+    flex: 1 1 0;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     background: none;
     border: none;
-    padding: 8px 14px;
+    padding: 6px 2px;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-    min-width: 60px;
-    border-radius: var(--ios-radius-lg);
+    border-radius: 16px;
     position: relative;
 }
+.nav-item ion-icon { font-size: 22px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s; }
+.nav-item .label { font-size: 9px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s; }
 
-.nav-item ion-icon {
-    font-size: 24px;
-    margin-bottom: 2px;
-    color: var(--ios-text-tertiary);
-    transition: color 0.2s;
+/* Активная кнопка — ТОЛЬКО цвет иконки и текста, без подложки */
+.nav-item.active { background: transparent; }
+.nav-item.active ion-icon { color: var(--ios-accent) !important; }
+.nav-item.active .label { color: var(--ios-accent) !important; font-weight: 700; }
+/* Кнопка с открытым всплывающим меню — так же */
+.nav-item.menu-open ion-icon { color: var(--ios-accent) !important; }
+.nav-item.menu-open .label { color: var(--ios-accent) !important; font-weight: 700; }
+.nav-item:active { transform: scale(0.92); }
+
+/* Распорка под вырез FAB */
+.nav-fab-gap { flex: 0 0 100px; }
+
+/* FAB в вырезе */
+#fab-add {
+    position: absolute;
+    top: -26px;
+    left: calc(50% - 26px);
+    width: 52px;
+    height: 52px;
+    margin: 0;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #FFFFFF;
+    box-shadow: 0 6px 18px rgba(0, 122, 255, 0.45), 0 2px 6px rgba(0, 0, 0, 0.15);
+    z-index: 2;
+    cursor: pointer;
 }
+#fab-add ion-icon { font-size: 26px; color: #FFFFFF; margin: 0; transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1); }
+#fab-add.fab-open ion-icon { transform: rotate(45deg); }
 
-.nav-item .label {
-    font-size: 10px;
+/* Всплывающие меню (Авто / Отчёты / FAB) — столбик отдельных стеклянных кнопок */
+.auto-menu {
+    position: fixed;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+    transform-origin: bottom center;
+    pointer-events: none;
+    transition: all 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.auto-menu.open { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+.auto-menu-item {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
     color: var(--ios-text-tertiary);
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.auto-menu-item:active { transform: scale(0.92); }
+.auto-menu-item ion-icon { font-size: 22px; margin-bottom: 1px; color: var(--ios-text-tertiary); }
+.auto-menu-item span { font-size: 9px; font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; color: var(--ios-text-tertiary); }
+.auto-menu-item.active ion-icon,
+.auto-menu-item.active span { color: var(--ios-accent); }
+.auto-menu-item.active span { font-weight: 700; }
+
+/* Тултип FAB */
+#fab-tooltip {
+    position: fixed;
+    bottom: 118px;
+    left: 50%;
+    margin-left: -90px;
+    width: 180px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.75);
+    color: #FFFFFF;
+    font-size: 12px;
     font-weight: 600;
-    letter-spacing: 0.2px;
-    white-space: nowrap;
-    transition: color 0.2s;
+    padding: 6px 12px;
+    border-radius: 100px;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1001;
+    transition: opacity 0.3s;
 }
 
-.nav-item.active {
-    background: var(--ios-accent-light);
-}
+/* Скрытие до входа и при печати */
+body:not(.authenticated) .bottom-nav-wrap,
+body:not(.authenticated) .auto-menu { display: none !important; }
+@media print { .bottom-nav-wrap, .auto-menu { display: none !important; } }
 
-.nav-item.active ion-icon {
-    color: var(--ios-accent) !important;
+/* Адаптация */
+@media (min-width: 481px) {
+    .bottom-nav-wrap { bottom: 24px; width: calc(100% - 32px); }
 }
-
-.nav-item.active .label {
-    color: var(--ios-accent) !important;
-    font-weight: 700;
+@media (max-width: 480px) {
+    .nav-fab-gap { flex-basis: 84px; }
+    .bottom-nav {
+        -webkit-mask-size: calc(50% - 50px) 100%, calc(50% - 50px) 100%, 100px 100%;
+        mask-size: calc(50% - 50px) 100%, calc(50% - 50px) 100%, 100px 100%;
+    }
+    #fab-add { width: 48px; height: 48px; top: -24px; left: calc(50% - 24px); }
+    #fab-add ion-icon { font-size: 24px; }
+    .nav-item ion-icon { font-size: 18px; }
+    .nav-item .label { font-size: 8px; }
+    .auto-menu { gap: 6px; }
+    .auto-menu-item { padding: 6px 8px; border-radius: 16px; }
+    .auto-menu-item ion-icon { font-size: 18px; }
+    .auto-menu-item span { font-size: 8px; }
 }
-
-.nav-item:active {
-    transform: scale(0.92);
+@media (max-width: 360px) {
+    .nav-fab-gap { flex-basis: 76px; }
+    .bottom-nav {
+        -webkit-mask-size: calc(50% - 45px) 100%, calc(50% - 45px) 100%, 90px 100%;
+        mask-size: calc(50% - 45px) 100%, calc(50% - 45px) 100%, 90px 100%;
+    }
+    #fab-add { width: 44px; height: 44px; top: -22px; left: calc(50% - 22px); }
+    .nav-item .label { font-size: 7px; }
 }
 
 /* ============================================
@@ -3944,3 +4055,1239 @@ padding: 12px;
     .vehicle-item { flex-direction: column; align-items: flex-start; gap: 12px; }
     .vehicle-actions { width: 100%; justify-content: flex-end; }
 }
+
+/* ============================================
+FAB С ПЛАВНЫМ ОБТЕКАНИЕМ (без острых углов)
+============================================ */
+.bottom-nav-wrap {
+    position: fixed;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: calc(100% - 24px);
+    max-width: 600px;
+    z-index: 1000;
+}
+@media (min-width: 481px) {
+    .bottom-nav-wrap { bottom: 24px; width: calc(100% - 32px); }
+}
+
+/* Панель: форма выреза = одна гладкая кривая (SVG-маска) */
+.bottom-nav-wrap .bottom-nav {
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: none !important;
+    overflow: visible !important;
+    -webkit-mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000),
+        url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%2064'%20preserveAspectRatio='none'%3E%3Cpath%20fill='%23000'%20d='M0%2064L0%200L19.2%200A10%2010%200%200%201%2028.9%207.6A32%2032%200%200%200%2091.1%207.6A10%2010%200%200%201%20100.8%200L120%200L120%2064Z'/%3E%3C/svg%3E");
+    -webkit-mask-size: calc(50% - 60px) 100%, calc(50% - 60px) 100%, 120px 100%;
+    -webkit-mask-position: left top, right top, center top;
+    -webkit-mask-repeat: no-repeat;
+    mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000),
+        url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20120%2064'%20preserveAspectRatio='none'%3E%3Cpath%20fill='%23000'%20d='M0%2064L0%200L19.2%200A10%2010%200%200%201%2028.9%207.6A32%2032%200%200%200%2091.1%207.6A10%2010%200%200%201%20100.8%200L120%200L120%2064Z'/%3E%3C/svg%3E");
+    mask-size: calc(50% - 60px) 100%, calc(50% - 60px) 100%, 120px 100%;
+    mask-position: left top, right top, center top;
+    mask-repeat: no-repeat;
+}
+
+/* Пункты растягиваются, распорка держит зону выреза пустой */
+.bottom-nav-wrap .nav-item {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 6px 2px;
+}
+.nav-fab-gap { flex: 0 0 120px; }
+
+/* FAB плавает в вырезе, не касаясь поля меню */
+.bottom-nav-wrap #fab-add {
+    position: absolute !important;
+    top: -26px;
+    left: calc(50% - 26px) !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: 52px;
+    height: 52px;
+    margin: 0 !important;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid #FFFFFF;
+    box-shadow: 0 6px 18px rgba(0, 122, 255, 0.45), 0 2px 6px rgba(0, 0, 0, 0.15);
+    z-index: 2;
+    cursor: pointer;
+}
+.bottom-nav-wrap #fab-add ion-icon { font-size: 26px !important; color: #FFFFFF !important; margin: 0 !important; }
+
+/* Тултип по центру над меню */
+#fab-tooltip {
+    position: fixed !important;
+    bottom: 118px !important;
+    left: 50% !important;
+    right: auto !important;
+    margin-left: -90px;
+    width: 180px;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.75);
+    color: #FFFFFF;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 100px;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 1001;
+    transition: opacity 0.3s;
+}
+
+/* Адаптация */
+@media (max-width: 480px) {
+    .bottom-nav-wrap #fab-add { width: 48px; height: 48px; top: -24px; left: calc(50% - 24px) !important; }
+    .bottom-nav-wrap #fab-add ion-icon { font-size: 24px !important; }
+    .nav-fab-gap { flex-basis: 100px; }
+    .bottom-nav-wrap .bottom-nav {
+        -webkit-mask-size: calc(50% - 50px) 100%, calc(50% - 50px) 100%, 100px 100%;
+        mask-size: calc(50% - 50px) 100%, calc(50% - 50px) 100%, 100px 100%;
+    }
+}
+@media (max-width: 360px) {
+    .bottom-nav-wrap #fab-add { width: 44px; height: 44px; top: -22px; left: calc(50% - 22px) !important; }
+    .nav-fab-gap { flex-basis: 90px; }
+    .bottom-nav-wrap .bottom-nav {
+        -webkit-mask-size: calc(50% - 45px) 100%, calc(50% - 45px) 100%, 90px 100%;
+        mask-size: calc(50% - 45px) 100%, calc(50% - 45px) 100%, 90px 100%;
+    }
+    .bottom-nav-wrap .nav-item .label { font-size: 7px; }
+}
+
+
+
+/* ============================================
+КНОПКА «АВТО» + ВСПЛЫВАЮЩЕЕ МЕНЮ
+============================================ */
+/* Правые пункты шире — вырез FAB остаётся по центру */
+.bottom-nav-wrap .nav-item.wide { flex: 1.5 1 0 !important; }
+
+/* Меню «Авто» — выпадает ВВЕРХ над кнопкой */
+.auto-menu {
+    position: fixed;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 6px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 18px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
+    opacity: 0;
+    transform: translateY(10px) scale(0.9);
+    transform-origin: bottom center;
+    pointer-events: none;
+    transition: all 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.auto-menu.open {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    pointer-events: auto;
+}
+.auto-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border: none;
+    background: none;
+    border-radius: 13px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ios-text-primary);
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    transition: background 0.2s;
+}
+.auto-menu-item:active { background: rgba(0, 0, 0, 0.05); }
+.auto-menu-item ion-icon { font-size: 20px; color: var(--ios-text-tertiary); }
+.auto-menu-item.active { background: var(--ios-accent-light); }
+.auto-menu-item.active ion-icon,
+.auto-menu-item.active span { color: var(--ios-accent); }
+
+/* Кнопка «Авто» с открытым меню */
+#nav-auto-btn.menu-open { background: var(--ios-accent-light); }
+#nav-auto-btn.menu-open ion-icon,
+#nav-auto-btn.menu-open .label { color: var(--ios-accent); }
+
+body:not(.authenticated) .auto-menu { display: none !important; }
+@media print { .auto-menu { display: none !important; } }
+
+/* ============================================
+МЕНЮ «АВТО» — ПУНКТЫ ДРУГ НАД ДРУГОМ
+============================================ */
+.auto-menu {
+    flex-direction: column !important;   /* столбиком, а не в ряд */
+    gap: 8px;
+    padding: 0 !important;
+    background: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* Каждый пункт — отдельная стеклянная кнопка, копия .nav-item */
+.auto-menu-item {
+    flex: 0 0 auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+    text-align: center;
+    color: var(--ios-text-tertiary);
+}
+.auto-menu-item ion-icon {
+    font-size: 24px;
+    margin: 0 0 2px 0;
+    color: var(--ios-text-tertiary);
+}
+.auto-menu-item span {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    color: var(--ios-text-tertiary);
+}
+.auto-menu-item.active {
+    background: linear-gradient(rgba(0, 122, 255, 0.12), rgba(0, 122, 255, 0.12)), rgba(255, 255, 255, 0.92);
+}
+.auto-menu-item.active ion-icon,
+.auto-menu-item.active span { color: var(--ios-accent); }
+
+@media (max-width: 480px) {
+    .auto-menu { gap: 6px; }
+    .auto-menu-item { padding: 6px 8px; border-radius: 16px; }
+    .auto-menu-item ion-icon { font-size: 18px; margin-bottom: 1px; }
+    .auto-menu-item span { font-size: 8px; }
+}
+
+#nav-reports-btn.menu-open { background: var(--ios-accent-light); }
+#nav-reports-btn.menu-open ion-icon,
+#nav-reports-btn.menu-open .label { color: var(--ios-accent); }
+
+/* Плюс поворачивается в крестик, когда меню FAB открыто */
+#fab-add ion-icon { transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1); }
+#fab-add.fab-open ion-icon { transform: rotate(45deg); }
+
+/* ============================================
+СВОРАЧИВАЕМЫЕ СЕКЦИИ (плавная анимация)
+============================================ */
+.collapse-toggle {
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    position: relative;
+    padding-right: 36px;
+}
+.collapse-toggle:active { opacity: 0.7; }
+.collapse-toggle .collapse-chevron {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    translate: 0 -50%;
+    font-size: 22px;
+    color: var(--ios-text-tertiary);
+    transition: transform 0.35s var(--ios-spring);
+}
+.collapse-toggle.open .collapse-chevron { transform: rotate(180deg); }
+
+/* Плавное сворачивание через grid-rows (работает с любой высотой) */
+.collapse-region {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.collapse-region > .collapse-inner {
+    overflow: hidden;
+    min-height: 0;
+    opacity: 1;
+    transition: opacity 0.35s ease;
+}
+.collapse-region.collapsed { grid-template-rows: 0fr; }
+.collapse-region.collapsed > .collapse-inner { opacity: 0; }
+
+
+
+/* ============================================
+АКТИВНАЯ КНОПКА — ТОЛЬКО ЦВЕТ ТЕКСТА И ИКОНКИ (БЕЗ ПОДЛОЖКИ)
+============================================ */
+/* Нижнее меню */
+.bottom-nav-wrap .nav-item.active,
+.bottom-nav-wrap .nav-item.menu-open {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Всплывающие меню («Авто», «Отчёты», FAB) */
+.auto-menu-item.active {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Цвет иконки и подписи у активной кнопки — акцентный */
+.bottom-nav-wrap .nav-item.active ion-icon,
+.bottom-nav-wrap .nav-item.menu-open ion-icon {
+    color: var(--ios-accent) !important;
+}
+.bottom-nav-wrap .nav-item.active .label,
+.bottom-nav-wrap .nav-item.menu-open .label {
+    color: var(--ios-accent) !important;
+    font-weight: 700;
+}
+
+/* Активный пункт всплывающего меню — тоже только цвет */
+.auto-menu-item.active ion-icon,
+.auto-menu-item.active span {
+    color: var(--ios-accent) !important;
+}
+
+/* ============================================
+ТЕНЬ НИЖНЕГО МЕНЮ (как было раньше)
+============================================ */
+.bottom-nav-wrap .bottom-nav {
+    box-shadow: 0 16px 56px rgba(0, 0, 0, 0.18),
+        0 4px 16px rgba(0, 0, 0, 0.08),
+        0 2px 8px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* ============================================
+ОБЪЁМ НИЖНЕГО МЕНЮ — МАКСИМАЛЬНАЯ ГЛУБИНА (v2)
+============================================ */
+.bottom-nav-wrap .bottom-nav {
+    /* Контрастнее градиент: яркий верх → приглушённый низ */
+    background: linear-gradient(180deg,
+        rgba(255, 255, 255, 1) 0%,
+        rgba(255, 255, 255, 0.94) 45%,
+        rgba(238, 238, 245, 0.94) 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 1) !important;
+    /* 5 внешних теней + 4 внутренние = настоящая 3D-панель */
+    box-shadow:
+        0 32px 80px rgba(0, 0, 0, 0.22),   /* очень глубокая */
+        0 16px 40px rgba(0, 0, 0, 0.14),   /* глубокая */
+        0 6px 16px rgba(0, 0, 0, 0.10),    /* средняя */
+        0 2px 4px rgba(0, 0, 0, 0.08),     /* контактная */
+        0 0 0 1px rgba(0, 0, 0, 0.04),     /* тонкий контур */
+        inset 0 2px 0 rgba(255, 255, 255, 1),        /* блик верхней кромки */
+        inset 0 10px 24px rgba(255, 255, 255, 0.55), /* световое пятно сверху */
+        inset 0 -2px 0 rgba(0, 0, 0, 0.06),          /* тень нижней кромки */
+        inset 0 -10px 24px rgba(0, 0, 0, 0.05) !important; /* затемнение снизу */
+}
+
+/* Мягкая «тень на поверхности» под панелью — эффект парения */
+.bottom-nav-wrap::after {
+    content: '';
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    bottom: -16px;
+    height: 26px;
+    background: radial-gradient(ellipse at 50% 50%, rgba(0, 0, 0, 0.30), transparent 70%);
+    filter: blur(12px);
+    z-index: -1;
+    pointer-events: none;
+}
+
+/* Иконкам и подписям — «letterpress» (стеклянная вдавленность) */
+.bottom-nav-wrap .nav-item ion-icon {
+    filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.9));
+}
+.bottom-nav-wrap .nav-item .label {
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* FAB — ещё более выпуклая «капля» */
+#fab-add {
+    box-shadow:
+        0 12px 32px rgba(0, 122, 255, 0.50),
+        0 4px 12px rgba(0, 0, 0, 0.22),
+        0 0 0 1px rgba(0, 0, 0, 0.05),
+        inset 0 3px 6px rgba(255, 255, 255, 0.55),
+        inset 0 -4px 8px rgba(0, 0, 0, 0.28) !important;
+}
+
+/* ============================================
+ПУНКТЫ ВСПЛЫВАЮЩИХ МЕНЮ — КАК КНОПКИ ГЛАВНОГО МЕНЮ (ОБЪЁМНЫЕ)
+============================================ */
+.auto-menu { gap: 10px; }   /* кнопки отдельно, с зазором */
+
+.auto-menu-item {
+    flex: 0 0 auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 10px 18px;
+    border-radius: 20px;
+    /* Тот же градиент стекла, что у главного меню */
+    background: linear-gradient(180deg,
+        rgba(255, 255, 255, 1) 0%,
+        rgba(255, 255, 255, 0.94) 45%,
+        rgba(240, 240, 246, 0.96) 100%);
+    border: 1px solid rgba(255, 255, 255, 1);
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
+    /* Тот же объём: 3 тени + блик сверху + тень снизу */
+    box-shadow:
+        0 12px 32px rgba(0, 0, 0, 0.14),
+        0 4px 12px rgba(0, 0, 0, 0.08),
+        0 2px 4px rgba(0, 0, 0, 0.06),
+        0 0 0 1px rgba(0, 0, 0, 0.03),
+        inset 0 1.5px 0 rgba(255, 255, 255, 1),
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.05);
+    color: var(--ios-text-tertiary);
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.auto-menu-item:active { transform: scale(0.92); }
+
+/* Letterpress на иконках и подписях — как в главном меню */
+.auto-menu-item ion-icon {
+    font-size: 22px;
+    margin: 0 0 2px 0;
+    color: var(--ios-text-tertiary);
+    filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.9));
+}
+.auto-menu-item span {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+    color: var(--ios-text-tertiary);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* Активный пункт — только цвет, как в главном меню */
+.auto-menu-item.active ion-icon,
+.auto-menu-item.active span { color: var(--ios-accent); }
+.auto-menu-item.active span { font-weight: 700; }
+
+/* Мобильные — те же размеры, что у пунктов меню */
+@media (max-width: 480px) {
+    .auto-menu { gap: 8px; }
+    .auto-menu-item { padding: 8px 14px; border-radius: 16px; }
+    .auto-menu-item ion-icon { font-size: 18px; }
+    .auto-menu-item span { font-size: 8px; }
+}
+
+/* ============================================
+ОБЪЁМНЫЕ КАРТОЧКИ И КНОПКИ ВО ВКЛАДКЕ «ПРОФИЛЬ»
+============================================ */
+
+/* --- Большие карточки: выпуклое стекло --- */
+#tab-home .card {
+    background: linear-gradient(180deg,
+        rgba(255, 255, 255, 0.98) 0%,
+        rgba(255, 255, 255, 0.94) 55%,
+        rgba(244, 244, 249, 0.94) 100%);
+    border: 1px solid rgba(255, 255, 255, 1);
+    box-shadow:
+        0 16px 48px rgba(0, 0, 0, 0.10),
+        0 6px 20px rgba(0, 0, 0, 0.07),
+        0 2px 6px rgba(0, 0, 0, 0.06),
+        0 0 0 1px rgba(0, 0, 0, 0.03),
+        inset 0 2px 0 rgba(255, 255, 255, 1),
+        inset 0 10px 24px rgba(255, 255, 255, 0.50),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.05),
+        inset 0 -10px 24px rgba(0, 0, 0, 0.04);
+}
+
+/* --- Мини-карточки статистики --- */
+#tab-home .stat-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(248, 248, 252, 0.96) 100%);
+    border: 1px solid rgba(255, 255, 255, 1);
+    box-shadow:
+        0 10px 28px rgba(0, 0, 0, 0.08),
+        0 4px 12px rgba(0, 0, 0, 0.06),
+        0 1px 3px rgba(0, 0, 0, 0.06),
+        inset 0 1.5px 0 rgba(255, 255, 255, 1),
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s var(--ios-spring), box-shadow 0.2s;
+}
+#tab-home .stat-card:active { transform: scale(0.97); }
+
+/* --- Letterpress: текст и цифры «вдавлены» в стекло --- */
+#tab-home .card h2,
+#tab-home .card h3,
+#tab-home .stat-value {
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+#tab-home .stat-card h3 ion-icon {
+    filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.9));
+}
+
+/* --- Кнопки: выпуклые, с бликом сверху и тенью снизу --- */
+#tab-home .btn {
+    box-shadow:
+        0 6px 16px rgba(0, 0, 0, 0.12),
+        0 2px 6px rgba(0, 0, 0, 0.08),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.35),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.12);
+}
+#tab-home .btn:active {
+    transform: scale(0.96);
+    box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.10),
+        inset 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* --- Аватар: объёмный круг --- */
+#profile-avatar {
+    box-shadow:
+        0 12px 32px rgba(0, 0, 0, 0.12),
+        0 4px 12px rgba(0, 0, 0, 0.08),
+        inset 0 2px 0 rgba(255, 255, 255, 0.6);
+}
+#avatar-upload-btn {
+    box-shadow:
+        0 6px 16px rgba(0, 122, 255, 0.35),
+        0 2px 6px rgba(0, 0, 0, 0.12),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.45),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.18) !important;
+}
+
+/* --- Достижения: объёмные бейджи --- */
+#tab-home .achievement-badge {
+    box-shadow:
+        0 6px 16px rgba(0, 0, 0, 0.08),
+        0 2px 6px rgba(0, 0, 0, 0.06),
+        inset 0 1.5px 0 rgba(255, 255, 255, 1),
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* --- Лёгкий подъём карточек на десктопе --- */
+@media (hover: hover) and (min-width: 769px) {
+    #tab-home .card:hover { transform: translateY(-3px); }
+    #tab-home .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow:
+            0 14px 36px rgba(0, 0, 0, 0.10),
+            0 6px 16px rgba(0, 0, 0, 0.07),
+            inset 0 1.5px 0 rgba(255, 255, 255, 1),
+            inset 0 -1.5px 0 rgba(0, 0, 0, 0.05);
+    }
+}
+
+/* ============================================
+ОБЪЁМНЫЙ КОНТЕНТ ВО ВСЕХ ВКЛАДКАХ
+============================================ */
+
+/* --- Большие карточки и панели во всех вкладках --- */
+.tab-content .card,
+.tariff-actions-panel,
+.tariff-form,
+.chart-container,
+.filters,
+.table-container,
+.section-title,
+.comparison-section,
+.comparison-period,
+.summary-card,
+.repair-item,
+.repair-chart-box,
+.repair-calc-results,
+.vehicle-item,
+.fuel-log-item {
+    background: linear-gradient(180deg,
+        rgba(255, 255, 255, 0.98) 0%,
+        rgba(255, 255, 255, 0.94) 55%,
+        rgba(244, 244, 249, 0.94) 100%);
+    border: 1px solid rgba(255, 255, 255, 1);
+    box-shadow:
+        0 16px 48px rgba(0, 0, 0, 0.10),
+        0 6px 20px rgba(0, 0, 0, 0.07),
+        0 2px 6px rgba(0, 0, 0, 0.06),
+        0 0 0 1px rgba(0, 0, 0, 0.03),
+        inset 0 2px 0 rgba(255, 255, 255, 1),
+        inset 0 10px 24px rgba(255, 255, 255, 0.50),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.05),
+        inset 0 -10px 24px rgba(0, 0, 0, 0.04);
+}
+
+/* --- Мини-карточки статистики (Аналитика, Топливо, Ремонт) --- */
+.tab-content .stat-card,
+.repair-stat-card {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(248, 248, 252, 0.96) 100%);
+    border: 1px solid rgba(255, 255, 255, 1);
+    box-shadow:
+        0 10px 28px rgba(0, 0, 0, 0.08),
+        0 4px 12px rgba(0, 0, 0, 0.06),
+        0 1px 3px rgba(0, 0, 0, 0.06),
+        inset 0 1.5px 0 rgba(255, 255, 255, 1),
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s var(--ios-spring), box-shadow 0.2s;
+}
+.tab-content .stat-card:active,
+.repair-stat-card:active { transform: scale(0.97); }
+
+/* --- Тарифы: плашки истории --- */
+.tariff-item,
+.tariff-badge {
+    box-shadow:
+        0 6px 16px rgba(0, 0, 0, 0.07),
+        0 2px 6px rgba(0, 0, 0, 0.05),
+        inset 0 1.5px 0 rgba(255, 255, 255, 1),
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* --- Динамические списки и чекбоксы в Ремонте --- */
+.dynamic-item,
+.repair-service-item {
+    box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.06),
+        0 1px 3px rgba(0, 0, 0, 0.05),
+        inset 0 1.5px 0 rgba(255, 255, 255, 1),
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.04);
+}
+
+/* --- Кнопки во всех вкладках: выпуклые --- */
+.btn {
+    box-shadow:
+        0 6px 16px rgba(0, 0, 0, 0.12),
+        0 2px 6px rgba(0, 0, 0, 0.08),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.35),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.12);
+}
+.btn:active {
+    transform: scale(0.96);
+    box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.10),
+        inset 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* --- Поля ввода: «утоплены» в стекло --- */
+.form-group input,
+.form-group select,
+.dynamic-item input,
+.repair-filters .filter-group select,
+.repair-filters .filter-group input {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+.form-group input:focus,
+.form-group select:focus {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.03), 0 0 0 3px var(--ios-accent-glow);
+}
+
+/* --- Letterpress: заголовки и цифры «вдавлены» в стекло --- */
+.tab-content .card h2,
+.tab-content .card h3,
+.tab-content .stat-value,
+.repair-stat-card .stat-value {
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+.tab-content .stat-card h3 ion-icon,
+.repair-stat-card h3 ion-icon {
+    filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.9));
+}
+
+/* --- Лёгкий подъём карточек на десктопе --- */
+@media (hover: hover) and (min-width: 769px) {
+    .tab-content .card:hover,
+    .chart-container:hover,
+    .repair-item:hover { transform: translateY(-3px); }
+    .tab-content .stat-card:hover,
+    .repair-stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow:
+            0 14px 36px rgba(0, 0, 0, 0.10),
+            0 6px 16px rgba(0, 0, 0, 0.07),
+            inset 0 1.5px 0 rgba(255, 255, 255, 1),
+            inset 0 -1.5px 0 rgba(0, 0, 0, 0.05);
+    }
+}
+
+/* ============================================
+ШАПКА v4 — НАМЕРТВО ЗАФИКСИРОВАНА (fixed)
+============================================ */
+.top-header {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 12px var(--ios-spacing-md) 10px;
+    z-index: 900;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: rgba(248, 248, 252, 0.92);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border-bottom: 0.5px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+    animation: none !important;
+    transform: none !important;
+}
+.top-header::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: -1px;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(255,59,48,.5), rgba(255,149,0,.5), rgba(0,122,255,.5));
+    opacity: .4;
+    pointer-events: none;
+}
+/* НИКАКОГО движения внутри шапки */
+.top-header, .top-header * { animation: none !important; }
+#connection-dot.pulse { animation: statusPulse 1.5s ease-in-out infinite !important; }
+
+/* Ряд 1 */
+.header-top-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.header-logo {
+    flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, #FF3B30 0%, #FF9500 100%);
+    display: flex; align-items: center; justify-content: center; color: #FFFFFF;
+    box-shadow: 0 6px 16px rgba(255,59,48,.3), inset 0 1.5px 0 rgba(255,255,255,.45), inset 0 -2px 0 rgba(0,0,0,.15);
+}
+.header-logo ion-icon { font-size: 26px; color: #FFFFFF; }
+.header-titles { min-width: 0; }
+.top-header h1 {
+    display: block; font-size: 19px; font-weight: 800; letter-spacing: -0.4px;
+    line-height: 1.15; color: var(--ios-text-primary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.header-subtitle { display: block; font-size: 12px; font-weight: 600; color: var(--ios-text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Ряд 2 */
+.header-bottom-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; }
+.header-bottom-row #connection-status-wrapper { min-width: 0; }
+.header-bottom-row .header-logout { flex-shrink: 0; }
+
+#connection-status { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 100px; border: 1px solid rgba(0,0,0,.06); background: rgba(255,255,255,.5); font-size: 12px; font-weight: 600; cursor: pointer; }
+#connection-dot { width: 8px; height: 8px; border-radius: 50%; background: #8E8E93; flex-shrink: 0; }
+#connection-text { max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.header-logout { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border: none; border-radius: 100px; background: rgba(255,59,48,.10); color: var(--ios-danger); font-size: 14px; font-weight: 700; cursor: pointer; transition: transform .2s var(--ios-spring), background .2s; box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 2px 8px rgba(255,59,48,.10); }
+.header-logout ion-icon { font-size: 18px; }
+.header-logout:active { transform: scale(.94); background: rgba(255,59,48,.18); }
+
+/* Распорка под шапку */
+.header-spacer { width: 100%; margin-bottom: var(--ios-spacing-md); }
+
+@media (max-width: 480px) {
+    .top-header { gap: 8px; padding: 10px 12px 8px; }
+    .top-header h1 { font-size: 16px; }
+    .header-subtitle { font-size: 11px; }
+    .header-logo { width: 38px; height: 38px; border-radius: 10px; }
+    .header-logo ion-icon { font-size: 22px; }
+    .header-bottom-row { min-height: 30px; }
+    .header-logout span { display: none; }
+    .header-logout { padding: 10px; border-radius: 50%; }
+    #connection-text { max-width: 110px; font-size: 11px; }
+}
+@media print { .header-logout, #connection-status-wrapper { display: none !important; } }
+
+/* ============================================
+ВЫПУКЛЫЕ КНОПКИ — «КУПОЛ» СО БЛИКОМ СВЕРХУ
+============================================ */
+
+/* База для всех .btn */
+.btn {
+    box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.12),
+        0 2px 4px rgba(0, 0, 0, 0.08),
+        inset 0 2px 2px rgba(255, 255, 255, 0.40),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* Синие — купол с глянцем */
+.btn-primary,
+.quick-compare-buttons .btn,
+.auth-btn-primary {
+    background:
+        radial-gradient(120% 70% at 50% 0%, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 55%),
+        linear-gradient(180deg, #4da2ff 0%, #007AFF 55%, #0063d1 100%);
+    box-shadow:
+        0 5px 14px rgba(0, 122, 255, 0.40),
+        0 2px 4px rgba(0, 0, 0, 0.10),
+        inset 0 2px 2px rgba(255, 255, 255, 0.50),
+        inset 0 -3px 6px rgba(0, 0, 60, 0.25);
+}
+
+/* Зелёные */
+.btn-success {
+    background:
+        radial-gradient(120% 70% at 50% 0%, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 55%),
+        linear-gradient(180deg, #63d889 0%, #34C759 55%, #28a745 100%);
+    box-shadow:
+        0 5px 14px rgba(52, 199, 89, 0.40),
+        0 2px 4px rgba(0, 0, 0, 0.10),
+        inset 0 2px 2px rgba(255, 255, 255, 0.50),
+        inset 0 -3px 6px rgba(0, 60, 20, 0.25);
+}
+
+/* Светло-красные */
+.btn-danger {
+    background:
+        radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 60%),
+        linear-gradient(180deg, #ffffff 0%, #ffe9e7 60%, #ffd8d5 100%);
+    box-shadow:
+        0 4px 10px rgba(255, 59, 48, 0.18),
+        0 1px 3px rgba(0, 0, 0, 0.08),
+        inset 0 2px 2px rgba(255, 255, 255, 1),
+        inset 0 -3px 6px rgba(160, 0, 0, 0.12);
+}
+
+/* Серые */
+.btn-secondary {
+    background:
+        radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 60%),
+        linear-gradient(180deg, #ffffff 0%, #f4f4f8 60%, #e4e4ea 100%);
+    box-shadow:
+        0 4px 10px rgba(0, 0, 0, 0.10),
+        0 1px 3px rgba(0, 0, 0, 0.08),
+        inset 0 2px 2px rgba(255, 255, 255, 1),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.10);
+}
+
+/* «Выйти» в шапке */
+.header-logout {
+    background:
+        radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 60%),
+        linear-gradient(180deg, #ffffff 0%, #ffe9e7 60%, #ffd8d5 100%);
+    box-shadow:
+        0 4px 10px rgba(255, 59, 48, 0.18),
+        0 1px 3px rgba(0, 0, 0, 0.08),
+        inset 0 2px 2px rgba(255, 255, 255, 1),
+        inset 0 -3px 6px rgba(160, 0, 0, 0.12);
+}
+
+/* Пункты всплывающих меню */
+.auto-menu-item {
+    background:
+        radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0) 60%),
+        linear-gradient(180deg, #ffffff 0%, #f7f7fa 60%, #ececf2 100%);
+    box-shadow:
+        0 6px 16px rgba(0, 0, 0, 0.12),
+        0 2px 4px rgba(0, 0, 0, 0.08),
+        inset 0 2px 2px rgba(255, 255, 255, 1),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.10);
+}
+
+/* «Добавить деталь / работу» */
+.btn-add-dynamic {
+    background:
+        radial-gradient(120% 80% at 50% 0%, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 60%),
+        linear-gradient(180deg, #ffffff 0%, #eaf4ff 60%, #d9ecff 100%);
+    box-shadow:
+        0 4px 12px rgba(0, 122, 255, 0.15),
+        inset 0 2px 2px rgba(255, 255, 255, 1),
+        inset 0 -3px 6px rgba(0, 60, 140, 0.10);
+}
+
+/* НАЖАТИЕ — кнопка «вдавливается» внутрь */
+.btn:active,
+.auth-btn:active,
+.header-logout:active,
+.auto-menu-item:active,
+.btn-add-dynamic:active {
+    transform: translateY(1px) scale(0.97);
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.10),
+        inset 0 3px 8px rgba(0, 0, 0, 0.18);
+}
+
+/* ============================================
+ФИНАЛ: «НАСТРОИТЬ ЦЕЛИ» — СИНЯЯ, ВЫПУКЛАЯ, ВДАВЛИВАЕТСЯ
+============================================ */
+/* Синий купол + белый текст */
+button[onclick*="showGoalSettings"],
+#tab-home .btn-primary {
+    background:
+        radial-gradient(120% 70% at 50% 0%, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 55%),
+        linear-gradient(180deg, #4da2ff 0%, #007AFF 55%, #0063d1 100%) !important;
+    color: #FFFFFF !important;
+}
+button[onclick*="showGoalSettings"] ion-icon,
+#tab-home .btn-primary ion-icon {
+    color: #FFFFFF !important;
+}
+
+/* ПОКОЙ — выпуклая (только когда НЕ нажата) */
+button[onclick*="showGoalSettings"]:not(:active),
+#tab-home .btn-primary:not(:active) {
+    box-shadow:
+        0 5px 14px rgba(0, 122, 255, 0.40),
+        0 2px 4px rgba(0, 0, 0, 0.10),
+        inset 0 2px 2px rgba(255, 255, 255, 0.50),
+        inset 0 -3px 6px rgba(0, 0, 60, 0.25) !important;
+}
+
+/* НАЖАТИЕ — проваливается, как все остальные */
+button[onclick*="showGoalSettings"]:active,
+#tab-home .btn-primary:active {
+    transform: translateY(1px) scale(0.97) !important;
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.10),
+        inset 0 3px 8px rgba(0, 0, 60, 0.30) !important;
+    filter: brightness(0.96);
+}
+
+/* Страховка: вдавливание с !important для ВСЕХ кнопок,
+   чтобы никакие «запертые» тени не мешали нажатию */
+.btn:active,
+.auth-btn:active,
+.header-logout:active,
+.auto-menu-item:active,
+.btn-add-dynamic:active {
+    transform: translateY(1px) scale(0.97) !important;
+    box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.10),
+        inset 0 3px 8px rgba(0, 0, 0, 0.22) !important;
+}
+
+/* ============================================
+МОДАЛЬНОЕ ОКНО НАСТРОЙКИ ЦЕЛЕЙ (iOS STYLE)
+============================================ */
+.goals-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+    opacity: 0;
+    transition: opacity 0.3s var(--ios-spring);
+    pointer-events: none;
+}
+.goals-modal-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.goals-modal {
+    background: var(--ios-bg-secondary);
+    border-radius: 20px;
+    padding: 0;
+    max-width: 400px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    transform: scale(0.9) translateY(20px);
+    transition: transform 0.3s var(--ios-spring-bounce);
+    overflow: hidden;
+}
+.goals-modal-overlay.visible .goals-modal {
+    transform: scale(1) translateY(0);
+}
+
+.goals-modal-header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--ios-border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.goals-modal-header ion-icon {
+    font-size: 28px;
+    color: var(--ios-accent);
+}
+.goals-modal-header h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--ios-text-primary);
+    margin: 0;
+}
+
+.goals-modal-body {
+    padding: 20px;
+}
+
+.goal-input-group {
+    margin-bottom: 16px;
+}
+.goal-input-group:last-child {
+    margin-bottom: 0;
+}
+.goal-input-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ios-text-secondary);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.goal-input-group label ion-icon {
+    font-size: 18px;
+}
+.goal-input-group input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1.5px solid var(--ios-border);
+    border-radius: 12px;
+    font-size: 17px;
+    font-weight: 500;
+    background: var(--ios-bg-input);
+    color: var(--ios-text-primary);
+    transition: all 0.2s var(--ios-spring);
+}
+.goal-input-group input:focus {
+    outline: none;
+    border-color: var(--ios-accent);
+    background: var(--ios-bg-input-hover);
+    box-shadow: 0 0 0 4px var(--ios-accent-glow);
+}
+.goal-input-group input.invalid {
+    border-color: var(--ios-danger);
+    background: var(--ios-danger-light);
+}
+.goal-input-group .hint {
+    font-size: 12px;
+    color: var(--ios-text-tertiary);
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.goal-input-group .hint ion-icon {
+    font-size: 14px;
+}
+
+.goals-modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--ios-border);
+    display: flex;
+    gap: 10px;
+}
+.goals-modal-footer .btn {
+    flex: 1;
+    padding: 14px 20px;
+    font-size: 16px;
+    font-weight: 600;
+}
+.goals-modal-footer .btn-secondary {
+    background: var(--ios-bg-tertiary);
+    color: var(--ios-text-primary);
+}
+.goals-modal-footer .btn-secondary:hover {
+    background: var(--ios-bg-secondary);
+}
+
+@media (max-width: 480px) {
+    .goals-modal {
+        max-width: calc(100% - 32px);
+    }
+    .goals-modal-header {
+        padding: 16px;
+    }
+    .goals-modal-body {
+        padding: 16px;
+    }
+    .goals-modal-footer {
+        padding: 12px 16px;
+        flex-direction: column;
+    }
+}
+
+/* ============================================
+МОДАЛЬНОЕ ОКНО ВЫХОДА (iOS STYLE)
+============================================ */
+.logout-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+    padding: 20px;
+    opacity: 0;
+    transition: opacity 0.25s var(--ios-spring);
+    pointer-events: none;
+}
+.logout-modal-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.logout-modal {
+    background: var(--ios-bg-secondary);
+    border-radius: 20px;
+    max-width: 340px;
+    width: 100%;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.35), 0 8px 24px rgba(0, 0, 0, 0.15);
+    transform: scale(0.85);
+    transition: transform 0.3s var(--ios-spring-bounce);
+    overflow: hidden;
+    text-align: center;
+    padding: 28px 24px 12px;
+}
+.logout-modal-overlay.visible .logout-modal {
+    transform: scale(1);
+}
+
+.logout-modal-icon {
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #FF6B5C 0%, #FF3B30 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow:
+        0 10px 30px rgba(255, 59, 48, 0.35),
+        inset 0 2px 4px rgba(255, 255, 255, 0.4),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.18);
+}
+.logout-modal-icon ion-icon {
+    font-size: 36px;
+    color: #FFFFFF;
+}
+
+.logout-modal-title {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--ios-text-primary);
+    margin-bottom: 6px;
+    letter-spacing: -0.3px;
+}
+.logout-modal-subtitle {
+    font-size: 14px;
+    color: var(--ios-text-secondary);
+    margin-bottom: 22px;
+    line-height: 1.4;
+}
+
+.logout-modal-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 0;
+}
+.logout-btn {
+    width: 100%;
+    padding: 14px 20px;
+    border: none;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: transform 0.15s var(--ios-spring), filter 0.2s;
+    font-family: inherit;
+}
+.logout-btn:active:not(:disabled) { transform: scale(0.97); }
+.logout-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.logout-btn ion-icon { font-size: 20px; }
+
+.logout-btn-cancel {
+    background: var(--ios-bg-tertiary);
+    color: var(--ios-accent);
+    border: 1px solid var(--ios-border);
+}
+.logout-btn-confirm {
+    background: linear-gradient(180deg, #FF6B5C 0%, #FF3B30 100%);
+    color: #FFFFFF;
+    box-shadow:
+        0 4px 14px rgba(255, 59, 48, 0.35),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.3),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.logout-spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2.5px solid rgba(255, 255, 255, 0.35);
+    border-top-color: #FFFFFF;
+    border-radius: 50%;
+    animation: logoutSpin 0.7s linear infinite;
+}
+@keyframes logoutSpin {
+    to { transform: rotate(360deg); }
+}
+
+/* ============================================
+ФИКС СВОРАЧИВАЕМЫХ СЕКЦИЙ: без обрезки, без пустот, ровный шеврон
+============================================ */
+
+/* 1. Тени больше не обрезаются: клип только по вертикали */
+.collapse-region > .collapse-inner {
+    overflow-x: visible;
+    overflow-y: clip;
+    min-height: 0;
+}
+/* Место для теней сверху и снизу внутри области */
+.collapse-inner > *:first-child { margin-top: 6px; }
+.collapse-inner > *:last-child { margin-bottom: 18px; }
+
+/* 2. Свёрнутая карточка компактная — убираем «пустую» полосу с градиентом */
+.card:has(> .collapse-region.collapsed) { padding-bottom: 16px; }
+.card:has(> .collapse-region.collapsed) > h2.collapse-toggle { margin-bottom: 0; }
+
+/* 3. Заголовок: шеврон всегда справа и по центру, даже при переносе строки */
+h2.collapse-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-right: 0 !important;
+}
+h2.collapse-toggle .section-icon { flex-shrink: 0; }
+h2.collapse-toggle .collapse-chevron {
+    position: static !important;
+    translate: none !important;
+    margin-left: auto !important;
+    flex-shrink: 0;
+}
+
+/* ============================================
+УБИРАЕМ «КВАДРАТНЫЕ ТЕНИ» ВНУТРИ СВОРАЧИВАЕМЫХ СЕКЦИЙ
+(тени уменьшены, чтобы целиком помещались и не обрезались)
+============================================ */
+.collapse-inner .card,
+.collapse-inner .tariff-form,
+.collapse-inner .tariff-actions-panel,
+.collapse-inner .tariffs-history,
+.collapse-inner .vehicle-item,
+.collapse-inner .vehicle-add-form,
+.collapse-inner .tariff-item {
+    box-shadow:
+        0 4px 14px rgba(0, 0, 0, 0.08),
+        0 1px 3px rgba(0, 0, 0, 0.06),
+        inset 0 1.5px 0 rgba(255, 255, 255, 1),
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.05);
+}
+
+/* Чуть больше воздуха снизу, чтобы тень растворилась до кромки */
+.collapse-inner > *:last-child { margin-bottom: 20px; }

@@ -90,7 +90,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.6.3" defer></script>
+    <script src="script.js?v=2.7.0" defer></script>
     
     <!-- 1. МОДУЛЬ АВТОМОБИЛЕЙ (ОБЯЗАТЕЛЬНО ПЕРВЫМ) -->
 <script src="vehicle-module.js?v=1.0.4"></script>
@@ -240,63 +240,37 @@
     
 <div class="container">
     <!-- Верхняя шапка только с заголовком -->
-<header class="top-header gradient-flow">
-    <!-- Верхняя строка: заголовок и кнопка выхода -->
-    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 12px;">
-        <h1 style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
-            <ion-icon name="car-sport-outline" class="header-icon" style="flex-shrink: 0;"></ion-icon>
-            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: clamp(20px, 4vw, 34px);">Журнал работы водителя</span>
-        </h1>
-        
-        <button id="logout-btn" class="btn btn-secondary btn-small magnetic" style="display: none; flex-shrink: 0;">
-            <ion-icon name="log-out-outline"></ion-icon> Выйти
-        </button>
+<!-- ============================================ -->
+<!-- ШАПКА v4 — ЗАФИКСИРОВАНА НАМЕРТВО -->
+<!-- ============================================ -->
+<header class="top-header">
+    <!-- РЯД 1: название -->
+    <div class="header-top-row">
+        <div class="header-logo">
+            <ion-icon name="car-sport-outline"></ion-icon>
+        </div>
+        <div class="header-titles">
+            <h1>Журнал работы водителя</h1>
+            <span class="header-subtitle" id="header-subtitle">учёт работы и расходов</span>
+        </div>
     </div>
     
-    <!-- Нижняя строка: индикатор статуса по центру -->
-    <!-- ИНДИКАТОР СТАТУСА (в хедере под заголовком по центру) -->
-<div id="connection-status-wrapper" style="
-    display: none;
-    justify-content: center;
-    width: 100%;
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 0.5px solid rgba(0,0,0,0.06);
-">
-    <div id="connection-status" style="
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 6px 20px;
-        border-radius: 24px;
-        font-size: 13px;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        cursor: pointer;
-        background: rgba(255,255,255,0.5);
-        border: 1px solid rgba(0,0,0,0.06);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        max-width: 90%;
-    " onclick="showConnectionDetails()" title="Нажмите для подробностей">
-        <span id="connection-dot" style="
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            display: inline-block;
-            flex-shrink: 0;
-            background: #8E8E93;
-            transition: all 0.3s ease;
-        "></span>
-        <span id="connection-text" style="
-            font-size: 13px;
-            white-space: nowrap;
-            color: #3C3C43;
-            font-weight: 500;
-        ">Проверка подключения...</span>
+    <!-- РЯД 2: статус Firebase + выход -->
+    <div class="header-bottom-row">
+        <div id="connection-status-wrapper" style="display: none;">
+            <button id="connection-status" onclick="showConnectionDetails()">
+                <span id="connection-dot"></span>
+                <span id="connection-text">Проверка подключения...</span>
+            </button>
+        </div>
+        <button id="logout-btn" class="header-logout">
+            <ion-icon name="log-out-outline"></ion-icon>
+            <span>Выйти</span>
+        </button>
     </div>
-</div>
 </header>
+<!-- Распорка: контент не прячется под шапкой -->
+<div class="header-spacer" id="header-spacer"></div>
 
     <!-- Основной контент вкладок -->
     <main id="main-content" class="tabs-container">
@@ -1535,7 +1509,7 @@
     <div class="card float-in texture-grain">
         <h2>
             <ion-icon name="pricetag-outline" style="vertical-align: middle; margin-right: 8px; font-size: 28px !important; color: var(--ios-warning);"></ion-icon>
-            Управление тарифами
+            Тарифы
         </h2>
         <p class="tariff-info">Тарифы применяются с указанной даты.</p>
         <form id="tariff-form" class="tariff-form" onsubmit="saveTariff(event)">
@@ -1699,200 +1673,72 @@
     
 </div>
 
-<!-- Нижняя панель навигации (iOS Tab Bar) с горизонтальным скроллом -->
-<nav class="bottom-nav" style="
-    position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: calc(100% - 32px);
-    max-width: 600px;
-    background: rgba(255, 255, 255, 0.92);
-    backdrop-filter: blur(40px) saturate(180%);
-    -webkit-backdrop-filter: blur(40px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    border-radius: 28px;
-    display: flex;
-    align-items: center;
-    padding: 8px 12px;
-    z-index: 1000;
-    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.12);
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    gap: 4px;
-">
-    <!-- Стили для скрытия скроллбара -->
-    <style>
-        .bottom-nav::-webkit-scrollbar {
-            display: none;
-        }
-        .bottom-nav {
-            -ms-overflow-style: none;
-        }
-    </style>
+<!-- ============================================ -->
+<!-- НИЖНЕЕ МЕНЮ: ПРОФИЛЬ · ОТЧЁТЫ | FAB | АВТО · НАСТРОЙКИ -->
+<!-- ============================================ -->
+<div class="bottom-nav-wrap">
+    <nav class="bottom-nav">
+        <!-- СЛЕВА -->
+        <button class="nav-item active magnetic wide" data-tab="home" onclick="switchTab('home')">
+            <ion-icon name="person-outline"></ion-icon><span class="label">Профиль</span>
+        </button>
+        <button class="nav-item magnetic wide" data-tab="reports" id="nav-reports-btn" onclick="toggleReportsMenu(event)">
+            <ion-icon name="document-text-outline"></ion-icon><span class="label">Отчёты</span>
+        </button>
+        
+        <div class="nav-fab-gap"></div>
+        
+        <!-- СПРАВА -->
+        <button class="nav-item magnetic wide" data-tab="auto" id="nav-auto-btn" onclick="toggleAutoMenu(event)">
+            <ion-icon name="car-outline"></ion-icon><span class="label">Авто</span>
+        </button>
+        <button class="nav-item magnetic wide" data-tab="settings" onclick="switchTab('settings')">
+            <ion-icon name="settings-outline"></ion-icon><span class="label">Настройки</span>
+        </button>
+    </nav>
     
-    <button class="nav-item active magnetic" data-tab="home" onclick="switchTab('home')" style="
-        flex: 0 0 auto;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: none;
-        border: none;
-        padding: 8px 14px;
-        cursor: pointer;
-        transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-        min-width: 60px;
-        border-radius: 16px;
-        position: relative;
-    ">
-        <ion-icon name="person-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
-        <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">Профиль</span>
+    <!-- ✅ FAB ТЕПЕРЬ ОТКРЫВАЕТ МЕНЮ ДОБАВЛЕНИЯ -->
+    <button id="fab-add" onclick="toggleFabMenu(event)" aria-label="Добавить запись">
+        <ion-icon name="add-outline"></ion-icon>
     </button>
-    
-    <button class="nav-item magnetic" data-tab="analytics" onclick="switchTab('analytics')" style="
-        flex: 0 0 auto;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: none;
-        border: none;
-        padding: 8px 14px;
-        cursor: pointer;
-        transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-        min-width: 60px;
-        border-radius: 16px;
-        position: relative;
-    ">
-        <ion-icon name="stats-chart-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
-        <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">Аналитика</span>
-    </button>
-    
-    <button class="nav-item magnetic" data-tab="history" onclick="switchTab('history')" style="
-        flex: 0 0 auto;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: none;
-        border: none;
-        padding: 8px 14px;
-        cursor: pointer;
-        transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-        min-width: 60px;
-        border-radius: 16px;
-        position: relative;
-    ">
-        <ion-icon name="clipboard-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
-        <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">История</span>
-    </button>
-    
-    <button class="nav-item magnetic" data-tab="fuel" onclick="switchTab('fuel')" style="
-        flex: 0 0 auto;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: none;
-        border: none;
-        padding: 8px 14px;
-        cursor: pointer;
-        transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-        min-width: 60px;
-        border-radius: 16px;
-        position: relative;
-    ">
-        <ion-icon name="flame-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
-        <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">Топливо</span>
-    </button>
-    
-    <button class="nav-item magnetic" data-tab="repair" onclick="switchTab('repair')" style="
-    flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: none;
-    border: none;
-    padding: 8px 14px;
-    cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-    min-width: 60px;
-    border-radius: 16px;
-    position: relative;
-">
-    <ion-icon name="construct-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
-    <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">Ремонт</span>
-</button>
-    
-    <button class="nav-item magnetic" data-tab="settings" onclick="switchTab('settings')" style="
-        flex: 0 0 auto;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        background: none;
-        border: none;
-        padding: 8px 14px;
-        cursor: pointer;
-        transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
-        min-width: 60px;
-        border-radius: 16px;
-        position: relative;
-    ">
-        <ion-icon name="settings-outline" style="font-size: 24px; margin-bottom: 2px; color: var(--ios-text-tertiary); transition: color 0.2s;"></ion-icon>
-        <span class="label" style="font-size: 10px; color: var(--ios-text-tertiary); font-weight: 600; letter-spacing: 0.2px; white-space: nowrap; transition: color 0.2s;">Настройки</span>
-    </button>
-</nav>
-
-<!-- Плавающая кнопка для быстрого добавления записи -->
-<button id="fab-add" onclick="openEntryTab()" style="
-    position: fixed;
-    bottom: 100px;
-    right: 24px;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
-    border: none;
-    box-shadow: 0 4px 20px rgba(0, 122, 255, 0.4);
-    cursor: pointer;
-    z-index: 999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-    color: white;
-">
-    <ion-icon name="add-outline" style="font-size: 32px; color: white;"></ion-icon>
-</button>
-
-<!-- Текст подсказки для кнопки -->
-<div id="fab-tooltip" style="
-    position: fixed;
-    bottom: 105px;
-    right: 90px;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    color: white;
-    padding: 8px 16px;
-    border-radius: 12px;
-    font-size: 13px;
-    font-weight: 500;
-    z-index: 998;
-    opacity: 0;
-    transform: translateX(10px) scale(0.9);
-    transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-    pointer-events: none;
-    white-space: nowrap;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-">
-    Добавить запись
 </div>
+
+<!-- ВСПЛЫВАЮЩЕЕ МЕНЮ «АВТО» -->
+<div class="auto-menu" id="auto-menu">
+    <button class="auto-menu-item" data-tab="fuel" onclick="selectAutoTab('fuel')">
+        <ion-icon name="flame-outline"></ion-icon><span>Топливо</span>
+    </button>
+    <button class="auto-menu-item" data-tab="repair" onclick="selectAutoTab('repair')">
+        <ion-icon name="construct-outline"></ion-icon><span>Ремонт</span>
+    </button>
+</div>
+
+<!-- ВСПЛЫВАЮЩЕЕ МЕНЮ «ОТЧЁТЫ» -->
+<div class="auto-menu" id="reports-menu">
+    <button class="auto-menu-item" data-tab="analytics" onclick="selectReportsTab('analytics')">
+        <ion-icon name="stats-chart-outline"></ion-icon><span>Аналитика</span>
+    </button>
+    <button class="auto-menu-item" data-tab="history" onclick="selectReportsTab('history')">
+        <ion-icon name="clipboard-outline"></ion-icon><span>История</span>
+    </button>
+</div>
+
+<!-- ✅ ВСПЛЫВАЮЩЕЕ МЕНЮ FAB: ЗАПИСЬ / ТОПЛИВО / РЕМОНТ -->
+<div class="auto-menu" id="fab-menu">
+    <button class="auto-menu-item" onclick="selectFabAction('entry')">
+        <ion-icon name="calendar-outline"></ion-icon><span>Запись</span>
+    </button>
+    <button class="auto-menu-item" onclick="selectFabAction('fuel')">
+        <ion-icon name="flame-outline"></ion-icon><span>Топливо</span>
+    </button>
+    <button class="auto-menu-item" onclick="selectFabAction('repair')">
+        <ion-icon name="construct-outline"></ion-icon><span>Ремонт</span>
+    </button>
+</div>
+
+
+
+
 
 <script>
     document.querySelectorAll('.nav-item').forEach(btn => {

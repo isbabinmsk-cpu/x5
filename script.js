@@ -55,9 +55,46 @@ let filterState = {
 let sortState = { column: null, direction: null };
 let currentFilterColumn = null;
 
-// ==========================================
-// ДАЛЕЕ ИДЕТ ВАШ ОСТАЛЬНОЙ КОД (Firebase инициализация и т.д.)
-// ==========================================
+// ============================================
+// УНИВЕРСАЛЬНЫЙ ПЕРЕХВАТЧИК FIREBASE LISTENERS
+// Автоматически собирает все onSnapshot, чтобы их можно было отписать при выходе
+// ============================================
+window._fbListeners = [];
+window._isLoggingOut = false;  // флаг выхода, чтобы подавлять ложные ошибки
+
+(function patchOnSnapshot() {
+    if (typeof db === 'undefined') return;
+    const originalOnSnapshot = firebase.firestore.Query.prototype.onSnapshot;
+    if (!originalOnSnapshot || originalOnSnapshot.__patched) return;
+
+    firebase.firestore.Query.prototype.onSnapshot = function (...args) {
+        const unsub = originalOnSnapshot.apply(this, args);
+        // Сохраняем функцию отписки в глобальный массив
+        window._fbListeners.push(unsub);
+        return function (...uargs) {
+            // При вызове отписки — удаляем из массива
+            const idx = window._fbListeners.indexOf(unsub);
+            if (idx !== -1) window._fbListeners.splice(idx, 1);
+            return unsub.apply(this, uargs);
+        };
+    };
+    firebase.firestore.Query.prototype.onSnapshot.__patched = true;
+})();
+
+// Перехватчик console.error для подавления permission-denied при выходе
+const _origConsoleError = console.error;
+console.error = function (...args) {
+    // Если идёт выход и ошибка permission-denied — тихо пропускаем
+    if (window._isLoggingOut) {
+        const msg = (args[0] && args[0].code) || (args.join && args.join(' ')) || '';
+        if (msg === 'permission-denied' || 
+            (typeof msg === 'string' && msg.includes('permission-denied')) ||
+            (args[1] && args[1] && args[1].code === 'permission-denied')) {
+            return; // подавляем
+        }
+    }
+    _origConsoleError.apply(console, args);
+};
 
 // ===== ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ДЛЯ ПАРСИНГА ДАТ БЕЗ СМЕЩЕНИЯ ЧАСОВОГО ПОЯСА =====
 function parseLocalDate(dateStr) {
@@ -200,71 +237,177 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
     }
 });
 
-// Обработчик выхода
-document.getElementById('logout-btn').addEventListener('click', async () => {
-    if (confirm('Выйти из аккаунта?')) {
-        // 1. СНАЧАЛА показываем экран авторизации
-        const authScreen = document.getElementById('auth-screen');
-        const container = document.querySelector('.container');
-        const bottomNav = document.querySelector('.bottom-nav');
-        const logoutBtn = document.getElementById('logout-btn');
-        
-        // Скрываем интерфейс приложения
-        if (container) {
-            container.style.display = 'none';
-        }
-        if (bottomNav) {
-            bottomNav.style.display = 'none';
-        }
-        if (logoutBtn) {
-            logoutBtn.style.display = 'none';
-        }
-        
-        // Убираем класс authenticated
-        document.body.classList.remove('authenticated');
-        
-        // Показываем экран авторизации
-        if (authScreen) {
-            authScreen.classList.remove('hidden');
-            authScreen.style.display = 'flex';
-        }
-        
-        // 2. Очищаем localStorage
-        localStorage.removeItem('driverAuthState');
-        
-        // 3. Очищаем данные
-        records = [];
-        tariffs = [];
-        saveData();
-        
-        // 4. Очищаем формы авторизации
-        const loginForm = document.getElementById('login-form');
-        const registerForm = document.getElementById('register-form');
-        const loginError = document.getElementById('login-error');
-        const registerError = document.getElementById('register-error');
-        
-        if (loginForm) loginForm.reset();
-        if (registerForm) registerForm.reset();
-        if (loginError) loginError.textContent = '';
-        if (registerError) registerError.textContent = '';
-        
-        // 5. Переключаем на вкладку входа
-        if (typeof switchAuthTab === 'function') {
-            switchAuthTab('login');
-        }
-        
-        // 6. Выходим из Firebase
+// ============================================
+// ВЫХОД ИЗ АККАУНТА — КРАСИВАЯ МОДАЛКА + БЕЗОПАСНАЯ ЛОГИКА
+// ============================================
+function showLogoutModal() {
+    if (document.getElementById('logout-modal-overlay')) return;
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'logout-modal-overlay';
+    overlay.className = 'logout-modal-overlay';
+    overlay.innerHTML = `
+        <div class="logout-modal" role="dialog" aria-modal="true">
+            <div class="logout-modal-icon">
+                <ion-icon name="log-out-outline"></ion-icon>
+            </div>
+            <h3 class="logout-modal-title">Выйти из аккаунта?</h3>
+            <p class="logout-modal-subtitle">
+                Ваши данные сохранены в облаке.<br>
+                Вы сможете войти снова с любого устройства.
+            </p>
+            <div class="logout-modal-actions">
+                <button class="logout-btn logout-btn-confirm" id="logout-confirm-btn">
+                    <ion-icon name="log-out-outline"></ion-icon>
+                    <span>Выйти</span>
+                </button>
+                <button class="logout-btn logout-btn-cancel" id="logout-cancel-btn">
+                    Отмена
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+    
+    const confirmBtn = overlay.querySelector('#logout-confirm-btn');
+    const cancelBtn = overlay.querySelector('#logout-cancel-btn');
+    
+    const closeModal = () => {
+        overlay.classList.remove('visible');
+        document.removeEventListener('keydown', escHandler);
+        setTimeout(() => overlay.remove(), 250);
+    };
+    
+    cancelBtn.addEventListener('click', closeModal);
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeModal();
+    });
+    const escHandler = (e) => {
+        if (e.key === 'Escape') closeModal();
+    };
+    document.addEventListener('keydown', escHandler);
+    
+    confirmBtn.addEventListener('click', async () => {
+        confirmBtn.disabled = true;
+        cancelBtn.disabled = true;
+        confirmBtn.innerHTML = '<span class="logout-spinner"></span><span>Выходим...</span>';
         try {
-            await auth.signOut();
-            console.log('✅ Вы вышли из аккаунта');
+            await performLogout();
+            closeModal();
         } catch (error) {
-            console.error('Ошибка выхода:', error);
+            console.error('❌ Ошибка при выходе:', error);
+            showToast('⚠️ Ошибка при выходе: ' + error.message);
+            confirmBtn.disabled = false;
+            cancelBtn.disabled = false;
+            confirmBtn.innerHTML = '<ion-icon name="log-out-outline"></ion-icon><span>Выйти</span>';
         }
-        
-        // 7. Очищаем текущего пользователя
-        currentUser = null;
+    });
+}
+
+// ====== ЛОГИКА ВЫХОДА (с отпиской от Firebase-слушателей) ======
+async function performLogout() {
+    // 🔴 Флаг выхода — чтобы подавлять ложные ошибки permission-denied
+    window._isLoggingOut = true;
+    
+    // 1. Отписываемся от ВСЕХ собранных Firebase-слушателей (через перехватчик)
+    if (window._fbListeners && window._fbListeners.length > 0) {
+        console.log(`🔕 Отписываемся от ${window._fbListeners.length} Firebase-слушателей...`);
+        const toUnsub = [...window._fbListeners]; // копия, чтобы не было проблем при итерации
+        toUnsub.forEach((unsub, i) => {
+            try { unsub(); } catch (e) {}
+        });
+        window._fbListeners = [];
+        console.log('✅ Все слушатели отписаны');
     }
-});
+    
+    // 2. Страховка: старые глобальные функции отписки (если вдруг остались)
+    ['unsubscribeRepairs', 'unsubscribeVehicles', 'unsubscribeFuel'].forEach(name => {
+        if (typeof window[name] === 'function') {
+            try { window[name](); } catch (e) {}
+            window[name] = null;
+        }
+    });
+    
+    // 3. Закрываем всплывающие меню
+    if (typeof closeAllMenus === 'function') closeAllMenus();
+    if (typeof closeFabMenu === 'function') closeFabMenu();
+    
+    // 4. Скрываем интерфейс
+    const authScreen = document.getElementById('auth-screen');
+    const container = document.querySelector('.container');
+    const bottomNavWrap = document.querySelector('.bottom-nav-wrap');
+    const bottomNav = document.querySelector('.bottom-nav');
+    const logoutBtn = document.getElementById('logout-btn');
+    const statusWrapper = document.getElementById('connection-status-wrapper');
+    
+    if (container) container.style.display = 'none';
+    if (bottomNavWrap) bottomNavWrap.style.display = 'none';
+    if (bottomNav) bottomNav.style.display = 'none';
+    if (logoutBtn) logoutBtn.style.display = 'none';
+    if (statusWrapper) statusWrapper.style.display = 'none';
+    
+    document.body.classList.remove('authenticated');
+    
+    if (authScreen) {
+        authScreen.classList.remove('hidden');
+        authScreen.style.display = 'flex';
+    }
+    
+    // 5. Очищаем localStorage
+    localStorage.removeItem('driverAuthState');
+    localStorage.removeItem('appState');
+    
+    // 6. Очищаем данные в памяти
+    records = [];
+    tariffs = [];
+    if (typeof window.fuelLogs !== 'undefined') window.fuelLogs = [];
+    if (typeof window.repairRecords !== 'undefined') window.repairRecords = [];
+    saveData();
+    
+    // 7. Сбрасываем формы
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const loginError = document.getElementById('login-error');
+    const registerError = document.getElementById('register-error');
+    if (loginForm) loginForm.reset();
+    if (registerForm) registerForm.reset();
+    if (loginError) loginError.textContent = '';
+    if (registerError) registerError.textContent = '';
+    
+    // 8. На вкладку входа
+    if (typeof switchAuthTab === 'function') switchAuthTab('login');
+    
+    // 9. Выход из Firebase
+    try {
+        await auth.signOut();
+        console.log('✅ Вы вышли из аккаунта');
+    } catch (error) {
+        console.error('Ошибка выхода:', error);
+    }
+    
+    // 10. Сброс состояния
+    currentUser = null;
+    connectionMode = 'local';
+    firebaseErrorReason = '';
+    if (typeof updateConnectionIndicator === 'function') updateConnectionIndicator();
+    
+    // 11. Через 2 секунды снимаем флаг выхода
+    setTimeout(() => {
+        window._isLoggingOut = false;
+    }, 2000);
+    
+    // 12. Тост
+    if (typeof showToast === 'function') showToast('👋 Вы вышли из аккаунта');
+}
+
+// ====== ПРИВЯЗКА КНОПКИ "ВЫЙТИ" ======
+const _logoutBtn = document.getElementById('logout-btn');
+if (_logoutBtn) {
+    _logoutBtn.replaceWith(_logoutBtn.cloneNode(true));
+    document.getElementById('logout-btn').addEventListener('click', showLogoutModal);
+}
 
 // ============================================
 // СЛУШАТЕЛЬ СОСТОЯНИЯ АУТЕНТИФИКАЦИИ
@@ -350,9 +493,20 @@ try {
 }
 
     } else {
-        // ===== ПОЛЬЗОВАТЕЛЬ ВЫШЕЛ =====
+        // ===== ПОЛЬЗОВАТЕЛЬ ВЫШЕЛ (автоматический выход: потеря сессии, и т.п.) =====
+        
+        // ✅ НОВОЕ: Отписываемся от всех Firebase-слушателей, чтобы не было permission-denied
+        if (window._fbListeners && window._fbListeners.length > 0) {
+            window._isLoggingOut = true;
+            const toUnsub = [...window._fbListeners];
+            toUnsub.forEach(unsub => { try { unsub(); } catch(e){} });
+            window._fbListeners = [];
+            setTimeout(() => { window._isLoggingOut = false; }, 2000);
+        }
+        
         currentUser = null;
         localStorage.removeItem('driverAuthState');
+    
         document.body.classList.remove('authenticated');
         
         // Скрываем интерфейс
@@ -4300,86 +4454,203 @@ async function saveGoalsToFirebase(goals) {
     }
 }
 
-// Показать диалог настройки целей
+// ============================================
+// ДИАЛОГ НАСТРОЙКИ ЦЕЛЕЙ (iOS MODAL STYLE)
+// Сохраняет в localStorage + Firebase
+// ============================================
 async function showGoalSettings() {
     console.log('⚙️ Открытие настроек целей');
     
-    // Проверяем авторизацию
+    // 1. Проверяем авторизацию
     if (!currentUser) {
-        alert('❌ Пожалуйста, войдите в аккаунт для настройки целей');
+        showToast('❌ Войдите в аккаунт для настройки целей');
         return;
     }
     
-    // Загружаем текущие цели
+    // 2. Загружаем текущие цели
     const goals = await getGoals();
     if (!goals) {
-        alert('❌ Ошибка загрузки целей');
+        showToast('❌ Ошибка загрузки целей');
         return;
     }
-    
     console.log('📊 Текущие цели:', goals);
     
-    // Запрашиваем новые значения
-    const incomeInput = prompt('💰 Цель по доходу за месяц (₽):', goals.income);
-    if (incomeInput === null) {
-        console.log('❌ Пользователь отменил ввод');
-        return;
-    }
+    // 3. Создаём модальное окно
+    const overlay = document.createElement('div');
+    overlay.className = 'goals-modal-overlay';
+    overlay.innerHTML = `
+        <div class="goals-modal">
+            <div class="goals-modal-header">
+                <ion-icon name="flag-outline"></ion-icon>
+                <h3>Мои цели</h3>
+            </div>
+
+            <div class="goals-modal-body">
+                <div class="goal-input-group">
+                    <label>
+                        <ion-icon name="cash-outline" style="color: var(--ios-success);"></ion-icon>
+                        Доход за месяц
+                    </label>
+                    <input type="number" id="goal-income-input" value="${goals.income}" min="1" step="1000" inputmode="numeric" placeholder="100000">
+                    <div class="hint">
+                        <ion-icon name="information-circle-outline"></ion-icon>
+                        Целевая сумма заработка
+                    </div>
+                </div>
+
+                <div class="goal-input-group">
+                    <label>
+                        <ion-icon name="cube-outline" style="color: var(--ios-accent);"></ion-icon>
+                        Заказы за месяц
+                    </label>
+                    <input type="number" id="goal-orders-input" value="${goals.orders}" min="1" step="10" inputmode="numeric" placeholder="500">
+                    <div class="hint">
+                        <ion-icon name="information-circle-outline"></ion-icon>
+                        Количество выполненных заказов
+                    </div>
+                </div>
+
+                <div class="goal-input-group">
+                    <label>
+                        <ion-icon name="time-outline" style="color: var(--ios-warning);"></ion-icon>
+                        Часы за месяц
+                    </label>
+                    <input type="number" id="goal-hours-input" value="${goals.hours}" min="1" step="10" inputmode="numeric" placeholder="200">
+                    <div class="hint">
+                        <ion-icon name="information-circle-outline"></ion-icon>
+                        Общее рабочее время
+                    </div>
+                </div>
+            </div>
+
+            <div class="goals-modal-footer">
+                <button class="btn btn-secondary" id="goal-cancel-btn">
+                    <ion-icon name="close-outline"></ion-icon>
+                    Отмена
+                </button>
+                <button class="btn btn-primary" id="goal-save-btn">
+                    <ion-icon name="checkmark-outline"></ion-icon>
+                    Сохранить
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
     
-    const income = parseFloat(incomeInput);
-    if (isNaN(income) || income <= 0) {
-        alert('❌ Введите корректное число для дохода (больше 0)');
-        return;
-    }
+    // 4. Показываем с анимацией (даём браузеру применить начальные стили)
+    requestAnimationFrame(() => overlay.classList.add('visible'));
     
-    const ordersInput = prompt('📦 Цель по заказам за месяц:', goals.orders);
-    if (ordersInput === null) {
-        console.log('❌ Пользователь отменил ввод');
-        return;
-    }
+    // 5. Ссылки на элементы
+    const incomeInp = overlay.querySelector('#goal-income-input');
+    const ordersInp = overlay.querySelector('#goal-orders-input');
+    const hoursInp = overlay.querySelector('#goal-hours-input');
+    const cancelBtn = overlay.querySelector('#goal-cancel-btn');
+    const saveBtn = overlay.querySelector('#goal-save-btn');
     
-    const orders = parseInt(ordersInput);
-    if (isNaN(orders) || orders <= 0) {
-        alert('❌ Введите корректное число для заказов (больше 0)');
-        return;
-    }
+    // Фокус на первое поле после анимации
+    setTimeout(() => incomeInp.focus(), 300);
     
-    const hoursInput = prompt('⏱ Цель по часам за месяц:', goals.hours);
-    if (hoursInput === null) {
-        console.log('❌ Пользователь отменил ввод');
-        return;
-    }
+    // 6. Валидация в реальном времени
+    const validate = (input) => {
+        const val = parseFloat(input.value);
+        input.classList.toggle('invalid', isNaN(val) || val <= 0);
+    };
+    [incomeInp, ordersInp, hoursInp].forEach(inp => {
+        inp.addEventListener('input', () => validate(inp));
+    });
     
-    const hours = parseFloat(hoursInput);
-    if (isNaN(hours) || hours <= 0) {
-        alert('❌ Введите корректное число для часов (больше 0)');
-        return;
-    }
+    // 7. Функция закрытия с анимацией
+    const closeModal = () => {
+        overlay.classList.remove('visible');
+        document.removeEventListener('keydown', escHandler);
+        setTimeout(() => {
+            if (overlay.parentNode) overlay.remove();
+        }, 300);
+    };
     
-    // Обновляем цели
-    const newGoals = { income, orders, hours };
+    // 8. Закрытие по клику на оверлей (но не на саму модалку)
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) closeModal();
+    });
     
-    // Сохраняем в localStorage
-    try {
-        localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(newGoals));
-        console.log('✅ Цели сохранены в localStorage:', newGoals);
-    } catch (e) {
-        console.error('❌ Ошибка сохранения в localStorage:', e);
-        alert('❌ Ошибка сохранения целей');
-        return;
-    }
+    // 9. Закрытие по Escape
+    const escHandler = (e) => {
+        if (e.key === 'Escape') closeModal();
+    };
+    document.addEventListener('keydown', escHandler);
     
-    // Сохраняем в Firebase
-    const saved = await saveGoalsToFirebase(newGoals);
+    // 10. Кнопка "Отмена"
+    cancelBtn.addEventListener('click', closeModal);
     
-    // Обновляем отображение
-    await updateGoals();
+    // 11. Кнопка "Сохранить" — с валидацией + Firebase
+    saveBtn.addEventListener('click', async () => {
+        validate(incomeInp);
+        validate(ordersInp);
+        validate(hoursInp);
+        
+        const income = parseFloat(incomeInp.value);
+        const orders = parseInt(ordersInp.value, 10);
+        const hours = parseFloat(hoursInp.value);
+        
+        if (isNaN(income) || income <= 0) {
+            showToast('❌ Введите корректный доход');
+            incomeInp.focus();
+            return;
+        }
+        if (isNaN(orders) || orders <= 0) {
+            showToast('❌ Введите корректное количество заказов');
+            ordersInp.focus();
+            return;
+        }
+        if (isNaN(hours) || hours <= 0) {
+            showToast('❌ Введите корректное количество часов');
+            hoursInp.focus();
+            return;
+        }
+        
+        // Блокируем кнопку на время сохранения
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<ion-icon name="sync-outline"></ion-icon> Сохраняем...';
+        
+        const newGoals = { income, orders, hours };
+        
+        try {
+            // === СОХРАНЕНИЕ В LOCALSTORAGE ===
+            localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(newGoals));
+            console.log('✅ Цели сохранены в localStorage:', newGoals);
+            
+            // === СОХРАНЕНИЕ В FIREBASE ===
+            const saved = await saveGoalsToFirebase(newGoals);
+            
+            // === ОБНОВЛЕНИЕ ОТОБРАЖЕНИЯ ===
+            await updateGoals();
+            
+            // === УВЕДОМЛЕНИЕ ===
+            if (saved) {
+                showToast('✅ Цели обновлены и сохранены в облаке!');
+            } else {
+                showToast('⚠️ Цели сохранены локально (ошибка синхронизации)');
+            }
+            
+            closeModal();
+        } catch (error) {
+            console.error('❌ Ошибка сохранения целей:', error);
+            showToast('❌ Ошибка сохранения: ' + error.message);
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<ion-icon name="checkmark-outline"></ion-icon> Сохранить';
+        }
+    });
     
-    if (saved) {
-        showToast('✅ Цели обновлены и сохранены в облаке!');
-    } else {
-        showToast('⚠️ Цели сохранены локально (ошибка синхронизации)');
-    }
+    // 12. Enter в любом поле — сохранить
+    [incomeInp, ordersInp, hoursInp].forEach((inp, idx, arr) => {
+        inp.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (idx < arr.length - 1) arr[idx + 1].focus();
+                else saveBtn.click();
+            }
+        });
+    });
 }
 
 // Обновление отображения целей
@@ -4933,3 +5204,402 @@ window.notifyVehicleChanged = function() {
     originalNotifyVehicleChanged();
     updateFormVehicleSelects();
 };
+
+// ============================================
+// КНОПКА «АВТО» С ВСПЛЫВАЮЩИМ МЕНЮ (Топливо + Ремонт)
+// ============================================
+function toggleAutoMenu(e) {
+    if (e) e.stopPropagation();
+    const menu = document.getElementById('auto-menu');
+    const btn = document.getElementById('nav-auto-btn');
+    if (!menu || !btn) return;
+    
+    if (menu.classList.contains('open')) { closeAutoMenu(); return; }
+    
+    // Меню выпадает ВВЕРХ над кнопкой «Авто»
+    const r = btn.getBoundingClientRect();
+    const mw = 92;
+    let left = r.left + r.width / 2 - mw / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - mw - 8));
+    menu.style.width = mw + 'px';
+    menu.style.left = left + 'px';
+    menu.style.bottom = (window.innerHeight - r.top + 10) + 'px';
+    menu.classList.add('open');
+    btn.classList.add('menu-open');
+}
+
+function closeAutoMenu() {
+    const menu = document.getElementById('auto-menu');
+    const btn = document.getElementById('nav-auto-btn');
+    if (menu) menu.classList.remove('open');
+    if (btn) btn.classList.remove('menu-open');
+}
+
+function selectAutoTab(tab) {
+    closeAutoMenu();
+    switchTab(tab);
+}
+
+// Закрытие по тапу вне меню
+document.addEventListener('click', function(e) {
+    const menu = document.getElementById('auto-menu');
+    const btn = document.getElementById('nav-auto-btn');
+    if (!menu || !menu.classList.contains('open')) return;
+    if (menu.contains(e.target) || (btn && btn.contains(e.target))) return;
+    closeAutoMenu();
+});
+
+// Обёртка switchTab: «Авто» подсвечивается для fuel/repair,
+// вкладка корректно сохраняется и восстанавливается после перезагрузки
+(function() {
+    const origSwitchTab = window.switchTab;
+    if (typeof origSwitchTab !== 'function') return;
+    
+    window.switchTab = function(tabName) {
+        const autoBtn = document.getElementById('nav-auto-btn');
+        if (autoBtn && (tabName === 'fuel' || tabName === 'repair')) {
+            autoBtn.setAttribute('data-tab', tabName);
+        }
+        origSwitchTab.apply(this, arguments);
+        
+        document.querySelectorAll('#auto-menu .auto-menu-item').forEach(function(it) {
+            it.classList.toggle('active', it.getAttribute('data-tab') === tabName);
+        });
+    };
+})();
+
+// ============================================
+// КНОПКИ «АВТО» И «ОТЧЁТЫ» С ВСПЛЫВАЮЩИМИ МЕНЮ
+// ============================================
+function toggleAutoMenu(e) {
+    if (e) e.stopPropagation();
+    togglePopupMenu('auto-menu', 'nav-auto-btn');
+}
+function toggleReportsMenu(e) {
+    if (e) e.stopPropagation();
+    togglePopupMenu('reports-menu', 'nav-reports-btn');
+}
+function togglePopupMenu(menuId, btnId) {
+    const menu = document.getElementById(menuId);
+    const btn = document.getElementById(btnId);
+    if (!menu || !btn) return;
+    const wasOpen = menu.classList.contains('open');
+    closeAllMenus();
+    if (wasOpen) return;
+
+    // Меню выпадает ВВЕРХ над своей кнопкой
+    const r = btn.getBoundingClientRect();
+    const mw = 92;
+    let left = r.left + r.width / 2 - mw / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - mw - 8));
+    menu.style.width = mw + 'px';
+    menu.style.left = left + 'px';
+    menu.style.bottom = (window.innerHeight - r.top + 10) + 'px';
+    menu.classList.add('open');
+    btn.classList.add('menu-open');
+}
+function closeAllMenus() {
+    ['auto-menu', 'reports-menu'].forEach(id => {
+        const m = document.getElementById(id);
+        if (m) m.classList.remove('open');
+    });
+    ['nav-auto-btn', 'nav-reports-btn'].forEach(id => {
+        const b = document.getElementById(id);
+        if (b) b.classList.remove('menu-open');
+    });
+}
+function selectAutoTab(tab) { closeAllMenus(); switchTab(tab); }
+function selectReportsTab(tab) { closeAllMenus(); switchTab(tab); }
+
+// Закрытие по тапу вне меню
+document.addEventListener('click', function (e) {
+    const menus = ['auto-menu', 'reports-menu'].map(id => document.getElementById(id)).filter(Boolean);
+    const btns = ['nav-auto-btn', 'nav-reports-btn'].map(id => document.getElementById(id)).filter(Boolean);
+    if (!menus.some(m => m.classList.contains('open'))) return;
+    if (menus.some(m => m.contains(e.target))) return;
+    if (btns.some(b => b.contains(e.target))) return;
+    closeAllMenus();
+});
+
+// Обёртка switchTab: подсветка «Авто» и «Отчёты» + корректное сохранение вкладок
+(function () {
+    const origSwitchTab = window.switchTab;
+    if (typeof origSwitchTab !== 'function') return;
+
+    window.switchTab = function (tabName) {
+        const autoBtn = document.getElementById('nav-auto-btn');
+        const reportsBtn = document.getElementById('nav-reports-btn');
+        if (autoBtn && (tabName === 'fuel' || tabName === 'repair')) {
+            autoBtn.setAttribute('data-tab', tabName);
+        }
+        if (reportsBtn && (tabName === 'analytics' || tabName === 'history')) {
+            reportsBtn.setAttribute('data-tab', tabName);
+        }
+        origSwitchTab.apply(this, arguments);
+
+        document.querySelectorAll('#auto-menu .auto-menu-item').forEach(function (it) {
+            it.classList.toggle('active', it.getAttribute('data-tab') === tabName);
+        });
+        document.querySelectorAll('#reports-menu .auto-menu-item').forEach(function (it) {
+            it.classList.toggle('active', it.getAttribute('data-tab') === tabName);
+        });
+    };
+})();
+
+// ============================================
+// FAB: МЕНЮ ДОБАВЛЕНИЯ (Запись / Топливо / Ремонт)
+// ============================================
+function toggleFabMenu(e) {
+    if (e) e.stopPropagation();
+    const menu = document.getElementById('fab-menu');
+    const fab = document.getElementById('fab-add');
+    if (!menu || !fab) return;
+    
+    if (menu.classList.contains('open')) { closeFabMenu(); return; }
+    
+    // Закрываем другие открытые меню («Авто», «Отчёты»)
+    if (typeof closeAllMenus === 'function') closeAllMenus();
+    
+    // Меню выпадает ВВЕРХ над кнопкой «+»
+    const r = fab.getBoundingClientRect();
+    const mw = 92;
+    let left = r.left + r.width / 2 - mw / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - mw - 8));
+    menu.style.width = mw + 'px';
+    menu.style.left = left + 'px';
+    menu.style.bottom = (window.innerHeight - r.top + 12) + 'px';
+    menu.classList.add('open');
+    fab.classList.add('fab-open');
+}
+
+function closeFabMenu() {
+    const menu = document.getElementById('fab-menu');
+    const fab = document.getElementById('fab-add');
+    if (menu) menu.classList.remove('open');
+    if (fab) fab.classList.remove('fab-open');
+}
+
+function selectFabAction(action) {
+    closeFabMenu();
+    
+    // 1. Запись дня — старое поведение FAB
+    if (action === 'entry') { openEntryTab(); return; }
+    
+    // 2. Топливо: вкладка + прокрутка к форме заправки
+    if (action === 'fuel') {
+        switchTab('fuel');
+        setTimeout(() => scrollToFirstField('tab-fuel', ['fuel-form', 'fuel-log-form', 'add-fuel-form']), 350);
+        return;
+    }
+    
+    // 3. Ремонт: вкладка + прокрутка к форме ремонта
+    if (action === 'repair') {
+        switchTab('repair');
+        setTimeout(() => scrollToFirstField('tab-repair', ['repair-form', 'add-repair-form']), 350);
+    }
+}
+
+// Универсальный скролл к форме и фокус на первом поле
+function scrollToFirstField(tabId, formIds) {
+    let target = null;
+    (formIds || []).forEach(id => { if (!target) target = document.getElementById(id); });
+    if (!target) target = document.querySelector('#' + tabId + ' form');
+    if (!target) target = document.querySelector('#' + tabId + ' input, #' + tabId + ' select');
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const focusEl = (target.matches && target.matches('input,select')) ? target : target.querySelector('input,select');
+    if (focusEl) {
+        setTimeout(() => {
+            try { focusEl.focus({ preventScroll: true }); } catch (e) { focusEl.focus(); }
+        }, 450);
+    }
+}
+
+// Закрытие меню FAB по тапу вне его
+document.addEventListener('click', function(e) {
+    const menu = document.getElementById('fab-menu');
+    const fab = document.getElementById('fab-add');
+    if (!menu || !menu.classList.contains('open')) return;
+    if (menu.contains(e.target) || (fab && fab.contains(e.target))) return;
+    closeFabMenu();
+});
+
+// ============================================
+// СВОРАЧИВАНИЕ «УПРАВЛЕНИЕ ТАРИФАМИ» — v3 (ИСПРАВЛЕНО)
+// (по умолчанию СВЁРНУТО, стрелка смотрит ВНИЗ)
+// ============================================
+(function() {
+    function initTariffsCollapse() {
+        if (document.getElementById('tariffs-collapse-done-v3')) return;
+        
+        const h2 = Array.from(document.querySelectorAll('h2'))
+            .find(el => {
+                const t = el.textContent.replace(/\s+/g, ' ').trim();
+                return t.includes('Управление тарифами') || t.startsWith('Тариф');
+            });
+        if (!h2) return;
+        const firstCard = h2.closest('.card') || h2.parentElement;
+        if (!firstCard) return;
+        
+        // --- Область 1: всё внутри карточки после заголовка ---
+        const region1 = document.createElement('div');
+        region1.className = 'collapse-region';
+        const inner1 = document.createElement('div');
+        inner1.className = 'collapse-inner';
+        region1.appendChild(inner1);
+        let node = h2.nextElementSibling;
+        while (node) {
+            const cur = node;
+            node = node.nextElementSibling;
+            inner1.appendChild(cur);
+        }
+        firstCard.appendChild(region1);
+        
+        // --- Область 2: соседние блоки «Массовые действия» и «История тарифов» ---
+        const extraBlocks = [];
+        let next = firstCard.nextElementSibling;
+        while (next) {
+            const heading = (next.querySelector('h2, h3') || {}).textContent || '';
+            if (heading.includes('Массовые действия') || heading.includes('История тарифов')) {
+                extraBlocks.push(next);
+                next = next.nextElementSibling;
+            } else break;
+        }
+        let region2 = null;
+        if (extraBlocks.length) {
+            region2 = document.createElement('div');
+            region2.className = 'collapse-region';
+            const inner2 = document.createElement('div');
+            inner2.className = 'collapse-inner';
+            region2.appendChild(inner2);
+            firstCard.parentNode.insertBefore(region2, extraBlocks[0]);
+            extraBlocks.forEach(b => inner2.appendChild(b));
+        }
+        
+        // --- ✅ ПЕРВОНАЧАЛЬНОЕ СОСТОЯНИЕ: СВЁРНУТО ---
+        region1.classList.add('collapsed');
+        if (region2) region2.classList.add('collapsed');
+        // ⚠️ КЛАСС 'open' НЕ ВЕШАЕМ — стрелка остаётся смотреть ВНИЗ
+        // (класс 'open' появится только при разворачивании)
+        
+        // --- Заголовок: шеврон + тап ---
+        h2.classList.add('collapse-toggle');
+        if (!h2.querySelector('.collapse-chevron')) {
+            const chev = document.createElement('ion-icon');
+            chev.setAttribute('name', 'chevron-down-outline');
+            chev.className = 'collapse-chevron';
+            h2.appendChild(chev);
+        }
+        h2.addEventListener('click', function() {
+            const collapsed = !region1.classList.contains('collapsed');
+            region1.classList.toggle('collapsed', collapsed);
+            if (region2) region2.classList.toggle('collapsed', collapsed);
+            // ✅ ИСПРАВЛЕНО: open когда НЕ свёрнуто (!collapsed)
+            h2.classList.toggle('open', !collapsed);
+        });
+        
+        // Метка от повторной инициализации
+        const mark = document.createElement('span');
+        mark.id = 'tariffs-collapse-done-v3';
+        mark.style.display = 'none';
+        firstCard.appendChild(mark);
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initTariffsCollapse);
+    } else {
+        initTariffsCollapse();
+    }
+})();
+
+// ============================================
+// ШАПКА v4: автораспорка + живая дата
+// ============================================
+(function() {
+    function syncSpacer() {
+        const header = document.querySelector('.top-header');
+        const spacer = document.getElementById('header-spacer');
+        if (!header || !spacer) return;
+        spacer.style.height = header.offsetHeight + 'px';
+    }
+    // Пересчитываем высоту при любом изменении шапки и экрана
+    if ('ResizeObserver' in window) {
+        const header = document.querySelector('.top-header');
+        if (header) new ResizeObserver(syncSpacer).observe(header);
+    }
+    window.addEventListener('resize', syncSpacer);
+    window.addEventListener('load', syncSpacer);
+    setTimeout(syncSpacer, 300);
+    setTimeout(syncSpacer, 1000);
+    
+    // Подзаголовок с сегодняшней датой
+    const sub = document.getElementById('header-subtitle');
+    if (sub) {
+        const s = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        sub.textContent = s.charAt(0).toUpperCase() + s.slice(1);
+    }
+})();
+
+// ============================================
+// СВОРАЧИВАНИЕ «МОИ АВТОМОБИЛИ» — v2 (общая система с тарифами)
+// ============================================
+(function() {
+    function initVehiclesCollapse() {
+        if (document.getElementById('vehicles-collapse-done-v2')) return;
+        
+        const h2 = Array.from(document.querySelectorAll('h2'))
+            .find(el => el.textContent.includes('Мои автомобили'));
+        if (!h2) return;
+        const card = h2.closest('.card') || h2.parentElement;
+        if (!card) return;
+        
+        // Если осталась обёртка старой версии — разворачиваем её обратно
+        const oldWrap = card.querySelector('.collapse-wrapper');
+        if (oldWrap) {
+            while (oldWrap.firstChild) card.insertBefore(oldWrap.firstChild, oldWrap);
+            oldWrap.remove();
+        }
+        
+        // --- Область сворачивания (как у тарифов) ---
+        const region = document.createElement('div');
+        region.className = 'collapse-region';
+        const inner = document.createElement('div');
+        inner.className = 'collapse-inner';
+        region.appendChild(inner);
+        let node = h2.nextElementSibling;
+        while (node) {
+            const cur = node;
+            node = node.nextElementSibling;
+            inner.appendChild(cur);
+        }
+        card.appendChild(region);
+        
+        // ✅ По умолчанию СВЁРНУТО, стрелка ВНИЗ
+        region.classList.add('collapsed');
+        
+        // --- Шеврон + тап ---
+        h2.classList.add('collapse-toggle');
+        if (!h2.querySelector('.collapse-chevron')) {
+            const chev = document.createElement('ion-icon');
+            chev.setAttribute('name', 'chevron-down-outline');
+            chev.className = 'collapse-chevron';
+            h2.appendChild(chev);
+        }
+        h2.addEventListener('click', function() {
+            const collapsed = !region.classList.contains('collapsed');
+            region.classList.toggle('collapsed', collapsed);
+            h2.classList.toggle('open', !collapsed); // open = развёрнуто = стрелка вверх
+        });
+        
+        const mark = document.createElement('span');
+        mark.id = 'vehicles-collapse-done-v2';
+        mark.style.display = 'none';
+        card.appendChild(mark);
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initVehiclesCollapse);
+    } else {
+        initVehiclesCollapse();
+    }
+})();
