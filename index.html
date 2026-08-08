@@ -90,7 +90,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.7.0" defer></script>
+    <script src="script.js?v=2.7.1" defer></script>
     
     <!-- 1. МОДУЛЬ АВТОМОБИЛЕЙ (ОБЯЗАТЕЛЬНО ПЕРВЫМ) -->
 <script src="vehicle-module.js?v=1.0.4"></script>
@@ -241,10 +241,9 @@
 <div class="container">
     <!-- Верхняя шапка только с заголовком -->
 <!-- ============================================ -->
-<!-- ШАПКА v4 — ЗАФИКСИРОВАНА НАМЕРТВО -->
+<!-- ШАПКА + ПЕРЕКЛЮЧАТЕЛЬ ТЁМНОЙ ТЕМЫ -->
 <!-- ============================================ -->
 <header class="top-header">
-    <!-- РЯД 1: название -->
     <div class="header-top-row">
         <div class="header-logo">
             <ion-icon name="car-sport-outline"></ion-icon>
@@ -255,7 +254,6 @@
         </div>
     </div>
     
-    <!-- РЯД 2: статус Firebase + выход -->
     <div class="header-bottom-row">
         <div id="connection-status-wrapper" style="display: none;">
             <button id="connection-status" onclick="showConnectionDetails()">
@@ -263,13 +261,25 @@
                 <span id="connection-text">Проверка подключения...</span>
             </button>
         </div>
-        <button id="logout-btn" class="header-logout">
-            <ion-icon name="log-out-outline"></ion-icon>
-            <span>Выйти</span>
-        </button>
+        
+        <div class="header-actions">
+            <!-- iOS-слайдер темы -->
+            <label class="theme-switch" title="Тёмная тема">
+                <input type="checkbox" id="theme-toggle">
+                <span class="theme-switch-track">
+                    <ion-icon name="sunny-outline" class="switch-icon sun"></ion-icon>
+                    <ion-icon name="moon-outline" class="switch-icon moon"></ion-icon>
+                    <span class="theme-switch-thumb"></span>
+                </span>
+            </label>
+            
+            <button id="logout-btn" class="header-logout">
+                <ion-icon name="log-out-outline"></ion-icon>
+                <span>Выйти</span>
+            </button>
+        </div>
     </div>
 </header>
-<!-- Распорка: контент не прячется под шапкой -->
 <div class="header-spacer" id="header-spacer"></div>
 
     <!-- Основной контент вкладок -->

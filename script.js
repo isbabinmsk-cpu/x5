@@ -5603,3 +5603,245 @@ document.addEventListener('click', function(e) {
         initVehiclesCollapse();
     }
 })();
+
+// ============================================
+// КАСТОМНЫЕ iOS-СПИСКИ ДЛЯ МЕСЯЦЕВ И ГОДОВ
+// (нативный select остаётся в DOM скрытым — вся логика работает)
+// ============================================
+function closeAllIosSelects() {
+    document.querySelectorAll('.ios-select-wrap.open').forEach(w => w.classList.remove('open'));
+}
+
+function buildIosSelect(sel) {
+    sel.style.display = 'none';
+    const wrap = document.createElement('div');
+    wrap.className = 'ios-select-wrap';
+    sel.parentNode.insertBefore(wrap, sel);
+    wrap.appendChild(sel);
+
+    const display = document.createElement('button');
+    display.type = 'button';
+    display.className = 'ios-select-display';
+    display.innerHTML = '<span class="ios-select-value"></span><ion-icon name="chevron-down-outline" class="chev"></ion-icon>';
+    wrap.appendChild(display);
+
+    const menu = document.createElement('div');
+    menu.className = 'ios-select-menu';
+    wrap.appendChild(menu);
+
+    function rebuild() {
+        menu.innerHTML = '';
+        Array.from(sel.options).forEach(opt => {
+            const row = document.createElement('div');
+            row.className = 'ios-select-option';
+            row.dataset.value = opt.value;
+            row.innerHTML = '<span></span><ion-icon name="checkmark-circle"></ion-icon>';
+            row.querySelector('span').textContent = opt.textContent;
+            row.addEventListener('click', () => {
+                sel.value = opt.value;
+                sel.dispatchEvent(new Event('change', { bubbles: true }));
+                sync();
+                close();
+            });
+            menu.appendChild(row);
+        });
+    }
+
+    function sync() {
+        const opt = sel.options[sel.selectedIndex];
+        display.querySelector('.ios-select-value').textContent = opt ? opt.textContent : '';
+        menu.querySelectorAll('.ios-select-option').forEach(r =>
+            r.classList.toggle('selected', r.dataset.value === sel.value));
+    }
+
+    function open() {
+        closeAllIosSelects();
+        rebuild();
+        sync();
+        wrap.classList.add('open');
+        const selRow = menu.querySelector('.selected');
+        if (selRow) setTimeout(() => selRow.scrollIntoView({ block: 'nearest' }), 60);
+    }
+    function close() { wrap.classList.remove('open'); }
+
+    display.addEventListener('click', (e) => {
+        e.stopPropagation();
+        wrap.classList.contains('open') ? close() : open();
+    });
+    menu.addEventListener('click', e => e.stopPropagation());
+
+    // Следим за динамическим изменением options (новые годы и т.п.)
+    new MutationObserver(() => { wrap.classList.contains('open') ? rebuild() : sync(); })
+        .observe(sel, { childList: true, subtree: true, characterData: true });
+
+    // Синхронизация при change и при программной смене значения
+    sel.addEventListener('change', sync);
+    setInterval(() => {
+        const opt = sel.options[sel.selectedIndex];
+        const cur = display.querySelector('.ios-select-value').textContent;
+        if (opt && opt.textContent !== cur) sync();
+    }, 600);
+
+    sync();
+}
+
+function initCustomSelects() {
+    const monthRe = /январ|феврал|март|апрел|ма[йя]|июн|июл|август|сентябр|октябр|ноябр|декабр/i;
+    const yearRe = /все годы|^\d{4}$/i;
+
+    document.querySelectorAll('select').forEach(sel => {
+        if (sel.dataset.iosDone) return;
+        const texts = Array.from(sel.options).map(o => o.textContent.trim());
+const isMonth = texts.some(t => monthRe.test(t));
+const isYear = texts.some(t => yearRe.test(t));
+const periodRe = /все время|этот месяц|месяца|полгода|недел|период|^\s*год\s*$/i;
+const isPeriod = texts.some(t => periodRe.test(t));
+// ✅ НОВОЕ: категории ремонтов
+const catRe = /все категории|категори|двигатель|трансмисс|тормозн|подвеск|электрик|кузов|шины|диски|масло|жидкост|охлажден|выхлопн|прочее/i;
+const isCategory = texts.some(t => catRe.test(t));
+if (!isMonth && !isYear && !isPeriod && !isCategory) return;
+sel.dataset.iosDone = '1';
+buildIosSelect(sel);
+    });
+}
+
+// Закрытие по тапу вне, по скроллу страницы и по ресайзу
+document.addEventListener('click', closeAllIosSelects);
+document.addEventListener('scroll', (e) => {
+    if (e.target && e.target.closest && e.target.closest('.ios-select-menu')) return;
+    closeAllIosSelects();
+}, true);
+window.addEventListener('resize', closeAllIosSelects);
+
+// Первый запуск
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCustomSelects);
+} else {
+    initCustomSelects();
+}
+
+// ✅ ФИКС: селекты с ДИНАМИЧЕСКИМИ опциями (Отчёты и др.)
+// Повторяем конвертацию, пока опции не появятся (макс. 20 секунд)
+let _iosTries = 0;
+const _iosTimer = setInterval(() => {
+    initCustomSelects();
+    if (++_iosTries > 20) clearInterval(_iosTimer);
+}, 1000);
+
+// ✅ Слежение за появлением новых select / опций в DOM
+new MutationObserver(() => initCustomSelects())
+    .observe(document.body, { childList: true, subtree: true });
+    
+// ============================================
+// ФИКС v4: ИСТОРИЯ — мгновенный пересчёт (renderTable напрямую)
+// ============================================
+document.addEventListener('change', function(e) {
+    const sel = e.target;
+    if (!sel || sel.tagName !== 'SELECT' || !sel.dataset.iosDone) return;
+    if (!sel.closest('#tab-history')) return; // только История
+    
+    setTimeout(() => {
+        const card = sel.closest('.card');
+        
+        // 1) Клик по главной кнопке фильтров — она выставляет
+        //    currentHistoryMonth / currentHistoryYear из селектов
+        if (card) {
+            const btn = card.querySelector('.btn-primary');
+            if (btn) {
+                btn.click();
+                console.log('✅ Клик по кнопке фильтров Истории');
+            }
+        }
+        
+        // 2) Прямая перерисовка таблицы + строки «Показано…»
+        if (typeof window.renderTable === 'function') {
+            window.renderTable();
+            console.log('✅ renderTable() вызван напрямую');
+        }
+    }, 60);
+});
+
+// ============================================
+// ТЁМНАЯ ТЕМА v2: прямая привязка + фон html + логи
+// ============================================
+(function() {
+    const KEY = 'driverTheme';
+    const toggle = document.getElementById('theme-toggle');
+    
+    function applyTheme(dark) {
+        document.body.classList.toggle('dark-theme', dark);
+        // Фон под скроллом (overscroll) тоже темнеет
+        document.documentElement.style.background = dark ? '#000000' : '#F2F2F7';
+        if (toggle) toggle.checked = dark;
+        
+        let meta = document.querySelector('meta[name="theme-color"]');
+        if (!meta) {
+            meta = document.createElement('meta');
+            meta.name = 'theme-color';
+            document.head.appendChild(meta);
+        }
+        meta.content = dark ? '#000000' : '#F2F2F7';
+        console.log(dark ? '🌙 Тёмная тема включена' : '☀️ Светлая тема включена');
+    }
+    
+    // При загрузке: сохранённая или системная
+    const saved = localStorage.getItem(KEY);
+    const prefersDark = window.matchMedia &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(saved ? saved === 'dark' : prefersDark);
+    
+    // Прямой слушатель на ползунок (без делегирования — надёжнее)
+    if (toggle) {
+        toggle.addEventListener('change', function() {
+            const dark = this.checked; //_checked = тема_
+            localStorage.setItem(KEY, dark ? 'dark' : 'light');
+            applyTheme(dark);
+            showToast(dark ? '🌙 Тёмная тема включена' : '☀️ Светлая тема включена');
+        });
+    } else {
+        console.warn('⚠️ #theme-toggle не найден в DOM');
+    }
+})();
+
+// Помечаем «Детальная статистика» И «Тренды за месяц» (ячейки → ds-cell)
+(function() {
+    const targets = ['детальная статистика', 'тренды за месяц'];
+    const doneMap = {};
+    
+    function tagSection(text) {
+        if (doneMap[text]) return true;
+        const heading = Array.from(
+            document.querySelectorAll('#tab-home h1, #tab-home h2, #tab-home h3, #tab-home h4')
+        ).find(el => el.textContent.toLowerCase().includes(text));
+        if (!heading) return false;
+        
+        const card = heading.closest('.card') || heading.parentElement;
+        
+        // Ячейки: дети блока-сетки, идущего сразу после заголовка (+ запасные варианты)
+        let cells = [];
+        const grid = heading.nextElementSibling;
+        if (grid && grid.children.length) cells = Array.from(grid.children);
+        if (!cells.length) cells = Array.from(card.querySelectorAll('.stat-card, .stats-grid > *'));
+        if (!cells.length) cells = Array.from(card.children).filter(c => c !== heading);
+        
+        cells.forEach(el => el.classList.add('ds-cell'));
+        doneMap[text] = true;
+        console.log('✅ Секция «' + text + '» помечена, ячеек:', cells.length);
+        return true;
+    }
+    
+    function tagAll() { return targets.every(t => tagSection(t)); }
+    
+    // Ретрай, пока секции не отрендерятся (макс. 30 сек)
+    let tries = 0;
+    const timer = setInterval(() => {
+        if (tagAll() || ++tries > 30) clearInterval(timer);
+    }, 1000);
+    
+    // Мгновенно при изменениях DOM в Профиле
+    const home = document.getElementById('tab-home');
+    if (home) {
+        new MutationObserver(() => tagAll()).observe(home, { childList: true, subtree: true });
+    }
+    tagAll();
+})();

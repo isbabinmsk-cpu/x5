@@ -5291,3 +5291,945 @@ h2.collapse-toggle .collapse-chevron {
 
 /* Чуть больше воздуха снизу, чтобы тень растворилась до кромки */
 .collapse-inner > *:last-child { margin-bottom: 20px; }
+
+/* ============================================
+КАСТОМНЫЕ iOS-СПИСКИ (месяцы / годы)
+============================================ */
+.ios-select-wrap { position: relative; }
+
+.ios-select-display {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    background: linear-gradient(180deg, #ffffff 0%, #f4f4f8 100%);
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04), 0 1px 0 rgba(255, 255, 255, 0.8);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ios-text-primary);
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+}
+.ios-select-display .chev {
+    font-size: 18px;
+    color: var(--ios-text-tertiary);
+    transition: transform 0.25s var(--ios-spring);
+    flex-shrink: 0;
+}
+.ios-select-wrap.open .ios-select-display { border-color: var(--ios-accent); box-shadow: 0 0 0 3px var(--ios-accent-glow); }
+.ios-select-wrap.open .ios-select-display .chev { transform: rotate(180deg); }
+
+.ios-select-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0; right: 0;
+    z-index: 3000;
+    max-height: 280px;
+    overflow-y: auto;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: 16px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(0, 0, 0, 0.10);
+    padding: 6px;
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+    transform-origin: top center;
+    pointer-events: none;
+    transition: opacity 0.2s var(--ios-spring), transform 0.2s var(--ios-spring);
+    scrollbar-width: none;
+}
+.ios-select-menu::-webkit-scrollbar { display: none; }
+.ios-select-wrap.open .ios-select-menu {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+}
+
+.ios-select-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ios-text-primary);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.ios-select-option:active { background: rgba(0, 122, 255, 0.08); }
+.ios-select-option ion-icon { font-size: 18px; color: var(--ios-accent); opacity: 0; flex-shrink: 0; }
+.ios-select-option.selected {
+    background: var(--ios-accent-light);
+    color: var(--ios-accent);
+    font-weight: 700;
+}
+.ios-select-option.selected ion-icon { opacity: 1; }
+
+/* ============================================
+ФИКС: ОТКРЫТЫЙ СПИСОК ПОВЕРХ СОСЕДНИХ КАРТОЧЕК
+(поднимаем слой карточки, в которой открыт список)
+============================================ */
+.card:has(.ios-select-wrap.open),
+.filters:has(.ios-select-wrap.open),
+.section-title:has(.ios-select-wrap.open) {
+    position: relative;
+    z-index: 600;   /* выше соседних карточек, но ниже шапки/меню/FAB */
+}
+
+/* ============================================
+PREMIUM АНИМАЦИЯ ЗАГОЛОВКА (Apple/Spotify style)
+Без радуги — только сине-белая палитра
+============================================ */
+
+/* 1. ШАПКА: бегущий световой блик по фону (как сканер) */
+.top-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(90deg,
+        transparent,
+        rgba(0, 122, 255, 0.04),
+        rgba(255, 255, 255, 0.12),
+        rgba(0, 122, 255, 0.04),
+        transparent);
+    animation: headerSweep 7s ease-in-out infinite !important;
+    pointer-events: none;
+    z-index: 1;
+}
+@keyframes headerSweep {
+    0%        { left: -100%; opacity: 0; }
+    15%       { opacity: 1; }
+    85%       { opacity: 1; }
+    100%      { left: 100%; opacity: 0; }
+}
+
+/* 2. ЛОГОТИП: пульсирующее кольцо вокруг + вращающийся блик */
+.header-logo {
+    position: relative;
+    animation: logoFloat 6s ease-in-out infinite !important;
+}
+@keyframes logoFloat {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50%      { transform: translateY(-1px) scale(1.02); }
+}
+
+/* Кольцо-пульсация вокруг логотипа */
+.header-logo::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #FF3B30, #FF9500);
+    opacity: 0;
+    z-index: -1;
+    animation: logoRing 3s ease-out infinite !important;
+}
+@keyframes logoRing {
+    0%   { transform: scale(0.9); opacity: 0.6; }
+    100% { transform: scale(1.4); opacity: 0; }
+}
+
+/* Блик-капля внутри логотипа */
+.header-logo::after {
+    content: '';
+    position: absolute;
+    top: -80%;
+    left: -50%;
+    width: 50%;
+    height: 180%;
+    background: linear-gradient(
+        110deg,
+        transparent 0%,
+        transparent 40%,
+        rgba(255, 255, 255, 0.7) 50%,
+        transparent 60%,
+        transparent 100%);
+    transform: rotate(25deg);
+    animation: logoShineDrop 5s ease-in-out infinite !important;
+    pointer-events: none;
+}
+@keyframes logoShineDrop {
+    0%, 40%  { left: -50%; }
+    100%     { left: 150%; }
+}
+
+/* Иконка внутри логотипа: лёгкое покачивание */
+.header-logo ion-icon {
+    animation: iconSway 4s ease-in-out infinite !important;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+@keyframes iconSway {
+    0%, 100% { transform: rotate(-2deg); }
+    50%      { transform: rotate(2deg); }
+}
+
+/* 3. ЗАГОЛОВОК: металлический синий градиент с бегущим бликом */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+    .top-header h1 {
+        background: linear-gradient(90deg,
+            #1a1a1a 0%,
+            #2c2c2e 20%,
+            #007AFF 40%,
+            #5AC8FA 50%,
+            #007AFF 60%,
+            #2c2c2e 80%,
+            #1a1a1a 100%);
+        background-size: 300% 100%;
+        background-position: 0% 0;
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: titleMetallic 8s ease-in-out infinite !important;
+        text-shadow: 0 0 30px rgba(0, 122, 255, 0.1);
+    }
+}
+@keyframes titleMetallic {
+    0%   { background-position: 0% 0; }
+    100% { background-position: 300% 0; }
+}
+
+/* 4. ЛИНия ПОД ШАПКОЙ: бегущая синяя волна (Apple-style) */
+.top-header::after {
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(0, 122, 255, 0.8) 45%,
+        rgba(90, 200, 250, 1) 50%,
+        rgba(0, 122, 255, 0.8) 55%,
+        transparent 100%) !important;
+    background-size: 200% 100% !important;
+    opacity: 0.7 !important;
+    animation: brandWave 4s ease-in-out infinite !important;
+    box-shadow: 0 0 8px rgba(0, 122, 255, 0.5);
+}
+@keyframes brandWave {
+    0%   { background-position: -100% 0; }
+    100% { background-position: 200% 0; }
+}
+
+/* 5. ПОДЗАГОЛОВОК с датой: мерцание + иконка-индикатор */
+.header-subtitle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ios-text-secondary);
+    animation: subtitleFade 6s ease-in-out infinite !important;
+}
+.header-subtitle::before {
+    content: '';
+    display: inline-block;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--ios-success);
+    box-shadow: 0 0 6px rgba(52, 199, 89, 0.8);
+    animation: subtitleDot 2s ease-in-out infinite !important;
+}
+@keyframes subtitleFade {
+    0%, 100% { opacity: 1; color: var(--ios-text-secondary); }
+    50%      { opacity: 0.85; color: var(--ios-accent); }
+}
+@keyframes subtitleDot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.4); opacity: 0.6; }
+}
+
+/* 6. ПЛАВНОЕ ПОЯВЛЕНИЕ при загрузке */
+.top-header h1 {
+    animation: titleIn 1s cubic-bezier(0.32, 0.72, 0, 1) both,
+               titleMetallic 8s ease-in-out 1s infinite !important;
+}
+@keyframes titleIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+        filter: blur(4px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+        filter: blur(0);
+    }
+}
+
+/* 7. ЭФФЕКТ ПРИ НАВЕДЕНИИ (на десктопе) */
+@media (hover: hover) {
+    .top-header:hover {
+        box-shadow: 0 12px 44px rgba(0, 122, 255, 0.08) !important;
+    }
+    .top-header:hover h1 {
+        filter: brightness(1.08);
+        transition: filter 0.3s;
+    }
+    .top-header:hover .header-logo {
+        animation-play-state: paused;
+        transform: scale(1.05) translateY(-1px);
+        transition: transform 0.3s var(--ios-spring);
+    }
+}
+
+/* 8. АДАПТИВ: на узких экранах убираем часть анимаций для производительности */
+@media (max-width: 380px) {
+    .top-header::before { animation-duration: 12s !important; }
+    .header-logo::before { animation: none !important; }
+}
+
+/* 9. Уважение к настройкам "уменьшить движение" */
+@media (prefers-reduced-motion: reduce) {
+    .top-header::before,
+    .header-logo,
+    .header-logo::before,
+    .header-logo::after,
+    .header-logo ion-icon,
+    .top-header h1,
+    .top-header::after,
+    .header-subtitle,
+    .header-subtitle::before {
+        animation: none !important;
+    }
+}
+
+/* ============================================
+ФИКС: ТОЧКА В ПОДЗАГОЛОВКЕ БОЛЬШЕ НЕ ОБРЕЗАЕТСЯ
+(теперь это фон — его нельзя обрезать)
+============================================ */
+.header-subtitle::before {
+    display: none !important;   /* убираем обрезанный элемент */
+}
+
+.header-subtitle {
+    padding-left: 14px;         /* место под точку */
+    background-image:
+        radial-gradient(circle, rgba(52, 199, 89, 0.30) 0 4.5px, transparent 5.5px), /* ореол */
+        radial-gradient(circle, #34C759 0 2.5px, transparent 3.5px);                 /* точка */
+    background-repeat: no-repeat, no-repeat;
+    background-position: left center, left center;
+    background-size: 11px 11px, 7px 7px;
+}
+
+/* ============================================
+iOS-СЛАЙДЕР ТЕМЫ
+============================================ */
+.header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.theme-switch { position: relative; display: inline-block; width: 51px; height: 31px; flex-shrink: 0; }
+.theme-switch input {
+    position: absolute; opacity: 0; width: 100%; height: 100%;
+    margin: 0; cursor: pointer; z-index: 3;
+}
+.theme-switch-track {
+    position: absolute; inset: 0;
+    border-radius: 100px;
+    background: rgba(120, 120, 128, 0.32);
+    transition: background 0.3s;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 7px;
+}
+.theme-switch-track .switch-icon { font-size: 14px; }
+.switch-icon.sun { color: #FFD60A; }
+.switch-icon.moon { color: #F2F2F7; }
+.theme-switch-thumb {
+    position: absolute; top: 2px; left: 2px;
+    width: 27px; height: 27px; border-radius: 50%;
+    background: #FFFFFF;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.16);
+    transition: transform 0.3s var(--ios-spring);
+    z-index: 2;
+}
+.theme-switch input:checked + .theme-switch-track { background: #30D158; }
+.theme-switch input:checked + .theme-switch-track .theme-switch-thumb { transform: translateX(20px); }
+
+/* ############################################################
+   ############################################################
+   ТЁМНАЯ ТЕМА (iOS DARK) — ЕДИНЫЙ ПОЛНЫЙ БЛОК
+   ############################################################
+   ############################################################ */
+
+/* ========== 1. ПЕРЕМЕННЫЕ И АЛИАСЫ ========== */
+body.dark-theme {
+    color-scheme: dark;
+    --ios-bg-primary: #000000;
+    --ios-bg-secondary: #1C1C1E;
+    --ios-bg-tertiary: #2C2C2E;
+    --ios-bg-card: #1C1C1E;
+    --ios-text-primary: #FFFFFF;
+    --ios-text-secondary: rgba(235, 235, 245, 0.72);
+    --ios-text-tertiary: rgba(235, 235, 245, 0.45);
+    --ios-border: rgba(255, 255, 255, 0.10);
+    --ios-accent: #0A84FF;
+    --ios-accent-light: rgba(10, 132, 255, 0.18);
+    --ios-success: #30D158;
+    --ios-danger: #FF453A;
+    --ios-warning: #FFD60A;
+}
+
+/* Алиасы: модули используют --text-primary и т.п. — привязываем к iOS-переменным */
+:root {
+    --text-primary: var(--ios-text-primary);
+    --text-secondary: var(--ios-text-secondary);
+    --text-tertiary: var(--ios-text-tertiary);
+    --bg-primary: var(--ios-bg-primary);
+    --bg-secondary: var(--ios-bg-secondary);
+    --bg-card: var(--ios-bg-card, #FFFFFF);
+    --bg-tertiary: var(--ios-bg-tertiary);
+    --border: var(--ios-border);
+    --border-color: var(--ios-border);
+    --accent: var(--ios-accent);
+    --success: var(--ios-success);
+    --danger: var(--ios-danger);
+    --warning: var(--ios-warning);
+}
+
+/* ========== 2. БАЗА: ФОН СТРАНИЦЫ ========== */
+body.dark-theme {
+    background: #000000 !important;
+    animation: none !important;
+}
+html:has(body.dark-theme) { background: #000000; }
+body.dark-theme .container,
+body.dark-theme .tab-content,
+body.dark-theme main { background: transparent; }
+
+/* Слайдер темы: в тёмной теме видна ЛУНА, в светлой — СОЛНЦЕ */
+.theme-switch-track { flex-direction: row-reverse; }
+
+/* ========== 3. ШАПКА ========== */
+body.dark-theme .top-header {
+    background: rgba(22, 22, 26, 0.92) !important;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+body.dark-theme .top-header::before {
+    background: linear-gradient(90deg, transparent,
+        rgba(10, 132, 255, 0.05), rgba(255, 255, 255, 0.06),
+        rgba(10, 132, 255, 0.05), transparent);
+}
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+    body.dark-theme .top-header h1 {
+        background: linear-gradient(90deg,
+            #f5f5f7 0%, #d1d1d6 20%, #0A84FF 40%, #64B5FF 50%,
+            #0A84FF 60%, #d1d1d6 80%, #f5f5f7 100%);
+        background-size: 300% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+    }
+}
+body.dark-theme .header-logout {
+    background: linear-gradient(180deg, rgba(255, 69, 58, 0.22), rgba(255, 69, 58, 0.12)) !important;
+    color: #FF6961 !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 8px rgba(255, 69, 58, 0.15) !important;
+}
+body.dark-theme .header-logout ion-icon { color: #FF6961 !important; }
+
+/* Статус Firebase: осветляем инлайн-цвета (зелёный/красный/оранжевый) */
+body.dark-theme #connection-text,
+body.dark-theme #connection-dot {
+    filter: brightness(1.8) saturate(1.1);
+}
+
+/* ========== 4. КАРТОЧКИ И ПАНЕЛИ ========== */
+body.dark-theme .card,
+body.dark-theme .stat-card,
+body.dark-theme .filters,
+body.dark-theme .table-container,
+body.dark-theme .chart-container,
+body.dark-theme .section-title,
+body.dark-theme .tariff-actions-panel,
+body.dark-theme .tariff-form,
+body.dark-theme .comparison-section,
+body.dark-theme .comparison-period,
+body.dark-theme .summary-card,
+body.dark-theme .repair-item,
+body.dark-theme .repair-chart-box,
+body.dark-theme .repair-calc-results,
+body.dark-theme .vehicle-item,
+body.dark-theme .fuel-log-item,
+body.dark-theme .dynamic-item,
+body.dark-theme .repair-service-item,
+body.dark-theme .achievement-badge,
+body.dark-theme .goals-modal,
+body.dark-theme .logout-modal {
+    background: linear-gradient(180deg, #2A2A2E 0%, #232327 55%, #1D1D21 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.50),
+        0 4px 12px rgba(0, 0, 0, 0.40),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.06),
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.40);
+}
+
+/* Карточки во вкладках — принудительно (ID побеждает светлые правила) */
+body.dark-theme #tab-home .card,
+body.dark-theme #tab-home .stat-card,
+body.dark-theme #tab-analytics .card,
+body.dark-theme #tab-history .card,
+body.dark-theme #tab-fuel .card,
+body.dark-theme #tab-repair .card,
+body.dark-theme #tab-settings .card {
+    background: linear-gradient(180deg, #2A2A2E 0%, #232327 55%, #1D1D21 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.50),
+        0 4px 12px rgba(0, 0, 0, 0.40),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.06),
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.40) !important;
+}
+
+body.dark-theme .repair-stat-card,
+body.dark-theme .pagination button,
+body.dark-theme .page-btn,
+body.dark-theme .vehicle-add-form {
+    background: linear-gradient(180deg, #2A2A2E 0%, #232327 55%, #1D1D21 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5),
+                inset 0 1.5px 0 rgba(255, 255, 255, 0.06),
+                inset 0 -1.5px 0 rgba(0, 0, 0, 0.4);
+    color: #FFFFFF;
+}
+
+/* Цветные акцентные карточки */
+body.dark-theme .tariff-item {
+    background: linear-gradient(180deg, rgba(48, 209, 88, 0.16), rgba(48, 209, 88, 0.10));
+    border-color: rgba(48, 209, 88, 0.35);
+}
+body.dark-theme .vehicle-item.active {
+    background: linear-gradient(180deg, rgba(48, 209, 88, 0.18), rgba(48, 209, 88, 0.10));
+    border-color: #30D158;
+}
+body.dark-theme .tariff-info {
+    background: rgba(255, 159, 10, 0.12);
+    color: #FFB340;
+    border-color: rgba(255, 159, 10, 0.30);
+}
+
+/* ========== 5. ПОЛЯ ВВОДА ========== */
+body.dark-theme input,
+body.dark-theme select,
+body.dark-theme textarea {
+    background: #2C2C2E !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    color: #FFFFFF !important;
+}
+body.dark-theme input::placeholder,
+body.dark-theme textarea::placeholder { color: rgba(235, 235, 245, 0.35); }
+
+/* ========== 6. ТАБЛИЦЫ ========== */
+body.dark-theme table { background: #1C1C1E !important; }
+body.dark-theme table th {
+    background: #2C2C2E !important;
+    color: rgba(235, 235, 245, 0.70) !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+body.dark-theme table td {
+    background: transparent !important;
+    color: #FFFFFF !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+}
+/* Строки с инлайн-фонами (недели/итоги) */
+body.dark-theme tr[style*="dbeafe"],
+body.dark-theme tr[style*="DBEAFE"] { background: rgba(10, 132, 255, 0.12) !important; }
+body.dark-theme tr[style*="d1fae5"],
+body.dark-theme tr[style*="D1FAE5"],
+body.dark-theme tr[style*="e8f5e9"],
+body.dark-theme tr[style*="E8F5E9"] { background: rgba(48, 209, 88, 0.12) !important; }
+body.dark-theme tr[style*="dbeafe"] td,
+body.dark-theme tr[style*="d1fae5"] td,
+body.dark-theme tr[style*="e8f5e9"] td { color: #FFFFFF !important; }
+body.dark-theme .week-summary,
+body.dark-theme tr[class*="week"] { background: rgba(10, 132, 255, 0.12) !important; }
+body.dark-theme .total-row,
+body.dark-theme tr[class*="total"],
+body.dark-theme tr[class*="itog"] { background: rgba(48, 209, 88, 0.12) !important; }
+body.dark-theme #filter-info {
+    background: rgba(10, 132, 255, 0.15) !important;
+    color: #7EB6FF !important;
+}
+
+/* ========== 7. НИЖНЕЕ МЕНЮ И FAB ========== */
+body.dark-theme .bottom-nav-wrap .bottom-nav {
+    background: rgba(28, 28, 30, 0.92) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+body.dark-theme .nav-item ion-icon,
+body.dark-theme .nav-item .label { color: rgba(235, 235, 245, 0.50); }
+body.dark-theme .nav-item.active ion-icon,
+body.dark-theme .nav-item.active .label,
+body.dark-theme .nav-item.menu-open ion-icon,
+body.dark-theme .nav-item.menu-open .label { color: var(--ios-accent) !important; }
+body.dark-theme #fab-add { border-color: #1C1C1E; }
+
+/* ========== 8. ВСПЛЫВАЮЩИЕ МЕНЮ ========== */
+body.dark-theme .auto-menu-item {
+    background: linear-gradient(180deg, #2A2A2E, #1D1D21);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.50),
+                inset 0 1.5px 0 rgba(255, 255, 255, 0.06),
+                inset 0 -1.5px 0 rgba(0, 0, 0, 0.40);
+}
+body.dark-theme .auto-menu-item ion-icon,
+body.dark-theme .auto-menu-item span { color: rgba(235, 235, 245, 0.60); }
+body.dark-theme .auto-menu-item.active ion-icon,
+body.dark-theme .auto-menu-item.active span { color: var(--ios-accent); }
+
+/* ========== 9. КАСТОМНЫЕ СПИСКИ ========== */
+body.dark-theme .ios-select-display {
+    background: linear-gradient(180deg, #2A2A2E, #1D1D21);
+    border-color: rgba(255, 255, 255, 0.10);
+    color: #FFFFFF;
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.30);
+}
+body.dark-theme .ios-select-menu {
+    background: rgba(38, 38, 42, 0.96);
+    border-color: rgba(255, 255, 255, 0.10);
+}
+body.dark-theme .ios-select-option { color: #FFFFFF; }
+body.dark-theme .ios-select-option.selected {
+    background: rgba(10, 132, 255, 0.20);
+    color: #64B5FF;
+}
+
+/* ========== 10. КНОПКИ ========== */
+body.dark-theme .btn-secondary {
+    background: linear-gradient(180deg, #3A3A3C, #2C2C2E);
+    color: #FFFFFF;
+    border-color: rgba(255, 255, 255, 0.10);
+}
+body.dark-theme .btn-danger {
+    background: linear-gradient(180deg, rgba(255, 69, 58, 0.22), rgba(255, 69, 58, 0.12));
+    color: #FF6961;
+}
+body.dark-theme .btn-add-dynamic {
+    background: linear-gradient(180deg, rgba(10, 132, 255, 0.20), rgba(10, 132, 255, 0.10));
+    color: #64B5FF;
+}
+body.dark-theme .logout-btn-cancel {
+    background: #3A3A3C;
+    color: #0A84FF;
+    border-color: rgba(255, 255, 255, 0.10);
+}
+body.dark-theme .quick-actions .btn,
+body.dark-theme .action-buttons .btn-secondary {
+    background: linear-gradient(180deg, #3A3A3C, #2C2C2E) !important;
+    color: #FFFFFF !important;
+}
+
+/* ========== 11. ЭКРАН АВТОРИЗАЦИИ ========== */
+body.dark-theme .auth-screen,
+body.dark-theme #auth-screen {
+    background: linear-gradient(180deg, #000000, #101014) !important;
+}
+body.dark-theme .auth-tabs { background: #2C2C2E; }
+body.dark-theme .auth-tab { color: rgba(235, 235, 245, 0.50); }
+body.dark-theme .auth-tab.active { background: #3A3A3C; color: #FFFFFF; }
+
+/* ========== 12. LETTERPRESS ВЫКЛ ========== */
+body.dark-theme .card h2,
+body.dark-theme .card h3,
+body.dark-theme .stat-value,
+body.dark-theme .nav-item ion-icon,
+body.dark-theme .nav-item .label,
+body.dark-theme .auto-menu-item ion-icon,
+body.dark-theme .auto-menu-item span {
+    text-shadow: none !important;
+    filter: none !important;
+}
+
+/* ========== 13. ПРОГРЕСС-БАРЫ ========== */
+body.dark-theme [class*="progress"],
+body.dark-theme [class*="bar"] { background-color: #3A3A3C; }
+
+/* ========== 14. ЦЕЛИ ========== */
+body.dark-theme .goal-item,
+body.dark-theme .goal-label,
+body.dark-theme .goal-value,
+body.dark-theme [class*="goal"] { color: var(--ios-text-primary); }
+body.dark-theme [class*="goal"] [style*="color: rgb(255, 255, 255)"],
+body.dark-theme [class*="goal"] [style*="color:#fff"],
+body.dark-theme [class*="goal"] [style*="color: #fff"] { color: #1C1C1E !important; }
+
+/* ========== 15. СРАВНЕНИЕ ПЕРИОДОВ ========== */
+body.dark-theme .comparison-section,
+body.dark-theme .comparison-container,
+body.dark-theme .comparison-wrapper {
+    background: linear-gradient(180deg, #2A2A2E, #1D1D21) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+body.dark-theme .vs-badge,
+body.dark-theme [class*="vs"] { color: #0A84FF; }
+body.dark-theme .summary-card h3,
+body.dark-theme .summary-card h4,
+body.dark-theme [class*="summary"] h3,
+body.dark-theme [class*="summary"] h4,
+body.dark-theme [class*="total"] h3,
+body.dark-theme [class*="total"] h4,
+body.dark-theme #tab-analytics h3,
+body.dark-theme #tab-analytics h4 { color: #FFFFFF !important; }
+
+/* ========== 16. ТОПЛИВО ========== */
+body.dark-theme .fuel-log-item button,
+body.dark-theme .fuel-log-item .btn {
+    background: #3A3A3C !important;
+    color: #FFFFFF !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+body.dark-theme .fuel-log-item button ion-icon,
+body.dark-theme .fuel-log-item .btn ion-icon { color: #FFFFFF !important; }
+body.dark-theme .fuel-log-item [style*="background"],
+body.dark-theme .fuel-log-item [style*="bg-"] {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #FFFFFF !important;
+}
+body.dark-theme .fuel-log-item div[style],
+body.dark-theme .fuel-history-item div[style] {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-radius: 12px;
+}
+body.dark-theme .fuel-log-item div[style],
+body.dark-theme .fuel-log-item div[style] *,
+body.dark-theme .fuel-history-item div[style] * {
+    color: rgba(235, 235, 245, 0.90) !important;
+}
+/* Плашки статистики заправок (км / л / ₽/л) */
+body.dark-theme .fuel-log-meta-grid {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+body.dark-theme .fuel-log-meta-item,
+body.dark-theme .fuel-log-meta-item span,
+body.dark-theme .fuel-log-meta-item ion-icon {
+    color: rgba(235, 235, 245, 0.90) !important;
+}
+
+/* ========== 17. РЕМОНТЫ ========== */
+body.dark-theme #tab-repair .card,
+body.dark-theme .repair-item,
+body.dark-theme .repair-card,
+body.dark-theme .repair-history-item,
+body.dark-theme .repair-record {
+    background: linear-gradient(180deg, #2A2A2E 0%, #232327 55%, #1D1D21 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .5),
+                inset 0 1.5px 0 rgba(255, 255, 255, .06),
+                inset 0 -1.5px 0 rgba(0, 0, 0, .4) !important;
+    color: rgba(235, 235, 245, 0.85) !important;
+}
+body.dark-theme #tab-repair h3,
+body.dark-theme #tab-repair h4,
+body.dark-theme .repair-item h3,
+body.dark-theme .repair-item h4,
+body.dark-theme .repair-card h3,
+body.dark-theme #tab-repair [class*="title"],
+body.dark-theme #tab-repair [class*="name"],
+body.dark-theme #tab-repair [class*="cost"],
+body.dark-theme #tab-repair [class*="price"],
+body.dark-theme #tab-repair [class*="amount"],
+body.dark-theme #tab-repair [class*="total"],
+body.dark-theme #tab-repair [class*="sum"] { color: #FFFFFF !important; }
+/* Тёмный текст на тёмном → светлый (кроме инлайн-цветов, кнопок, цен) */
+body.dark-theme #tab-repair div:not([style*="color"]):not([class*="btn"]),
+body.dark-theme #tab-repair h3:not([style*="color"]),
+body.dark-theme #tab-repair h4:not([style*="color"]),
+body.dark-theme #tab-repair p:not([style*="color"]),
+body.dark-theme #tab-repair span:not([style*="color"]):not([class*="btn"]):not([class*="cost"]):not([class*="price"]) {
+    color: rgba(235, 235, 245, 0.85) !important;
+}
+/* Инлайн-цвета тёмных оттенков → светлые */
+body.dark-theme #tab-repair [style*="color: #1"],
+body.dark-theme #tab-repair [style*="color:#1"],
+body.dark-theme #tab-repair [style*="color: #2"],
+body.dark-theme #tab-repair [style*="color:#2"],
+body.dark-theme #tab-repair [style*="color: #3"],
+body.dark-theme #tab-repair [style*="color:#3"],
+body.dark-theme #tab-repair [style*="color: rgb(1"],
+body.dark-theme #tab-repair [style*="color: rgb(2"],
+body.dark-theme #tab-repair [style*="color: rgb(3"],
+body.dark-theme #tab-repair [style*="color: rgb(4"],
+body.dark-theme #tab-repair [style*="color: rgb(5"] {
+    color: rgba(235, 235, 245, 0.92) !important;
+}
+
+/* ========== 18. ИНЛАЙН-ЦВЕТА ИЗ JS (var(--text-…)) ========== */
+body.dark-theme [style*="--text-primary"] {
+    color: #FFFFFF !important;
+    text-shadow: 0 1.5px 2px rgba(0, 0, 0, 0.85);
+}
+body.dark-theme [style*="--text-secondary"] {
+    color: rgba(235, 235, 245, 0.78) !important;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
+}
+body.dark-theme [style*="--text-tertiary"] {
+    color: rgba(235, 235, 245, 0.50) !important;
+}
+
+/* ========== 19. УНИВЕРСАЛЬНО: ИНЛАЙНОВЫЕ СВЕТЛЫЕ ФОНЫ ========== */
+/* HEX-варианты */
+body.dark-theme [style*="background: #f"],
+body.dark-theme [style*="background:#f"],
+body.dark-theme [style*="background: #F"],
+body.dark-theme [style*="background:#F"],
+body.dark-theme [style*="background: white"],
+body.dark-theme [style*="background: #fff"],
+body.dark-theme [style*="background:#fff"],
+body.dark-theme [style*="background: #ffffff"],
+body.dark-theme [style*="background:#ffffff"],
+body.dark-theme [style*="background-color: #f"],
+body.dark-theme [style*="background-color:#f"],
+body.dark-theme [style*="background-color: #fff"],
+body.dark-theme [style*="background-color:#fff"],
+/* RGB-варианты (браузер нормализует hex → rgb) */
+body.dark-theme [style*="rgb(242, 242, 247)"],
+body.dark-theme [style*="rgb(245, 245, 247)"],
+body.dark-theme [style*="rgb(248, 248, 250)"],
+body.dark-theme [style*="rgb(240, 240, 245)"],
+body.dark-theme [style*="rgb(250, 250, 250)"],
+body.dark-theme [style*="rgb(238, 238, 242)"],
+body.dark-theme [style*="rgb(255, 255, 255)"] {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: rgba(235, 235, 245, 0.90) !important;
+}
+body.dark-theme .card [style*="background: #fff"],
+body.dark-theme .card [style*="background:#fff"],
+body.dark-theme .card [style*="background: white"] {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #FFFFFF !important;
+}
+body.dark-theme [style*="rgb(242, 242, 247)"] *,
+body.dark-theme [style*="rgb(245, 245, 247)"] *,
+body.dark-theme [style*="rgb(248, 248, 250)"] *,
+body.dark-theme [style*="rgb(240, 240, 245)"] *,
+body.dark-theme [style*="rgb(255, 255, 255)"] * {
+    color: rgba(235, 235, 245, 0.90) !important;
+}
+
+/* ========== 20. ТУЛТИП РЕМОНТОВ ========== */
+body.dark-theme .repair-tooltip {
+    background: linear-gradient(180deg, #26262a 0%, #1c1c1f 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65),
+                0 6px 18px rgba(0, 0, 0, 0.50) !important;
+    color: rgba(235, 235, 245, 0.85) !important;
+}
+body.dark-theme .repair-tooltip-header,
+body.dark-theme .repair-tooltip-header h3,
+body.dark-theme .repair-tooltip-header h4,
+body.dark-theme .repair-tooltip-header * { color: #FFFFFF !important; }
+body.dark-theme .repair-tooltip div,
+body.dark-theme .repair-tooltip p,
+body.dark-theme .repair-tooltip span { color: rgba(235, 235, 245, 0.80); }
+body.dark-theme .repair-tooltip [style*="color: rgb(0, 122, 255)"],
+body.dark-theme .repair-tooltip [style*="color: rgb(255, 59, 48)"],
+body.dark-theme .repair-tooltip [class*="price"],
+body.dark-theme .repair-tooltip [class*="cost"] { color: inherit; }
+body.dark-theme .repair-tooltip hr,
+body.dark-theme .repair-tooltip [style*="border"] {
+    border-color: rgba(255, 255, 255, 0.10) !important;
+}
+body.dark-theme .repair-tooltip em,
+body.dark-theme .repair-tooltip i { color: rgba(235, 235, 245, 0.50) !important; }
+
+/* ========== 21. ТУЛТИП ЗАПРАВОК ========== */
+body.dark-theme .fuel-tooltip {
+    background: linear-gradient(180deg, #2c2c30 0%, #252529 55%, #212125 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.70),
+                0 8px 24px rgba(0, 0, 0, 0.50),
+                inset 0 1px 0 rgba(255, 255, 255, 0.07) !important;
+    color: rgba(235, 235, 245, 0.85) !important;
+}
+body.dark-theme .fuel-tooltip-summary {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+body.dark-theme .fuel-tooltip-summary-item {
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+    padding: 10px 4px;
+}
+body.dark-theme .fuel-tooltip-summary-item:last-child { border-bottom: none !important; }
+body.dark-theme .fuel-tooltip-details,
+body.dark-theme .fuel-tooltip-detail-item {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: none !important;
+    border-left: 3px solid #FF9F0A !important;
+    border-radius: 12px;
+}
+body.dark-theme .fuel-tooltip-header,
+body.dark-theme .fuel-tooltip-header * { color: #FFFFFF !important; }
+body.dark-theme .fuel-tooltip-summary-item,
+body.dark-theme .fuel-tooltip-detail-item { color: rgba(235, 235, 245, 0.85); }
+body.dark-theme .fuel-tooltip-hint { color: rgba(235, 235, 245, 0.50) !important; }
+body.dark-theme .fuel-tooltip hr { border-color: rgba(255, 255, 255, 0.10) !important; }
+
+/* ########## КОНЕЦ БЛОКА ТЁМНОЙ ТЕМЫ ########## */
+
+/* ============================================
+КОМПАКТНЫЕ КНОПКИ btn-small (Редактировать / Удалить)
+============================================ */
+.btn-small {
+    font-size: 12px !important;
+    padding: 8px 14px !important;
+    gap: 6px !important;
+    min-height: 0 !important;
+}
+.btn-small ion-icon {
+    font-size: 15px !important;
+}
+
+/* На мобильных — ещё компактнее */
+@media (max-width: 480px) {
+    .btn-small {
+        font-size: 11px !important;
+        padding: 7px 12px !important;
+    }
+    .btn-small ion-icon {
+        font-size: 14px !important;
+    }
+}
+
+/* ============================================
+ДЕТАЛЬНАЯ СТАТИСТИКА — МЯГКОЕ углубление (ранний iOS, деликатно)
+============================================ */
+
+/* ☀️ СВЕТЛАЯ ТЕМА */
+#tab-home .ds-cell {
+    background: linear-gradient(to bottom,
+            #dcdce3 0%,
+            #ececf1 8%,
+            #f8f8fb 50%,
+            #ffffff 100%) !important;
+    border: 1px solid #b4b4bd !important;
+    border-radius: 10px;
+    box-shadow:
+        inset 0 1px 2px rgba(0, 0, 0, 0.20),
+        inset 0 2px 6px rgba(0, 0, 0, 0.07),
+        0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+
+/* 🌙 ТЁМНАЯ ТЕМА */
+body.dark-theme #tab-home .ds-cell {
+    background: linear-gradient(to bottom,
+            #0a0a0c 0%,
+            #121215 10%,
+            #1c1c20 60%,
+            #232327 100%) !important;
+    border: 1px solid rgba(0, 0, 0, 0.60) !important;
+    border-bottom-color: rgba(255, 255, 255, 0.10) !important;
+    border-radius: 10px;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.70),
+        inset 0 3px 8px rgba(0, 0, 0, 0.35),
+        0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
