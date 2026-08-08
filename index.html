@@ -90,13 +90,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.7.1" defer></script>
+    <script src="script.js?v=2.7.2" defer></script>
     
     <!-- 1. МОДУЛЬ АВТОМОБИЛЕЙ (ОБЯЗАТЕЛЬНО ПЕРВЫМ) -->
 <script src="vehicle-module.js?v=1.0.4"></script>
     
     <!-- Модуль ремонта -->
-<script type="module" src="repair-module.js?v=1.0.4"></script>
+<script type="module" src="repair-module.js?v=1.0.5"></script>
 
     <!-- Модуль топлива -->
     <script type="module" src="fuel-module.js?v=1.0.4"></script>
@@ -262,22 +262,25 @@
             </button>
         </div>
         
-        <div class="header-actions">
-            <!-- iOS-слайдер темы -->
-            <label class="theme-switch" title="Тёмная тема">
-                <input type="checkbox" id="theme-toggle">
-                <span class="theme-switch-track">
-                    <ion-icon name="sunny-outline" class="switch-icon sun"></ion-icon>
-                    <ion-icon name="moon-outline" class="switch-icon moon"></ion-icon>
-                    <span class="theme-switch-thumb"></span>
-                </span>
-            </label>
-            
-            <button id="logout-btn" class="header-logout">
-                <ion-icon name="log-out-outline"></ion-icon>
-                <span>Выйти</span>
-            </button>
-        </div>
+<div class="header-actions">
+    <!-- НОВАЯ кнопка Настройки -->
+    <button class="header-settings" id="header-settings-btn" onclick="switchTab('settings')" title="Настройки">
+        <ion-icon name="settings-outline"></ion-icon>
+    </button>
+    
+    <label class="theme-switch" title="Тёмная тема">
+        <input type="checkbox" id="theme-toggle">
+        <span class="theme-switch-track">
+            <ion-icon name="sunny-outline" class="switch-icon sun"></ion-icon>
+            <ion-icon name="moon-outline" class="switch-icon moon"></ion-icon>
+            <span class="theme-switch-thumb"></span>
+        </span>
+    </label>
+    
+    <button id="logout-btn" class="header-logout">
+        <ion-icon name="log-out-outline"></ion-icon>
+    </button>
+</div>
     </div>
 </header>
 <div class="header-spacer" id="header-spacer"></div>
@@ -332,22 +335,7 @@
     </div>
 </div>
     
-<!-- Лучший день -->
-<div class="card float-in texture-grain" style="background: linear-gradient(135deg, #FFD70008 0%, #FFA50008 100%); border-color: #FFD70030;">
-    <h3 style="display: flex; align-items: center; gap: 8px; font-size: 18px; margin-bottom: 16px;">
-        <ion-icon name="star-outline" style="font-size: 28px; color: var(--ios-gold);"></ion-icon>
-        Лучший день
-    </h3>
-    <div style="text-align: center; padding: 10px 0;">
-        <div style="font-size: 32px; font-weight: 700; color: var(--ios-gold);" id="best-day-income">0 ₽</div>
-        <div style="color: var(--ios-text-tertiary); font-size: 15px; margin-top: 4px;" id="best-day-date">Нет данных</div>
-        <div style="display: flex; justify-content: center; gap: 20px; margin-top: 12px; font-size: 14px; color: var(--ios-text-secondary);">
-            <span><ion-icon name="cube-outline" style="vertical-align: middle; margin-right: 4px; font-size: 16px;"></ion-icon> <strong id="best-day-orders">0</strong> заказов</span>
-            <span><ion-icon name="time-outline" style="vertical-align: middle; margin-right: 4px; font-size: 16px;"></ion-icon> <strong id="best-day-hours">0</strong> часов</span>
-            <span><ion-icon name="stats-chart-outline" style="vertical-align: middle; margin-right: 4px; font-size: 16px;"></ion-icon> <strong id="best-day-efficiency">0%</strong> эффективность</span>
-        </div>
-    </div>
-</div>
+
     
     <!-- Тренды -->
 <div class="card float-in texture-grain">
@@ -1702,9 +1690,7 @@
         <button class="nav-item magnetic wide" data-tab="auto" id="nav-auto-btn" onclick="toggleAutoMenu(event)">
             <ion-icon name="car-outline"></ion-icon><span class="label">Авто</span>
         </button>
-        <button class="nav-item magnetic wide" data-tab="settings" onclick="switchTab('settings')">
-            <ion-icon name="settings-outline"></ion-icon><span class="label">Настройки</span>
-        </button>
+<div class="nav-item nav-placeholder" aria-hidden="true"></div>
     </nav>
     
     <!-- ✅ FAB ТЕПЕРЬ ОТКРЫВАЕТ МЕНЮ ДОБАВЛЕНИЯ -->

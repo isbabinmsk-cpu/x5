@@ -1267,3 +1267,56 @@ hideRepairTooltip();
 });
 
 console.log('✅ Tooltip для ремонта инициализирован');
+
+// ============================================
+// «Что менялось?» — сворачиваемая секция (свёрнута по умолчанию)
+// ============================================
+(function() {
+    function setup() {
+        const heads = Array.from(document.querySelectorAll('#tab-repair *')).filter(el =>
+            el.children.length <= 1 &&
+            el.textContent.trim().replace(/\s+/g, ' ') === 'Что менялось?');
+        
+        for (const head of heads) {
+            if (head.closest('.chg-collapse')) continue; // уже обёрнуто
+            const list = head.nextElementSibling; // список чекбоксов
+            if (!list || list.closest('.chg-collapse')) continue;
+            
+            // Контейнер секции
+            const wrap = document.createElement('div');
+            wrap.className = 'chg-collapse collapsed'; // ← свёрнуто по умолчанию
+            head.parentNode.insertBefore(wrap, head);
+            
+            // Заголовок-кнопка с шевроном
+            const header = document.createElement('div');
+            header.className = 'chg-collapse-header';
+            const chev = document.createElement('ion-icon');
+            chev.setAttribute('name', 'chevron-down-outline');
+            chev.className = 'chg-chevron';
+            
+            wrap.appendChild(header);
+            header.appendChild(head);
+            header.appendChild(chev);
+            
+            // Сворачиваемое содержимое
+            const inner = document.createElement('div');
+            inner.className = 'chg-collapse-inner';
+            inner.appendChild(list);
+            wrap.appendChild(inner);
+            
+            header.addEventListener('click', () => wrap.classList.toggle('collapsed'));
+        }
+    }
+    
+    // Ретрай, пока форма ремонта не отрисуется
+    let tries = 0;
+    const timer = setInterval(() => {
+        setup();
+        if (++tries > 30) clearInterval(timer);
+    }, 1000);
+    
+    // Мгновенно при изменениях DOM (форма пересоздаётся)
+    const rep = document.getElementById('tab-repair');
+    if (rep) new MutationObserver(() => setup()).observe(rep, { childList: true, subtree: true });
+    setup();
+})();

@@ -2792,22 +2792,7 @@ TOOLTIP ДЛЯ ЯЧЕЙКИ БЕНЗИНА
     line-height: 1.2;
 }
 
-/* Стили для маленьких иконок в нижней строке блока "Лучший день" */
-.best-day-stats span {
-    transition: color 0.2s ease;
-}
 
-.best-day-stats span ion-icon {
-    font-size: 1.2em; /* Чуть больше текста для акцента */
-    width: 1.2em;
-    height: 1.2em;
-    color: inherit; /* Наследует цвет от span */
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.2s ease, color 0.2s ease;
-}
 
 /* Легкая интерактивность при наведении на пункт статистики */
 .best-day-stats span:hover {
@@ -4807,6 +4792,36 @@ body:not(.authenticated) .auto-menu { display: none !important; }
 @media print { .header-logout, #connection-status-wrapper { display: none !important; } }
 
 /* ============================================
+ВЫПУКЛАЯ ШАПКА (обе темы)
+============================================ */
+
+/* ☀️ Светлая тема: купол из белого стекла */
+.top-header {
+    background: linear-gradient(180deg,
+        rgba(255, 255, 255, 0.97) 0%,
+        rgba(250, 250, 253, 0.95) 55%,
+        rgba(238, 238, 244, 0.94) 100%) !important;
+    box-shadow:
+        0 6px 24px rgba(0, 0, 0, 0.12),   /* тень под шапкой — она «парит» */
+        0 2px 8px rgba(0, 0, 0, 0.08),
+        inset 0 1.5px 0 rgba(255, 255, 255, 1),    /* блик сверху */
+        inset 0 -2px 0 rgba(0, 0, 0, 0.05) !important; /* закруглённый низ */
+}
+
+/* 🌙 Тёмная тема: купол из чёрного стекла */
+body.dark-theme .top-header {
+    background: linear-gradient(180deg,
+        rgba(46, 46, 50, 0.97) 0%,
+        rgba(34, 34, 38, 0.96) 55%,
+        rgba(24, 24, 28, 0.95) 100%) !important;
+    box-shadow:
+        0 8px 28px rgba(0, 0, 0, 0.65),
+        0 2px 10px rgba(0, 0, 0, 0.50),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.10),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.55) !important;
+}
+
+/* ============================================
 ВЫПУКЛЫЕ КНОПКИ — «КУПОЛ» СО БЛИКОМ СВЕРХУ
 ============================================ */
 
@@ -6173,6 +6188,82 @@ body.dark-theme .fuel-tooltip-detail-item { color: rgba(235, 235, 245, 0.85); }
 body.dark-theme .fuel-tooltip-hint { color: rgba(235, 235, 245, 0.50) !important; }
 body.dark-theme .fuel-tooltip hr { border-color: rgba(255, 255, 255, 0.10) !important; }
 
+/* ============================================
+ФОРМА ВХОДА: полная тёмная тема + углублённые поля
+============================================ */
+
+/* 🌙 Карточка формы — тёмное стекло (любое имя контейнера) */
+body.dark-theme .auth-container,
+body.dark-theme .auth-card,
+body.dark-theme .auth-box,
+body.dark-theme .auth-form-container,
+body.dark-theme #auth-screen > div {
+    background: linear-gradient(180deg, #2A2A2E 0%, #232327 55%, #1D1D21 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.70),
+        0 6px 18px rgba(0, 0, 0, 0.50),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.06),
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.40) !important;
+}
+
+/* Тексты формы на тёмном */
+body.dark-theme .auth-screen h1,
+body.dark-theme .auth-screen h2,
+body.dark-theme #auth-screen h1 {
+    color: #FFFFFF !important;
+    text-shadow: 0 1.5px 2px rgba(0, 0, 0, 0.85);
+}
+body.dark-theme .auth-screen p,
+body.dark-theme .auth-screen label {
+    color: rgba(235, 235, 245, 0.60) !important;
+}
+
+/* Переключатель Вход/Регистрация — тёмное стекло */
+body.dark-theme .auth-tabs {
+    background: #1C1C1E !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+}
+body.dark-theme .auth-tab { color: rgba(235, 235, 245, 0.50) !important; }
+body.dark-theme .auth-tab.active {
+    background: linear-gradient(180deg, #3A3A3C, #2C2C2E) !important;
+    color: #FFFFFF !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* ️ УГЛУБЛЁННЫЕ ПОЛЯ ВВОДА — ранний iOS, ТЁМНАЯ ТЕМА */
+body.dark-theme .auth-screen input,
+body.dark-theme #auth-screen input {
+    background: linear-gradient(to bottom,
+        #08080a 0%, #101013 25%, #1a1a1e 100%) !important;
+    border: 1px solid #000000 !important;
+    border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+    border-radius: 10px;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.90),
+        inset 0 3px 8px rgba(0, 0, 0, 0.55),
+        0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    color: #FFFFFF !important;
+}
+
+/* 🕳️ УГЛУБЛЁННЫЕ ПОЛЯ ВВОДА — СВЕТЛАЯ ТЕМА (как поля раннего iOS) */
+body:not(.dark-theme) .auth-screen input,
+body:not(.dark-theme) #auth-screen input {
+    background: linear-gradient(to bottom,
+        #cfcfd7 0%, #e8e8ee 8%, #f8f8fb 50%, #ffffff 100%) !important;
+    border: 1px solid #9d9da6 !important;
+    border-radius: 10px;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.35),
+        inset 0 3px 8px rgba(0, 0, 0, 0.12),
+        0 1px 0 rgba(255, 255, 255, 0.85) !important;
+    color: #1C1C1E !important;
+}
+body:not(.dark-theme) .auth-screen input::placeholder {
+    color: #8E8E93 !important;
+}
+
 /* ########## КОНЕЦ БЛОКА ТЁМНОЙ ТЕМЫ ########## */
 
 /* ============================================
@@ -6232,4 +6323,304 @@ body.dark-theme #tab-home .ds-cell {
         inset 0 1px 3px rgba(0, 0, 0, 0.70),
         inset 0 3px 8px rgba(0, 0, 0, 0.35),
         0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ============================================
+СВЕТЛАЯ ТЕМА: верхние карточки метрик — белые объёмные с цветным свечением
+============================================ */
+body:not(.dark-theme) #tab-home .stat-card:not(.ds-cell) {
+    background: linear-gradient(180deg, #ffffff 0%, #f6f6f9 100%) !important;
+    border: 1px solid rgba(0, 0, 0, 0.07) !important;
+    box-shadow:
+        0 10px 28px rgba(0, 0, 0, 0.10),
+        0 3px 8px rgba(0, 0, 0, 0.06),
+        inset 0 1.5px 0 #ffffff,
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+/* 1) РАБОЧИХ ДНЕЙ — синий */
+body:not(.dark-theme) #tab-home .stat-card:not(.ds-cell):nth-child(1) {
+    border-color: rgba(0, 122, 255, 0.30) !important;
+    box-shadow:
+        0 10px 28px rgba(0, 122, 255, 0.18),
+        0 3px 8px rgba(0, 0, 0, 0.06),
+        inset 0 1.5px 0 #ffffff,
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+/* 2) ВСЕГО ЗАРАБОТАНО — зелёный */
+body:not(.dark-theme) #tab-home .stat-card:not(.ds-cell):nth-child(2) {
+    border-color: rgba(52, 199, 89, 0.35) !important;
+    box-shadow:
+        0 10px 28px rgba(52, 199, 89, 0.18),
+        0 3px 8px rgba(0, 0, 0, 0.06),
+        inset 0 1.5px 0 #ffffff,
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+/* 3) СРЕДНИЙ ДОХОД В ДЕНЬ — оранжевый */
+body:not(.dark-theme) #tab-home .stat-card:not(.ds-cell):nth-child(3) {
+    border-color: rgba(255, 149, 0, 0.35) !important;
+    box-shadow:
+        0 10px 28px rgba(255, 149, 0, 0.18),
+        0 3px 8px rgba(0, 0, 0, 0.06),
+        inset 0 1.5px 0 #ffffff,
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+/* 4) ЭФФЕКТИВНОСТЬ — фиолетовый + текст/иконка фиолетовые вместо белых */
+body:not(.dark-theme) #tab-home .stat-card:not(.ds-cell):nth-child(4) {
+    border-color: rgba(175, 82, 222, 0.35) !important;
+    box-shadow:
+        0 10px 28px rgba(175, 82, 222, 0.20),
+        0 3px 8px rgba(0, 0, 0, 0.06),
+        inset 0 1.5px 0 #ffffff,
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.05) !important;
+}
+body:not(.dark-theme) #tab-home .stat-card:not(.ds-cell):nth-child(4),
+body:not(.dark-theme) #tab-home .stat-card:not(.ds-cell):nth-child(4) * {
+    color: #AF52DE !important;
+}
+
+/* Гарантия: перебиваем любые инлайн-фоны и старые рамки */
+body:not(.dark-theme) #tab-home .stat-card:not(.ds-cell),
+body:not(.dark-theme) #tab-home .stat-card:not(.ds-cell)[style],
+body:not(.dark-theme) #tab-home .stat-card:not(.ds-cell)[style*="background"] {
+    background: linear-gradient(180deg, #ffffff 0%, #f6f6f9 100%) !important;
+    border: 1px solid rgba(0, 0, 0, 0.07) !important;
+}
+
+/* Убираем толстые цветные рамки, если они были заданы шириной 2px+ */
+body:not(.dark-theme) #tab-home .stat-card:not(.ds-cell) {
+    border-width: 1px !important;
+}
+
+/* ============================================
+ВЫПУКЛАЯ ШАПКА — УСИЛЕННАЯ (перебивает любые блоки выше/ниже)
+============================================ */
+
+/* ☀️ Светлая тема */
+header.top-header {
+    background: linear-gradient(180deg,
+            #ffffff 0%, #f4f4f8 60%, #e2e2ea 100%) !important;
+    box-shadow:
+        0 12px 32px rgba(0, 0, 0, 0.20),
+        0 4px 12px rgba(0, 0, 0, 0.12),
+        inset 0 2px 0 #ffffff,
+        inset 0 -3px 0 rgba(0, 0, 0, 0.08) !important;
+}
+
+/* 🌙 Тёмная тема */
+body.dark-theme header.top-header {
+    background: linear-gradient(180deg,
+            #333338 0%, #232327 60%, #131316 100%) !important;
+    box-shadow:
+        0 14px 36px rgba(0, 0, 0, 0.75),
+        0 4px 14px rgba(0, 0, 0, 0.60),
+        inset 0 2px 0 rgba(255, 255, 255, 0.14),
+        inset 0 -3px 0 rgba(0, 0, 0, 0.70) !important;
+}
+
+/* ============================================
+ВДАВЛЕННАЯ НАДПИСЬ «Журнал работы водителя»
+============================================ */
+
+/* ☀️ Светлая тема: тёмные буквы «вдавлены» в стекло — белый блик снизу */
+header.top-header h1 {
+    filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.95))
+            drop-shadow(0 -1px 1px rgba(0, 0, 0, 0.18)) !important;
+}
+
+/* 🌙 Тёмная тема: светлые буквы «вдавлены» в чёрное стекло — тёмная тень снизу */
+body.dark-theme header.top-header h1 {
+    filter: drop-shadow(0 1.5px 1px rgba(0, 0, 0, 0.90))
+            drop-shadow(0 -1px 0 rgba(255, 255, 255, 0.10)) !important;
+}
+
+/* ============================================
+КНОПКА «НАСТРОЙКИ» В ШАПКЕ
+============================================ */
+.header-settings {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, rgba(120, 120, 128, 0.16), rgba(120, 120, 128, 0.10));
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    color: var(--ios-text-secondary);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 2px 8px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+    transition: transform 0.2s var(--ios-spring), color 0.2s, box-shadow 0.2s;
+    flex-shrink: 0;
+}
+.header-settings ion-icon { font-size: 20px; }
+.header-settings:active { transform: scale(0.90); }
+.header-settings.active {
+    color: var(--ios-accent);
+    border-color: rgba(0, 122, 255, 0.40);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+body.dark-theme .header-settings {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.05));
+    border-color: rgba(255, 255, 255, 0.10);
+    color: rgba(235, 235, 245, 0.70);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+body.dark-theme .header-settings.active {
+    color: #0A84FF;
+    border-color: rgba(10, 132, 255, 0.45);
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.20);
+}
+
+/* Распорка в нижнем меню — держит симметрию, но невидима */
+.nav-placeholder { visibility: hidden; pointer-events: none; }
+
+/* ============================================
+ЕДИНЫЙ СТИЛЬ КНОПОК ШАПКИ (светлая + тёмная)
+============================================ */
+
+/* ☀️ СВЕТЛАЯ ТЕМА: одно белое стекло для всех */
+.header-settings,
+.header-logout {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, #ffffff 0%, #f0f0f5 100%) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow:
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.06),
+        0 2px 8px rgba(0, 0, 0, 0.10) !important;
+}
+.theme-switch-track {
+    background: linear-gradient(180deg, #ffffff 0%, #f0f0f5 100%) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow:
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.06),
+        0 2px 8px rgba(0, 0, 0, 0.10) !important;
+}
+
+/* Иконки — семантические цвета на общем стекле */
+.header-settings ion-icon { color: #8E8E93; }
+.header-settings.active ion-icon { color: var(--ios-accent); }
+.header-logout ion-icon { color: #FF3B30 !important; }
+
+/* Включённая тема — зелёное стекло (тот же материал, но цветное) */
+.theme-switch input:checked + .theme-switch-track {
+    background: linear-gradient(180deg, #32D74B 0%, #28A745 100%) !important;
+    border-color: rgba(0, 0, 0, 0.10) !important;
+}
+
+/* 🌙 ТЁМНАЯ ТЕМА: одно чёрное стекло для всех */
+body.dark-theme .header-settings,
+body.dark-theme .header-logout {
+    background: linear-gradient(180deg, #3A3A3E 0%, #2A2A2E 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
+    box-shadow:
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.08),
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.45),
+        0 2px 8px rgba(0, 0, 0, 0.40) !important;
+}
+body.dark-theme .theme-switch-track {
+    background: linear-gradient(180deg, #3A3A3E 0%, #2A2A2E 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.10) !important;
+    box-shadow:
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.08),
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.45),
+        0 2px 8px rgba(0, 0, 0, 0.40) !important;
+}
+body.dark-theme .header-settings ion-icon { color: rgba(235, 235, 245, 0.60); }
+body.dark-theme .header-settings.active ion-icon { color: #0A84FF; }
+body.dark-theme .header-logout ion-icon { color: #FF6961 !important; }
+body.dark-theme .theme-switch input:checked + .theme-switch-track {
+    background: linear-gradient(180deg, #32D74B 0%, #28A745 100%) !important;
+    border-color: rgba(0, 0, 0, 0.20) !important;
+}
+
+/* Ползунок и кольца активности — общие для обеих тем */
+.theme-switch-thumb {
+    background: #FFFFFF !important;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.30), 0 1px 1px rgba(0, 0, 0, 0.16) !important;
+}
+.header-settings.active {
+    border-color: rgba(0, 122, 255, 0.40) !important;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15),
+                inset 0 1.5px 0 rgba(255, 255, 255, 0.95) !important;
+}
+body.dark-theme .header-settings.active {
+    border-color: rgba(10, 132, 255, 0.45) !important;
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.20),
+                inset 0 1.5px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ============================================
+РЕМОНТ: УГЛУБЛЁННЫЕ ПОЛЯ ВВОДА (обе темы)
+============================================ */
+
+/* ☀️ Светлая тема: ниша с резкой тенью сверху */
+body:not(.dark-theme) #tab-repair input,
+body:not(.dark-theme) #tab-repair textarea {
+    background: linear-gradient(to bottom,
+        #cfcfd7 0%, #e8e8ee 8%, #f8f8fb 50%, #ffffff 100%) !important;
+    border: 1px solid #9d9da6 !important;
+    border-radius: 10px;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.35),
+        inset 0 3px 8px rgba(0, 0, 0, 0.12),
+        0 1px 0 rgba(255, 255, 255, 0.85) !important;
+    color: #1C1C1E !important;
+}
+body:not(.dark-theme) #tab-repair input::placeholder,
+body:not(.dark-theme) #tab-repair textarea::placeholder {
+    color: #8E8E93 !important;
+}
+
+/* 🌙 Тёмная тема: вырез в чёрном стекле */
+body.dark-theme #tab-repair input,
+body.dark-theme #tab-repair textarea {
+    background: linear-gradient(to bottom,
+        #08080a 0%, #101013 25%, #1a1a1e 100%) !important;
+    border: 1px solid #000000 !important;
+    border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+    border-radius: 10px;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.90),
+        inset 0 3px 8px rgba(0, 0, 0, 0.55),
+        0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    color: #FFFFFF !important;
+}
+
+/* ============================================
+«ЧТО МЕНЯЛОСЬ?» — СВОРАЧИВАЕМАЯ СЕКЦИЯ
+============================================ */
+.chg-collapse-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 4px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.chg-collapse-header:active { opacity: 0.7; }
+.chg-chevron {
+    font-size: 18px;
+    color: var(--ios-text-tertiary);
+    transition: transform 0.35s var(--ios-spring);
+    flex-shrink: 0;
+}
+.chg-collapse.collapsed .chg-chevron { transform: rotate(-90deg); }
+
+.chg-collapse-inner {
+    overflow: hidden;
+    max-height: 2000px;
+    opacity: 1;
+    transition: max-height 0.45s var(--ios-spring), opacity 0.3s ease;
+}
+.chg-collapse.collapsed .chg-collapse-inner {
+    max-height: 0;
+    opacity: 0;
 }

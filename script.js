@@ -3869,7 +3869,7 @@ function updateHomeTab() {
     renderAchievements();
     loadProfileAvatar();
     
-    updateBestDay();
+  
     updateTrends();
     updateRecentRecords();
 
@@ -4873,52 +4873,7 @@ function updateRecentRecords() {
     console.log('✅ Последние записи обновлены, показано:', recent.length);
 }
 
-// ============================================
-// ЛУЧШИЙ ДЕНЬ
-// ============================================
 
-// Обновление лучшего дня
-function updateBestDay() {
-    console.log('📊 Обновление лучшего дня, записей:', records.length);
-    
-    const incomeEl = document.getElementById('best-day-income');
-    const dateEl = document.getElementById('best-day-date');
-    const ordersEl = document.getElementById('best-day-orders');
-    const hoursEl = document.getElementById('best-day-hours');
-    const efficiencyEl = document.getElementById('best-day-efficiency');
-    
-    if (!incomeEl || !dateEl || !ordersEl || !hoursEl || !efficiencyEl) {
-        console.warn('⚠️ Элементы лучшего дня не найдены');
-        return;
-    }
-    
-    if (records.length === 0) {
-        incomeEl.textContent = '0 ₽';
-        dateEl.textContent = 'Нет данных';
-        ordersEl.textContent = '0';
-        hoursEl.textContent = '0';
-        efficiencyEl.textContent = '0%';
-        return;
-    }
-    
-    const bestDay = records.reduce((best, r) => {
-        if (!best || r.netProfit > best.netProfit) return r;
-        return best;
-    }, null);
-    
-    if (bestDay) {
-        incomeEl.textContent = formatMoney(bestDay.netProfit);
-        // Используем parseLocalDate для корректного форматирования даты
-        const d = parseLocalDate(bestDay.date);
-        const dateStr = d ? d.toLocaleDateString('ru-RU') : bestDay.date;
-        dateEl.textContent = dateStr + ' (' + (bestDay.weekday || '') + ')';
-        ordersEl.textContent = bestDay.ordersDelivery || 0;
-        hoursEl.textContent = bestDay.hours || 0;
-        const efficiency = bestDay.totalIncome > 0 ? ((bestDay.netProfit / bestDay.totalIncome) * 100) : 0;
-        efficiencyEl.textContent = efficiency.toFixed(1) + '%';
-        console.log('✅ Лучший день найден:', dateStr, bestDay.netProfit);
-    }
-}
 
 // ============================================
 // TOAST УВЕДОМЛЕНИЕ
@@ -5844,4 +5799,16 @@ document.addEventListener('change', function(e) {
         new MutationObserver(() => tagAll()).observe(home, { childList: true, subtree: true });
     }
     tagAll();
+})();
+
+// Подсветка шестерёнки, когда открыта вкладка Настройки
+(function () {
+    const orig = window.switchTab;
+    if (typeof orig !== 'function') return;
+    window.switchTab = function (tab, e) {
+        const res = orig.call(this, tab, e);
+        const btn = document.getElementById('header-settings-btn');
+        if (btn) btn.classList.toggle('active', tab === 'settings');
+        return res;
+    };
 })();
