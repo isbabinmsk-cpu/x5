@@ -145,21 +145,7 @@ ion-icon {
     vertical-align: middle;
 }
 
-.icon-16 { font-size: 16px !important; }
-.icon-18 { font-size: 18px !important; }
-.icon-20 { font-size: 20px !important; }
-.icon-22 { font-size: 22px !important; }
-.icon-24 { font-size: 24px !important; }
-.icon-28 { font-size: 28px !important; }
-.icon-32 { font-size: 32px !important; }
-.icon-50 { font-size: 50px !important; }
 
-.icon-accent { color: var(--ios-accent) !important; }
-.icon-success { color: var(--ios-success) !important; }
-.icon-danger { color: var(--ios-danger) !important; }
-.icon-warning { color: var(--ios-warning) !important; }
-.icon-purple { color: var(--ios-purple) !important; }
-.icon-gold { color: var(--ios-gold) !important; }
 
 /* ============================================
    5. АВТОРИЗАЦИЯ И ПОКАЗ ИНТЕРФЕЙСА
@@ -203,45 +189,7 @@ body.authenticated .auth-screen {
     display: none;
 }
 
-.auth-particles {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 0;
-}
 
-.auth-particle {
-    position: absolute;
-    width: 6px;
-    height: 6px;
-    background: rgba(0, 122, 255, 0.15);
-    border-radius: 50%;
-    animation: authParticleFloat 8s ease-in-out infinite;
-}
-
-.auth-particle:nth-child(odd) {
-    width: 4px;
-    height: 4px;
-    background: rgba(175, 82, 222, 0.12);
-    animation-duration: 10s;
-}
-
-.auth-particle:nth-child(3n) {
-    width: 8px;
-    height: 8px;
-    background: rgba(52, 199, 89, 0.1);
-    animation-duration: 12s;
-}
-
-@keyframes authParticleFloat {
-    0%, 100% { transform: translateY(0) translateX(0) scale(1); opacity: 0.3; }
-    25% { transform: translateY(-30px) translateX(15px) scale(1.5); opacity: 0.6; }
-    50% { transform: translateY(-60px) translateX(-10px) scale(1); opacity: 0.4; }
-    75% { transform: translateY(-20px) translateX(-20px) scale(0.8); opacity: 0.5; }
-}
 
 .auth-container {
     position: relative;
@@ -294,28 +242,14 @@ body.authenticated .auth-screen {
     color: white;
 }
 
-.auth-icon-ring {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 90px;
-    height: 90px;
-    border: 2px solid rgba(0, 122, 255, 0.15);
-    border-radius: 28px;
-    animation: authRingPulse 3s ease-in-out infinite;
-    z-index: 1;
-}
+
 
 @keyframes authIconFloat {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-8px); }
 }
 
-@keyframes authRingPulse {
-    0%, 100% { width: 90px; height: 90px; opacity: 0.3; border-radius: 28px; }
-    50% { width: 100px; height: 100px; opacity: 0.1; border-radius: 32px; }
-}
+
 
 .auth-title {
     font-size: 28px;
@@ -1816,7 +1750,7 @@ table .btn-danger ion-icon {
 }
 
 /* ============================================
-   22. АВАТАР ПРОФИЛЯ
+   22. АВАТАР ПРОФИЛЯ — ПЛОСКИЙ С ВЫРЕЗОМ (обе темы)
    ============================================ */
 
 #profile-avatar-container {
@@ -1824,45 +1758,66 @@ table .btn-danger ion-icon {
     display: inline-block;
     margin-bottom: 12px;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    -webkit-tap-highlight-color: transparent;
 }
 
-#profile-avatar-container:hover #profile-avatar {
-    transform: scale(1.05);
-    box-shadow: 0 8px 24px rgba(0, 122, 255, 0.25);
-}
-
-#profile-avatar-container:hover #avatar-upload-btn {
-    transform: scale(1.1);
-    background: var(--ios-accent-hover);
-}
-
-#profile-avatar-container:active #profile-avatar { transform: scale(0.95); }
-
+/* Аватар: прозрачный, паз 2px по контуру + светлая кромка снизу */
 #profile-avatar {
-    transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-    background: linear-gradient(135deg, var(--ios-accent-light), var(--ios-accent-light));
+    background: transparent !important;
+    border: none !important;
+    border-radius: 50%;
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 0, 0, 0.16),   /* линия реза */
+        0 1px 0 rgba(255, 255, 255, 0.95)      /* свет на кромке */
+        !important;
+    transition: none !important;
+    transform: none !important;
+}
+body.dark-theme #profile-avatar {
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 0, 0, 0.85),
+        0 1px 0 rgba(255, 255, 255, 0.14) !important;
 }
 
-#avatar-upload-btn {
-    transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
-    background: var(--ios-accent);
-    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
-}
-
-#avatar-upload-btn:hover {
-    transform: scale(1.1);
-    background: var(--ios-accent-hover);
-    box-shadow: 0 4px 16px rgba(0, 122, 255, 0.4);
-}
-
-@keyframes avatarAppear {
-    from { opacity: 0; transform: scale(0.8); }
-    to { opacity: 1; transform: scale(1); }
-}
-
+/* Фото — круглое, без анимаций и теней */
 #profile-avatar img {
-    animation: avatarAppear 0.4s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+    border-radius: 50%;
+    animation: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+}
+
+/* Кнопка загрузки — тоже плоская с прорезью, иконка синяя */
+#avatar-upload-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 0, 0, 0.16),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+    transition: none !important;
+    transform: none !important;
+}
+body.dark-theme #avatar-upload-btn {
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 0, 0, 0.85),
+        0 1px 0 rgba(255, 255, 255, 0.14) !important;
+}
+#avatar-upload-btn ion-icon {
+    color: var(--ios-accent) !important;
+}
+
+/* Нажатие — лёгкое затемнение, без scale-прыжков */
+#profile-avatar-container:active #profile-avatar {
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 0, 0, 0.22),
+        0 1px 0 rgba(255, 255, 255, 0.95),
+        inset 0 0 0 999px rgba(0, 0, 0, 0.05) !important;
+}
+body.dark-theme #profile-avatar-container:active #profile-avatar {
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 0, 0, 0.90),
+        0 1px 0 rgba(255, 255, 255, 0.14),
+        inset 0 0 0 999px rgba(255, 255, 255, 0.05) !important;
 }
 
 /* ============================================
@@ -4932,53 +4887,7 @@ body.dark-theme .top-header {
 }
 
 /* ============================================
-ФИНАЛ: «НАСТРОИТЬ ЦЕЛИ» — СИНЯЯ, ВЫПУКЛАЯ, ВДАВЛИВАЕТСЯ
-============================================ */
-/* Синий купол + белый текст */
-button[onclick*="showGoalSettings"],
-#tab-home .btn-primary {
-    background:
-        radial-gradient(120% 70% at 50% 0%, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 55%),
-        linear-gradient(180deg, #4da2ff 0%, #007AFF 55%, #0063d1 100%) !important;
-    color: #FFFFFF !important;
-}
-button[onclick*="showGoalSettings"] ion-icon,
-#tab-home .btn-primary ion-icon {
-    color: #FFFFFF !important;
-}
 
-/* ПОКОЙ — выпуклая (только когда НЕ нажата) */
-button[onclick*="showGoalSettings"]:not(:active),
-#tab-home .btn-primary:not(:active) {
-    box-shadow:
-        0 5px 14px rgba(0, 122, 255, 0.40),
-        0 2px 4px rgba(0, 0, 0, 0.10),
-        inset 0 2px 2px rgba(255, 255, 255, 0.50),
-        inset 0 -3px 6px rgba(0, 0, 60, 0.25) !important;
-}
-
-/* НАЖАТИЕ — проваливается, как все остальные */
-button[onclick*="showGoalSettings"]:active,
-#tab-home .btn-primary:active {
-    transform: translateY(1px) scale(0.97) !important;
-    box-shadow:
-        0 1px 2px rgba(0, 0, 0, 0.10),
-        inset 0 3px 8px rgba(0, 0, 60, 0.30) !important;
-    filter: brightness(0.96);
-}
-
-/* Страховка: вдавливание с !important для ВСЕХ кнопок,
-   чтобы никакие «запертые» тени не мешали нажатию */
-.btn:active,
-.auth-btn:active,
-.header-logout:active,
-.auto-menu-item:active,
-.btn-add-dynamic:active {
-    transform: translateY(1px) scale(0.97) !important;
-    box-shadow:
-        0 1px 2px rgba(0, 0, 0, 0.10),
-        inset 0 3px 8px rgba(0, 0, 0, 0.22) !important;
-}
 
 /* ============================================
 МОДАЛЬНОЕ ОКНО НАСТРОЙКИ ЦЕЛЕЙ (iOS STYLE)
@@ -6623,4 +6532,860 @@ body.dark-theme #tab-repair textarea {
 .chg-collapse.collapsed .chg-collapse-inner {
     max-height: 0;
     opacity: 0;
+}
+
+/* ============================================
+СТАБИЛЬНОСТЬ: отключены циклические анимации
+(убирает подёргивания и экономит батарею;
+ вся интерактивность живёт на transition — она работает)
+============================================ */
+*, *::before, *::after {
+    animation: none !important;
+}
+
+/* ============================================
+КОМПЕНСАЦИЯ: элементы, которые появлялись через анимацию,
+делаем видимыми принудительно
+============================================ */
+#fab-add,
+.nav-fab-gap,
+.fab-container,
+[class*="fab"] {
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+#fab-add {
+    transform: none !important;
+}
+
+/* ============================================
+КНОПКА-ПИЛЮЛЯ ТЕМЫ (Glowing Dark/Light Switch)
+============================================ */
+.theme-toggle-btn {
+    position: relative;
+    width: 58px;
+    height: 36px;
+    border-radius: 100px;
+    flex-shrink: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, #ffffff 0%, #e9e9ef 100%);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow:
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.95),
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.06),
+        0 2px 8px rgba(0, 0, 0, 0.10),
+        0 0 12px rgba(255, 179, 0, 0.25);   /* тёплое свечение солнца */
+    transition: background 0.4s, box-shadow 0.4s, border-color 0.4s, transform 0.2s var(--ios-spring);
+}
+.theme-toggle-btn:active { transform: scale(0.92); }
+
+.tt-icon {
+    position: absolute;
+    font-size: 19px;
+    transition: opacity 0.3s, transform 0.45s var(--ios-spring);
+}
+
+/* ☀️ Светлая тема: солнце светится */
+.tt-sun {
+    color: #FF9500;
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 5px rgba(255, 149, 0, 0.9))
+            drop-shadow(0 0 12px rgba(255, 200, 0, 0.5));
+}
+.tt-moon {
+    color: #cfd8ff;
+    opacity: 0;
+    transform: scale(0.3) rotate(-90deg);
+}
+
+/* 🌙 Тёмная тема: пилюля чёрная, луна светится холодным светом */
+body.dark-theme .theme-toggle-btn {
+    background: linear-gradient(180deg, #2e2e32 0%, #191a1d 100%);
+    border-color: rgba(0, 0, 0, 0.65);
+    box-shadow:
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.08),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.55),
+        0 2px 10px rgba(0, 0, 0, 0.50),
+        0 0 16px rgba(150, 180, 255, 0.30);  /* холодное свечение луны */
+}
+body.dark-theme .tt-sun {
+    opacity: 0;
+    transform: scale(0.3) rotate(90deg);
+}
+body.dark-theme .tt-moon {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    filter: drop-shadow(0 0 5px rgba(170, 200, 255, 0.95))
+            drop-shadow(0 0 14px rgba(140, 170, 255, 0.6));
+}
+
+/* ============================================
+КНОПКИ ШАПКИ v6: ПЛОСКИЙ ВЫРЕЗ БЕЗ ВДАВЛЕННОСТИ
+============================================ */
+.header-settings,
+.header-logout {
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important;
+}
+.theme-toggle-btn {
+    width: 58px !important;
+    height: 40px !important;
+    border-radius: 100px !important;
+}
+
+/* ☀️ Светлая тема */
+.header-settings,
+.header-logout,
+.theme-toggle-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 0, 0, 0.16),  /* равномерный паз по контуру */
+        0 1px 0 rgba(255, 255, 255, 0.95)     /* свет на нижней кромке реза */
+        !important;
+}
+
+/* 🌙 Тёмная тема */
+body.dark-theme .header-settings,
+body.dark-theme .header-logout,
+body.dark-theme .theme-toggle-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 0, 0, 0.85),
+        0 1px 0 rgba(255, 255, 255, 0.14)
+        !important;
+}
+
+/* Нажатие — затемнение участка */
+.header-settings:active,
+.header-logout:active,
+.theme-toggle-btn:active {
+    background: rgba(0, 0, 0, 0.05) !important;
+    transform: none !important;
+}
+body.dark-theme .header-settings:active,
+body.dark-theme .header-logout:active,
+body.dark-theme .theme-toggle-btn:active {
+    background: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Активная шестерёнка — синий паз */
+.header-settings.active {
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 122, 255, 0.55),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+body.dark-theme .header-settings.active {
+    box-shadow:
+        inset 0 0 0 2px rgba(10, 132, 255, 0.65),
+        0 1px 0 rgba(255, 255, 255, 0.14) !important;
+}
+
+/* Свечение иконы темы */
+.theme-toggle-btn .tt-sun {
+    filter: drop-shadow(0 0 5px rgba(255, 149, 0, 0.9))
+            drop-shadow(0 0 12px rgba(255, 200, 0, 0.5)) !important;
+}
+body.dark-theme .theme-toggle-btn .tt-moon {
+    filter: drop-shadow(0 0 5px rgba(170, 200, 255, 0.95))
+            drop-shadow(0 0 14px rgba(140, 170, 255, 0.6)) !important;
+}
+
+/* ============================================
+ВСЕ КНОПКИ: ПЛОСКИЕ С ПРОРЕЗЬЮ (обе темы)
+============================================ */
+
+/* База: снимаем объём, ставим паз */
+.btn,
+.btn-small,
+.page-btn,
+.auth-tab,
+button:not(#fab-add):not(.nav-item):not(.header-settings):not(.header-logout):not(.theme-toggle-btn) {
+    background-image: none !important;          /* убираем градиенты — плоско */
+    border: none !important;
+    transform: none !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 0, 0, 0.16),    /* паз 2px */
+        0 1px 0 rgba(255, 255, 255, 0.95)       /* свет на кромке реза */
+        !important;
+}
+body.dark-theme .btn,
+body.dark-theme .btn-small,
+body.dark-theme .page-btn,
+body.dark-theme .auth-tab,
+body.dark-theme button:not(#fab-add):not(.nav-item):not(.header-settings):not(.header-logout):not(.theme-toggle-btn) {
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 0, 0, 0.85),
+        0 1px 0 rgba(255, 255, 255, 0.14) !important;
+}
+
+/* ============================================
+КНОПКА «НАСТРОИТЬ ЦЕЛИ»: геометрия + эффект нажатия
+============================================ */
+.btn-goals {
+    margin-top: 20px;
+    width: 100%;
+    min-height: 50px;
+    padding: 14px 20px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.15s var(--ios-spring),
+                box-shadow 0.15s ease,
+                background-color 0.15s ease;
+}
+.btn-goals ion-icon {
+    font-size: 20px;
+    color: inherit !important;
+}
+
+/* Текст и иконка — синие в обеих темах */
+.btn-goals,
+.btn-goals ion-icon {
+    color: var(--ios-accent) !important;
+}
+
+/* ☀️ Нажатие в светлой теме: сжатие + паз углубляется */
+.btn-goals:active {
+    transform: scale(0.97) !important;
+    background-color: rgba(0, 122, 255, 0.10) !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 122, 255, 0.60),
+        inset 0 2px 6px rgba(0, 0, 0, 0.15),   /* вдавилась */
+        0 0 0 rgba(255, 255, 255, 0) !important;
+}
+
+/* 🌙 Нажатие в тёмной теме */
+body.dark-theme .btn-goals:active {
+    transform: scale(0.97) !important;
+    background-color: rgba(10, 132, 255, 0.16) !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(10, 132, 255, 0.70),
+        inset 0 3px 8px rgba(0, 0, 0, 0.55),
+        0 0 0 rgba(255, 255, 255, 0) !important;
+}
+/* ============================================
+БЫСТРЫЕ ДЕЙСТВИЯ — ПЛОСКИЕ КНОПКИ С ЦВЕТНОЙ ПРОРЕЗЬЮ
+(обе темы)
+============================================ */
+.action-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+}
+.action-buttons .btn {
+    width: 100%;
+    min-height: 46px;
+    padding: 10px 12px;
+    font-size: 13.5px;
+    font-weight: 600;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    transition: transform 0.15s var(--ios-spring),
+                background-color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+.action-buttons .btn ion-icon {
+    font-size: 17px;
+    color: inherit !important;
+}
+
+/* На мобильных — ещё компактнее */
+@media (max-width: 480px) {
+    .action-buttons .btn {
+        min-height: 42px;
+        padding: 9px 10px;
+        font-size: 12.5px;
+    }
+    .action-buttons .btn ion-icon {
+        font-size: 16px;
+    }
+}
+
+
+
+/* ============================================
+БЫСТРЫЕ ДЕЙСТВИЯ — ПЛОСКИЕ КНОПКИ С ЦВЕТНОЙ ПРОРЕЗЬЮ
+(обе темы)
+============================================ */
+.action-buttons {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+}
+.action-buttons .btn {
+    width: 100%;
+    min-height: 52px;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    transition: transform 0.15s var(--ios-spring),
+                background-color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+.action-buttons .btn ion-icon {
+    font-size: 20px;
+    color: inherit !important;
+}
+
+/* ☀️ СВЕТЛАЯ ТЕМА: базовый паз 2px + светлая кромка */
+body:not(.dark-theme) .action-buttons .btn {
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 0, 0, 0.16),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+    color: #1C1C1E !important;
+}
+
+/* 🔵 Заполнить день — синий паз */
+body:not(.dark-theme) .action-buttons .btn-primary {
+    color: #007AFF !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 122, 255, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+/* 🟢 Аналитика — зелёный паз */
+body:not(.dark-theme) .action-buttons .btn-success {
+    color: #28A745 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(52, 199, 89, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+/* ⚪ История — серый паз */
+body:not(.dark-theme) .action-buttons .btn-secondary {
+    color: #8E8E93 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(142, 142, 147, 0.45),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+/* 🌙 ТЁМНАЯ ТЕМА: глубокий чёрный паз + холодная кромка */
+body.dark-theme .action-buttons .btn {
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 255, 255, 0.14),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+    color: #FFFFFF !important;
+}
+
+/* 🔵 Заполнить день */
+body.dark-theme .action-buttons .btn-primary {
+    color: #64B5FF !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(10, 132, 255, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+/* 🟢 Аналитика */
+body.dark-theme .action-buttons .btn-success {
+    color: #30D158 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(48, 209, 88, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+/* ⚪ История */
+body.dark-theme .action-buttons .btn-secondary {
+    color: rgba(235, 235, 245, 0.65) !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(235, 235, 245, 0.22),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Эффект нажатия: сжатие + затемнение */
+.action-buttons .btn:active {
+    transform: scale(0.97) !important;
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+body.dark-theme .action-buttons .btn:active {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Убираем все глянцевые и магнитные эффекты у этих кнопок */
+.action-buttons .btn.glossy::before,
+.action-buttons .btn.glossy::after { display: none !important; }
+.action-buttons .btn.ripple { overflow: hidden; }
+.action-buttons .btn.magnetic { transform: none !important; }
+
+/* ☀️ СВЕТЛАЯ ТЕМА: базовый паз 2px + светлая кромка */
+body:not(.dark-theme) .action-buttons .btn {
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 0, 0, 0.16),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+    color: #1C1C1E !important;
+}
+
+/* 🔵 Заполнить день — синий паз */
+body:not(.dark-theme) .action-buttons .btn-primary {
+    color: #007AFF !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 122, 255, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+/* 🟢 Аналитика — зелёный паз */
+body:not(.dark-theme) .action-buttons .btn-success {
+    color: #28A745 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(52, 199, 89, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+/* ⚪ История — серый паз */
+body:not(.dark-theme) .action-buttons .btn-secondary {
+    color: #8E8E93 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(142, 142, 147, 0.45),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+/* 🌙 ТЁМНАЯ ТЕМА: глубокий чёрный паз + холодная кромка */
+body.dark-theme .action-buttons .btn {
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 255, 255, 0.14),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+    color: #FFFFFF !important;
+}
+
+/* 🔵 Заполнить день */
+body.dark-theme .action-buttons .btn-primary {
+    color: #64B5FF !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(10, 132, 255, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+/* 🟢 Аналитика */
+body.dark-theme .action-buttons .btn-success {
+    color: #30D158 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(48, 209, 88, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+/* ⚪ История */
+body.dark-theme .action-buttons .btn-secondary {
+    color: rgba(235, 235, 245, 0.65) !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(235, 235, 245, 0.22),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Эффект нажатия: сжатие + затемнение */
+.action-buttons .btn:active {
+    transform: scale(0.97) !important;
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+body.dark-theme .action-buttons .btn:active {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Убираем все глянцевые и магнитные эффекты у этих кнопок */
+.action-buttons .btn.glossy::before,
+.action-buttons .btn.glossy::after { display: none !important; }
+.action-buttons .btn.ripple { overflow: hidden; }
+.action-buttons .btn.magnetic { transform: none !important; }
+
+/* ============================================
+IOS-АЛЕРТ (вместо нативного alert), обе темы
+============================================ */
+.ios-alert-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10001;
+    padding: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+.ios-alert-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.ios-alert {
+    width: 100%;
+    max-width: 320px;
+    border-radius: 20px;
+    background: linear-gradient(180deg, #ffffff 0%, #f4f4f8 100%);
+    box-shadow:
+        0 24px 80px rgba(0, 0, 0, 0.30),
+        inset 0 1.5px 0 #ffffff;
+    overflow: hidden;
+    transform: scale(0.92);
+    transition: transform 0.25s var(--ios-spring);
+}
+.ios-alert-overlay.visible .ios-alert { transform: scale(1); }
+body.dark-theme .ios-alert {
+    background: linear-gradient(180deg, #2A2A2E 0%, #1D1D21 100%);
+    box-shadow:
+        0 24px 80px rgba(0, 0, 0, 0.70),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.06);
+}
+
+.ios-alert-title {
+    padding: 22px 20px 6px;
+    font-size: 17px;
+    font-weight: 700;
+    text-align: center;
+    color: #1C1C1E;
+}
+body.dark-theme .ios-alert-title { color: #FFFFFF; }
+
+.ios-alert-body {
+    padding: 6px 24px 14px;
+    font-size: 14px;
+    line-height: 1.6;
+    text-align: left;
+    color: var(--ios-text-secondary);
+}
+body.dark-theme .ios-alert-body { color: rgba(235, 235, 245, 0.72); }
+
+/* ☀️ OK — плоская кнопка с синей прорезью, вписана в окно */
+.ios-alert-btn {
+    display: block;
+    width: calc(100% - 32px);
+    margin: 0 16px 16px;
+    padding: 12px;
+    border-radius: 12px;
+    background: transparent !important;
+    border: none !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 122, 255, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+    color: var(--ios-accent);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s var(--ios-spring),
+                background-color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+.ios-alert-btn:active {
+    transform: scale(0.97) !important;
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+/* 🌙 Тёмная тема */
+body.dark-theme .ios-alert-btn {
+    box-shadow:
+        inset 0 0 0 2px rgba(10, 132, 255, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.14) !important;
+    color: #64B5FF;
+}
+body.dark-theme .ios-alert-btn:active {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ============================================
+ЭКСПОРТ / УПРАВЛЕНИЕ — ПЛОСКИЕ КНОПКИ С ЦВЕТНОЙ ПРОРЕЗЬЮ
+(обе темы)
+============================================ */
+.form-actions .btn {
+    width: 100%;
+    min-height: 50px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    transition: transform 0.15s var(--ios-spring),
+                background-color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+.form-actions .btn ion-icon { color: inherit !important; }
+
+/* ☀️ СВЕТЛАЯ ТЕМА */
+body:not(.dark-theme) .form-actions .btn {
+    color: #1C1C1E !important;
+    box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.16),
+                0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+/* 🔵 Excel — синий паз */
+body:not(.dark-theme) .form-actions .btn-primary {
+    color: #007AFF !important;
+    box-shadow: inset 0 0 0 2px rgba(0, 122, 255, 0.50),
+                0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+/* 🟢 PDF — зелёный паз */
+body:not(.dark-theme) .form-actions .btn-success {
+    color: #28A745 !important;
+    box-shadow: inset 0 0 0 2px rgba(52, 199, 89, 0.50),
+                0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+/* ⚪ JSON / Импорт — серый паз */
+body:not(.dark-theme) .form-actions .btn-secondary {
+    color: #8E8E93 !important;
+    box-shadow: inset 0 0 0 2px rgba(142, 142, 147, 0.45),
+                0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+/* 🔴 Сброс — красный паз */
+body:not(.dark-theme) .form-actions .btn-danger {
+    color: #FF3B30 !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 59, 48, 0.50),
+                0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+/* 🌙 ТЁМНАЯ ТЕМА */
+body.dark-theme .form-actions .btn {
+    color: #FFFFFF !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.14),
+                0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+body.dark-theme .form-actions .btn-primary {
+    color: #64B5FF !important;
+    box-shadow: inset 0 0 0 2px rgba(10, 132, 255, 0.60),
+                0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+body.dark-theme .form-actions .btn-success {
+    color: #30D158 !important;
+    box-shadow: inset 0 0 0 2px rgba(48, 209, 88, 0.60),
+                0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+body.dark-theme .form-actions .btn-secondary {
+    color: rgba(235, 235, 245, 0.65) !important;
+    box-shadow: inset 0 0 0 2px rgba(235, 235, 245, 0.22),
+                0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+body.dark-theme .form-actions .btn-danger {
+    color: #FF6961 !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 69, 58, 0.60),
+                0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Нажатие: сжатие + затемнение */
+.form-actions .btn:active {
+    transform: scale(0.98) !important;
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+body.dark-theme .form-actions .btn:active {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Убираем глянец и магнит */
+.form-actions .btn.glossy::before,
+.form-actions .btn.glossy::after { display: none !important; }
+.form-actions .btn.magnetic { transform: none !important; }
+
+/* Подсказки в обоих блоках — приглушённые, обе темы */
+.hint-text {
+    font-size: 13px;
+    color: var(--ios-text-tertiary);
+}
+body.dark-theme .hint-text {
+    color: rgba(235, 235, 245, 0.50);
+}
+/* Предупреждение о сбросе остаётся красным, но приглушённым в тёмной */
+body.dark-theme .hint-text[style*="danger"],
+body.dark-theme .hint-text[style*="color: var(--ios-danger)"] {
+    color: #FF6961 !important;
+}
+
+/* ============================================
+МОИ АВТОМОБИЛИ — единый стиль (обе темы)
+============================================ */
+
+/* 🕳️ УГЛУБЛЁННЫЕ поля и селект — светлая тема */
+body:not(.dark-theme) #vehicle-selector,
+body:not(.dark-theme) #vehicle-form input {
+    background: linear-gradient(to bottom,
+        #cfcfd7 0%, #e8e8ee 8%, #f8f8fb 50%, #ffffff 100%) !important;
+    border: 1px solid #9d9da6 !important;
+    border-radius: 12px !important;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.35),
+        inset 0 3px 8px rgba(0, 0, 0, 0.12),
+        0 1px 0 rgba(255, 255, 255, 0.85) !important;
+    color: #1C1C1E !important;
+}
+body:not(.dark-theme) #vehicle-form input::placeholder {
+    color: #8E8E93 !important;
+}
+
+/* 🕳️ УГЛУБЛЁННЫЕ поля и селект — тёмная тема */
+body.dark-theme #vehicle-selector,
+body.dark-theme #vehicle-form input {
+    background: linear-gradient(to bottom,
+        #08080a 0%, #101013 25%, #1a1a1e 100%) !important;
+    border: 1px solid #000000 !important;
+    border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+    border-radius: 12px !important;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.90),
+        inset 0 3px 8px rgba(0, 0, 0, 0.55),
+        0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    color: #FFFFFF !important;
+}
+body.dark-theme #vehicle-form input::placeholder {
+    color: rgba(235, 235, 245, 0.35) !important;
+}
+body.dark-theme #vehicle-selector option {
+    background: #1C1C1E;
+    color: #FFFFFF;
+}
+
+/* Подписи и заголовок формы — читаемы в обеих темах */
+body:not(.dark-theme) #vehicle-form label,
+body:not(.dark-theme) #vehicle-form h3 {
+    color: #3A3A3C !important;
+}
+body.dark-theme #vehicle-form label,
+body.dark-theme #vehicle-form h3 {
+    color: rgba(235, 235, 245, 0.72) !important;
+}
+
+/* 🔘 Кнопки формы — плоские с прорезью */
+#vehicle-form .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 14px;
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    transition: transform 0.15s var(--ios-spring),
+                background-color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+#vehicle-form .btn ion-icon {
+    font-size: 20px;
+    color: inherit !important;
+}
+
+/* 🟢 Добавить автомобиль — зелёный паз */
+body:not(.dark-theme) #vehicle-form .btn-success {
+    color: #28A745 !important;
+    box-shadow: inset 0 0 0 2px rgba(52, 199, 89, 0.50),
+                0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+body.dark-theme #vehicle-form .btn-success {
+    color: #30D158 !important;
+    box-shadow: inset 0 0 0 2px rgba(48, 209, 88, 0.60),
+                0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+/* 🔴 Отмена редактирования — красный паз */
+body:not(.dark-theme) #cancel-edit-vehicle {
+    color: #FF3B30 !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 59, 48, 0.50),
+                0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+body.dark-theme #cancel-edit-vehicle {
+    color: #FF6961 !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 69, 58, 0.60),
+                0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Нажатие — сжатие + затемнение */
+#vehicle-form .btn:active {
+    transform: scale(0.97) !important;
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+body.dark-theme #vehicle-form .btn:active {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ============================================
+СПИСОК АВТОМОБИЛЕЙ: читаемые кнопки в СВЕТЛОЙ теме
+============================================ */
+
+/* 🔵 «Выбрать» и кнопки без класса — синий паз, синий текст */
+body:not(.dark-theme) #vehicle-list button,
+body:not(.dark-theme) .vehicle-item button {
+    color: #007AFF !important;
+    background: transparent !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 122, 255, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+body:not(.dark-theme) #vehicle-list button ion-icon,
+body:not(.dark-theme) .vehicle-item button ion-icon {
+    color: inherit !important;
+}
+
+/* ⚪ Вторичные (редактировать) — серый паз */
+body:not(.dark-theme) #vehicle-list .btn-secondary,
+body:not(.dark-theme) .vehicle-item .btn-secondary {
+    color: #8E8E93 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(142, 142, 147, 0.45),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+/* 🔴 Опасные (удалить) — красный паз */
+body:not(.dark-theme) #vehicle-list .btn-danger,
+body:not(.dark-theme) .vehicle-item .btn-danger {
+    color: #FF3B30 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 59, 48, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+/* 🌙 Тёмная тема — те же кнопки светлее */
+body.dark-theme #vehicle-list button,
+body.dark-theme .vehicle-item button {
+    color: #64B5FF !important;
+    background: transparent !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(10, 132, 255, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+body.dark-theme #vehicle-list .btn-secondary,
+body.dark-theme .vehicle-item .btn-secondary {
+    color: rgba(235, 235, 245, 0.65) !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(235, 235, 245, 0.22),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+body.dark-theme #vehicle-list .btn-danger,
+body.dark-theme .vehicle-item .btn-danger {
+    color: #FF6961 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 69, 58, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
 }

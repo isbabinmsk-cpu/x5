@@ -90,7 +90,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.7.2" defer></script>
+    <script src="script.js?v=2.7.3" defer></script>
     
     <!-- 1. МОДУЛЬ АВТОМОБИЛЕЙ (ОБЯЗАТЕЛЬНО ПЕРВЫМ) -->
 <script src="vehicle-module.js?v=1.0.4"></script>
@@ -263,20 +263,16 @@
         </div>
         
 <div class="header-actions">
-    <!-- НОВАЯ кнопка Настройки -->
     <button class="header-settings" id="header-settings-btn" onclick="switchTab('settings')" title="Настройки">
         <ion-icon name="settings-outline"></ion-icon>
     </button>
-    
-    <label class="theme-switch" title="Тёмная тема">
-        <input type="checkbox" id="theme-toggle">
-        <span class="theme-switch-track">
-            <ion-icon name="sunny-outline" class="switch-icon sun"></ion-icon>
-            <ion-icon name="moon-outline" class="switch-icon moon"></ion-icon>
-            <span class="theme-switch-thumb"></span>
-        </span>
-    </label>
-    
+
+    <!-- НОВАЯ кнопка темы -->
+    <button class="theme-toggle-btn" id="theme-toggle-btn" title="Переключить тему">
+        <ion-icon name="sunny" class="tt-icon tt-sun"></ion-icon>
+        <ion-icon name="moon" class="tt-icon tt-moon"></ion-icon>
+    </button>
+
     <button id="logout-btn" class="header-logout">
         <ion-icon name="log-out-outline"></ion-icon>
     </button>

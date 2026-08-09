@@ -5812,3 +5812,92 @@ document.addEventListener('change', function(e) {
         return res;
     };
 })();
+
+// ============================================
+// СТОП-ПОДЁРГИВАНИЕ: гасим анимации карточки профиля при перерисовках
+// ============================================
+(function() {
+    const home = document.getElementById('tab-home');
+    if (!home) return;
+    
+    function killAnims() {
+        const card = home.querySelector('.card'); // карточка с фото — первая
+        if (!card) return;
+        // Мгновенно отменяем все запустившиеся анимации
+        [card, ...card.querySelectorAll('*')].forEach(el => {
+            if (el.getAnimations) el.getAnimations().forEach(a => a.cancel());
+        });
+    }
+    
+    // Срабатывает в момент любой перерисовки вкладки
+    new MutationObserver(killAnims).observe(home, { childList: true, subtree: true });
+    killAnims();
+})();
+
+// ============================================
+// ТЁМНАЯ ТЕМА v3: кнопка-пилюля с луной/солнцем
+// ============================================
+(function () {
+    const KEY = 'driverTheme';
+
+    function applyTheme(dark) {
+        document.body.classList.toggle('dark-theme', dark);
+        document.documentElement.style.background = dark ? '#000000' : '#F2F2F7';
+        const old = document.getElementById('theme-toggle');   // если старый слайдер ещё в DOM
+        if (old) old.checked = dark;
+        let meta = document.querySelector('meta[name="theme-color"]');
+        if (!meta) {
+            meta = document.createElement('meta');
+            meta.name = 'theme-color';
+            document.head.appendChild(meta);
+        }
+        meta.content = dark ? '#000000' : '#F2F2F7';
+    }
+
+    // При загрузке: сохранённая или системная
+    const saved = localStorage.getItem(KEY);
+    const prefersDark = window.matchMedia &&
+        window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(saved ? saved === 'dark' : prefersDark);
+
+    // Клик по кнопке-пилюле
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('#theme-toggle-btn');
+        if (!btn) return;
+        const dark = !document.body.classList.contains('dark-theme');
+        localStorage.setItem(KEY, dark ? 'dark' : 'light');
+        applyTheme(dark);
+        if (window.showToast) showToast(dark ? '🌙 Тёмная тема' : '☀️ Светлая тема');
+    });
+})();
+
+// ============================================
+// КРАСИВЫЕ АЛЕРТЫ ВМЕСТО НАТИВНЫХ (iOS-стиль)
+// ============================================
+(function () {
+    window.alert = function (message) {
+        const lines = String(message).split('\n').map(s => s.trim()).filter(Boolean);
+        const title = lines[0] || '';
+        const body = lines.slice(1)
+            .map(s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;'))
+            .join('<br>');
+
+        const overlay = document.createElement('div');
+        overlay.className = 'ios-alert-overlay';
+        overlay.innerHTML = `
+            <div class="ios-alert">
+                <div class="ios-alert-title">${title.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>
+                ${body ? `<div class="ios-alert-body">${body}</div>` : ''}
+                <button class="ios-alert-btn">OK</button>
+            </div>`;
+        document.body.appendChild(overlay);
+        requestAnimationFrame(() => overlay.classList.add('visible'));
+
+        const close = () => {
+            overlay.classList.remove('visible');
+            setTimeout(() => overlay.remove(), 250);
+        };
+        overlay.querySelector('.ios-alert-btn').addEventListener('click', close);
+        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    };
+})();
