@@ -15,6 +15,170 @@ let editingFuelId = null;
 let fuelChartInstance = null;
 const FUEL_STORAGE_KEY = 'driverFuelLogs';
 
+// ============================================
+// КАЛЬКУЛЯТОР ДЛЯ ПОЛЯ СУММЫ (МАТЕМАТИЧЕСКИЕ ВЫРАЖЕНИЯ)
+// ============================================
+function evaluateMathExpression(expression) {
+    if (!expression || typeof expression !== 'string') return null;
+    
+    // Сохраняем оригинал для проверки
+    const original = expression.trim();
+    if (!original) return null;
+    
+    // Заменяем запятые на точки и убираем пробелы
+    expression = original.replace(/,/g, '.').replace(/\s+/g, '');
+    
+    // Проверяем, есть ли математические операторы
+    if (!/[\+\-\*\/]/.test(expression)) return null;
+    
+    // Разрешаем только цифры, точки, операторы и скобки (защита от инъекций)
+    if (!/^[\d\.\+\*\/\(\)\-]+$/.test(expression)) return null;
+    
+    try {
+        // Безопасное вычисление выражения
+        const result = Function('"use strict"; return (' + expression + ')')();
+        if (typeof result === 'number' && !isNaN(result) && isFinite(result)) {
+            console.log(`🧮 Калькулятор: "${original}" = ${result}`);
+            return result;
+        }
+    } catch (e) {
+        console.warn('❌ Ошибка вычисления выражения:', e);
+    }
+    return null;
+}
+
+// ============================================
+// НАСТРОЙКА КАЛЬКУЛЯТОРА ДЛЯ ПОЛЯ СУММЫ
+// ============================================
+function setupAmountCalculator() {
+    const amountInput = document.getElementById('fuel-amount');
+    if (!amountInput) {
+        console.warn('⚠️ Поле fuel-amount не найдено');
+        return;
+    }
+    
+    // 🛠️ НЕ КЛОНИРУЕМ - работаем с существующим элементом
+    // Просто удаляем старые обработчики через замену на новый элемент
+    
+    // Создаем новый input с теми же атрибутами
+    const newInput = document.createElement('input');
+    newInput.type = 'text';
+    newInput.id = 'fuel-amount';
+    newInput.className = amountInput.className;
+    newInput.placeholder = 'Например: 45.5*2 или 1500+300';
+    newInput.title = 'Поддерживается калькулятор: 45.5*2, 1500+300, (100+50)*2';
+    newInput.value = amountInput.value;
+    newInput.autocomplete = 'off';
+    
+    // Заменяем старый элемент новым
+    amountInput.parentNode.replaceChild(newInput, amountInput);
+    
+    // Добавляем подсказку
+    newInput.placeholder = 'Например: 45.5*2 или 1500+300';
+    newInput.title = 'Поддерживается калькулятор: 45.5*2, 1500+300, (100+50)*2';
+    
+    // ✅ Обработчик при потере фокуса
+    newInput.addEventListener('blur', function(e) {
+        const result = evaluateMathExpression(this.value);
+        if (result !== null) {
+            this.value = result.toFixed(2);
+            console.log('✅ Калькулятор применил:', this.value);
+            if (typeof updateFuelFormCalculations === 'function') {
+                updateFuelFormCalculations();
+            }
+        }
+        // Убираем подсветку
+        this.style.borderColor = '';
+        this.style.backgroundColor = '';
+        const hint = document.getElementById('calc-hint');
+        if (hint) hint.remove();
+    });
+    
+    // ✅ Обработчик нажатия Enter
+    newInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const result = evaluateMathExpression(this.value);
+            if (result !== null) {
+                this.value = result.toFixed(2);
+                console.log('✅ Калькулятор применил:', this.value);
+                if (typeof updateFuelFormCalculations === 'function') {
+                    updateFuelFormCalculations();
+                }
+            }
+            // Убираем подсветку
+            this.style.borderColor = '';
+            this.style.backgroundColor = '';
+            const hint = document.getElementById('calc-hint');
+            if (hint) hint.remove();
+        }
+    });
+    
+    // ✅ Обработчик ввода в реальном времени (показывает результат)
+    newInput.addEventListener('input', function(e) {
+        // Показываем индикатор, если выражение похоже на математическое
+        const hasOperators = /[\+\-\*\/]/.test(this.value);
+        if (hasOperators) {
+            this.style.borderColor = '#007AFF';
+            this.style.backgroundColor = 'rgba(0, 122, 255, 0.05)';
+            
+            // Пытаемся вычислить и показать результат
+            const result = evaluateMathExpression(this.value);
+            
+            // Обновляем или создаем подсказку
+            let hint = document.getElementById('calc-hint');
+            if (!hint && result !== null) {
+                hint = document.createElement('div');
+                hint.id = 'calc-hint';
+                hint.style.cssText = `
+                    position: absolute;
+                    right: 10px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    color: #007AFF;
+                    font-size: 12px;
+                    font-weight: bold;
+                    pointer-events: none;
+                    background: rgba(0, 122, 255, 0.1);
+                    padding: 2px 8px;
+                    border-radius: 4px;
+                `;
+                this.parentNode.style.position = 'relative';
+                this.parentNode.appendChild(hint);
+            }
+            if (hint) {
+                if (result !== null) {
+                    hint.textContent = '= ' + result.toFixed(2);
+                    hint.style.display = 'block';
+                } else {
+                    hint.style.display = 'none';
+                }
+            }
+        } else {
+            this.style.borderColor = '';
+            this.style.backgroundColor = '';
+            const hint = document.getElementById('calc-hint');
+            if (hint) {
+                if (this.value.trim() === '') {
+                    hint.remove();
+                } else {
+                    hint.style.display = 'none';
+                }
+            }
+        }
+        
+        // Вызываем пересчет
+        if (typeof updateFuelFormCalculations === 'function') {
+            updateFuelFormCalculations();
+        }
+    });
+    
+    console.log('✅ Калькулятор настроен для поля суммы');
+    
+    // Возвращаем новый элемент для использования в других функциях
+    return newInput;
+}
+
 // 1. РАСЧЕТ РАСХОДА
 function calculateFuelConsumption(logs) {
     const sorted = [...logs].sort((a, b) => (a.mileage || 0) - (b.mileage || 0));
@@ -44,10 +208,7 @@ async function loadFuelLogs() {
         if (saved) fuelLogs = JSON.parse(saved);
         
         if (typeof currentUser !== 'undefined' && currentUser && typeof db !== 'undefined') {
-            // Получаем ID текущего автомобиля (или 'default', если модуль еще не инициализирован)
             const vId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
-            
-            // ИСПРАВЛЕНИЕ: Убрали .orderBy('date', 'desc'), чтобы избежать ошибки failed-precondition
             const snapshot = await db.collection('users')
                 .doc(currentUser.uid)
                 .collection('fuelLogs')
@@ -56,19 +217,15 @@ async function loadFuelLogs() {
             
             if (!snapshot.empty) {
                 let loadedLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                
-                // ИСПРАВЛЕНИЕ: Сортируем в JavaScript после получения данных (по убыванию даты)
                 loadedLogs.sort((a, b) => {
                     const dateA = parseLocalDate(a.date) || 0;
                     const dateB = parseLocalDate(b.date) || 0;
                     return dateB - dateA;
                 });
-                
                 fuelLogs = loadedLogs;
                 localStorage.setItem(FUEL_STORAGE_KEY, JSON.stringify(fuelLogs));
                 console.log('✅ Топливо загружено из Firebase для авто:', vId, '(', fuelLogs.length, 'заправок)');
             } else {
-                // Если для этого авто нет записей, очищаем массив, чтобы не показывать данные другой машины
                 fuelLogs = [];
                 localStorage.setItem(FUEL_STORAGE_KEY, JSON.stringify(fuelLogs));
                 console.log('ℹ️ Для выбранного автомобиля записей о топливе нет');
@@ -79,7 +236,6 @@ async function loadFuelLogs() {
         if (typeof updateFuelStats === 'function') updateFuelStats();
         if (typeof updateFuelChart === 'function') updateFuelChart();
         
-        // Автоматическая синхронизация с историей при загрузке
         if (typeof syncFuelToRecords === 'function') {
             await syncFuelToRecords();
         }
@@ -105,12 +261,23 @@ async function saveFuelLogToFirebase(log) {
 // 4. ОБРАБОТЧИК ФОРМЫ (ДОБАВЛЕНИЕ И РЕДАКТИРОВАНИЕ)
 async function handleFuelSubmit(e) {
     e.preventDefault();
+    console.log('📝 Обработка формы топлива...');
+    
     const date = document.getElementById('fuel-date').value;
     const mileage = parseFloat(document.getElementById('fuel-mileage').value);
     const liters = parseFloat(document.getElementById('fuel-liters').value);
-    const amount = parseFloat(document.getElementById('fuel-amount').value);
+    
+    // ✅ Читаем сумму из поля (она уже вычислена)
+    const amountRaw = document.getElementById('fuel-amount').value;
+    console.log('🔍 Сумма из поля:', amountRaw);
+    
+    // Проверяем, может быть в поле еще есть выражение
+    const evaluatedAmount = evaluateMathExpression(amountRaw);
+    const amount = evaluatedAmount !== null ? evaluatedAmount : parseFloat(amountRaw);
+    
+    console.log('💰 Итоговая сумма:', amount);
+    
     const comment = document.getElementById('fuel-comment').value || '';
-    // ✅ ЧИТАЕМ ВЫБРАННЫЙ АВТОМОБИЛЬ ИЗ ФОРМЫ
     const vehicleId = document.getElementById('fuel-vehicle-select')?.value || 'default';
     
     if (!date || !mileage || !liters || !amount) {
@@ -121,17 +288,11 @@ async function handleFuelSubmit(e) {
     const isEditing = !!editingFuelId;
     
     if (isEditing) {
-        // Режим обновления
         const index = fuelLogs.findIndex(l => l.id === editingFuelId);
         if (index !== -1) {
             fuelLogs[index] = {
                 ...fuelLogs[index],
-                date,
-                mileage,
-                liters,
-                amount,
-                comment,
-                vehicleId, // ✅ СОХРАНЯЕМ НОВЫЙ vehicleId
+                date, mileage, liters, amount, comment, vehicleId,
                 updatedAt: new Date().toISOString()
             };
             if (currentUser && typeof db !== 'undefined') {
@@ -140,20 +301,14 @@ async function handleFuelSubmit(e) {
                     delete logToSave.id;
                     await db.collection('users').doc(currentUser.uid).collection('fuelLogs').doc(editingFuelId).set(logToSave);
                 } catch (error) {
-                    console.error(' Ошибка обновления в Firebase:', error);
+                    console.error('Ошибка обновления в Firebase:', error);
                 }
             }
         }
     } else {
-        // Режим создания
         const newLog = {
             id: Date.now().toString(),
-            vehicleId, // ✅ ДОБАВЛЯЕМ vehicleId
-            date,
-            mileage,
-            liters,
-            amount,
-            comment,
+            vehicleId, date, mileage, liters, amount, comment,
             createdAt: new Date().toISOString()
         };
         fuelLogs.push(newLog);
@@ -166,9 +321,7 @@ async function handleFuelSubmit(e) {
     updateFuelStats();
     updateFuelChart();
     clearFuelForm();
-    if (typeof syncFuelToRecords === 'function') {
-        await syncFuelToRecords();
-    }
+    if (typeof syncFuelToRecords === 'function') await syncFuelToRecords();
     showToast(isEditing ? '✅ Заправка обновлена и синхронизирована!' : '✅ Заправка добавлена и синхронизирована!');
 }
 
@@ -199,7 +352,6 @@ function editFuelLog(id) {
     
     const form = document.getElementById('fuel-form');
     if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    
     if (typeof showToast === 'function') showToast('✏️ Редактирование заправки');
 }
 
@@ -217,11 +369,7 @@ async function deleteFuelLog(id) {
     if (typeof renderFuelLogs === 'function') renderFuelLogs();
     if (typeof updateFuelStats === 'function') updateFuelStats();
     if (typeof updateFuelChart === 'function') updateFuelChart();
-    
-    if (typeof syncFuelToRecords === 'function') {
-        await syncFuelToRecords();
-    }
-    
+    if (typeof syncFuelToRecords === 'function') await syncFuelToRecords();
     if (typeof showToast === 'function') showToast('🗑️ Заправка удалена, история обновлена');
 }
 
@@ -239,6 +387,16 @@ function clearFuelForm() {
     const consEl = document.getElementById('fuel-consumption');
     if (consEl) consEl.value = '';
     
+    // Очищаем подсказку калькулятора
+    const hint = document.getElementById('calc-hint');
+    if (hint) hint.remove();
+    
+    const amountEl = document.getElementById('fuel-amount');
+    if (amountEl) {
+        amountEl.style.borderColor = '';
+        amountEl.style.backgroundColor = '';
+    }
+    
     editingFuelId = null;
     const submitBtn = document.querySelector('#fuel-form button[type="submit"]');
     if (submitBtn) {
@@ -255,10 +413,12 @@ function updateFuelFormCalculations() {
     const mileageEl = document.getElementById('fuel-mileage');
     const priceEl = document.getElementById('fuel-price');
     const consEl = document.getElementById('fuel-consumption');
-
+    
     if (!litersEl || !amountEl || !mileageEl) return;
-
+    
     const liters = parseFloat(litersEl.value) || 0;
+    
+    // ✅ Сумма уже вычислена, просто читаем значение
     const amount = parseFloat(amountEl.value) || 0;
     const mileage = parseFloat(mileageEl.value) || 0;
     
@@ -338,7 +498,6 @@ function renderFuelLogs() {
                         ${log.comment ? `<div class="fuel-log-comment">${log.comment}</div>` : ''}
                     </div>
                 </div>
-                
                 <div class="fuel-log-meta-grid">
                     <div class="fuel-log-meta-item">
                         <ion-icon name="speedometer-outline"></ion-icon>
@@ -353,12 +512,10 @@ function renderFuelLogs() {
                         <span>${log.pricePerLiter.toFixed(2)} ₽/л</span>
                     </div>
                 </div>
-                
                 <div class="fuel-log-footer">
                     <div class="fuel-log-consumption ${consumptionClass}">${consumptionText}</div>
                     <div class="fuel-log-amount">${fmtMoney(log.amount)}</div>
                 </div>
-                
                 <div class="fuel-log-actions">
                     <button class="fuel-log-edit" onclick="editFuelLog('${log.id}')" title="Редактировать">
                         <ion-icon name="create-outline"></ion-icon>
@@ -444,50 +601,55 @@ function updateFuelChart() {
 
 // 12. ИНИЦИАЛИЗАЦИЯ ПРИ ЗАГРУЗКЕ СТРАНИЦЫ
 document.addEventListener('DOMContentLoaded', () => {
-    const fuelForm = document.getElementById('fuel-form');
-    if (fuelForm) fuelForm.addEventListener('submit', handleFuelSubmit);
+    console.log('🚀 Инициализация модуля топлива...');
     
-    ['fuel-liters', 'fuel-amount', 'fuel-mileage'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('input', updateFuelFormCalculations);
-    });
+    const fuelForm = document.getElementById('fuel-form');
+    if (fuelForm) {
+        // Удаляем старые обработчики формы
+        const newForm = fuelForm.cloneNode(true);
+        fuelForm.parentNode.replaceChild(newForm, fuelForm);
+        
+        // Добавляем новый обработчик
+        newForm.addEventListener('submit', handleFuelSubmit);
+        console.log('✅ Обработчик формы добавлен');
+    }
+    
+    // ✅ Настраиваем калькулятор
+    setupAmountCalculator();
+    
+    // ✅ Обработчики для автопересчета
+    const setupInputHandlers = () => {
+        ['fuel-liters', 'fuel-mileage'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                // Удаляем старые обработчики
+                const newEl = el.cloneNode(true);
+                el.parentNode.replaceChild(newEl, el);
+                newEl.addEventListener('input', updateFuelFormCalculations);
+                newEl.addEventListener('change', updateFuelFormCalculations);
+            }
+        });
+    };
+    
+    // Запускаем настройку обработчиков
+    setTimeout(setupInputHandlers, 50);
     
     const dateInput = document.getElementById('fuel-date');
     if (dateInput) dateInput.valueAsDate = new Date();
+    
+    console.log('✅ Модуль топлива инициализирован');
 });
-
-// Интеграция с переключением вкладок
-const originalSwitchTabFuel = window.switchTab;
-window.switchTab = function(tabName) {
-    if (typeof originalSwitchTabFuel === 'function') originalSwitchTabFuel(tabName);
-    if (tabName === 'fuel') {
-        setTimeout(() => {
-            if (typeof renderFuelLogs === 'function') renderFuelLogs();
-            if (typeof updateFuelStats === 'function') updateFuelStats();
-            if (typeof updateFuelChart === 'function') updateFuelChart();
-        }, 100);
-    }
-};
 
 // ============================================
 // СИНХРОНИЗАЦИЯ ТОПЛИВА С ИСТОРИЕЙ
 // ============================================
-// ============================================
-// ИСПРАВЛЕННАЯ СИНХРОНИЗАЦИЯ ТОПЛИВА С ИСТОРИЕЙ
-// ============================================
 async function syncFuelToRecords() {
     console.log('🔄 Запуск синхронизации топлива с историей (ВСЕ АВТОМОБИЛИ)...');
-    
     let allFuelLogs = [];
     
-    // 1. Загружаем ВСЕ заправки из Firebase, БЕЗ фильтра по автомобилю
     if (currentUser && typeof db !== 'undefined') {
         try {
-            const snapshot = await db.collection('users')
-                .doc(currentUser.uid)
-                .collection('fuelLogs')
-                .get(); // Убрали .where('vehicleId', '==', ...), чтобы получить все записи
-            
+            const snapshot = await db.collection('users').doc(currentUser.uid).collection('fuelLogs').get();
             if (!snapshot.empty) {
                 allFuelLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 console.log('✅ Загружено заправок для синхронизации (все авто):', allFuelLogs.length);
@@ -496,11 +658,8 @@ async function syncFuelToRecords() {
             console.error('❌ Ошибка загрузки всех заправок для синхронизации:', error);
         }
     } else {
-        // Fallback на localStorage, если Firebase недоступен
         const saved = localStorage.getItem(FUEL_STORAGE_KEY);
-        if (saved) {
-            allFuelLogs = JSON.parse(saved);
-        }
+        if (saved) allFuelLogs = JSON.parse(saved);
     }
     
     if (allFuelLogs.length === 0) {
@@ -508,92 +667,62 @@ async function syncFuelToRecords() {
         return 0;
     }
     
-    // 2. Группируем заправки по дате
     const fuelByDate = {};
     allFuelLogs.forEach(log => {
         if (!log.date) return;
         if (!fuelByDate[log.date]) {
-            fuelByDate[log.date] = {
-                totalAmount: 0,
-                totalLiters: 0,
-                count: 0,
-                details: []
-            };
+            fuelByDate[log.date] = { totalAmount: 0, totalLiters: 0, count: 0, details: [] };
         }
         fuelByDate[log.date].totalAmount += log.amount || 0;
         fuelByDate[log.date].totalLiters += log.liters || 0;
         fuelByDate[log.date].count += 1;
         fuelByDate[log.date].details.push({
-            amount: log.amount,
-            liters: log.liters,
-            mileage: log.mileage,
-            comment: log.comment || '',
-            vehicleId: log.vehicleId || 'default' // Добавляем ID авто для справки в tooltip
+            amount: log.amount, liters: log.liters, mileage: log.mileage,
+            comment: log.comment || '', vehicleId: log.vehicleId || 'default'
         });
     });
     
     console.log('📊 Найдено топлива по датам:', Object.keys(fuelByDate).length, 'дат');
-    
     let updatedCount = 0;
     let changedDates = [];
     
-    // 3. Обновляем записи в основной таблице (records)
     records.forEach(record => {
         if (!record.date) return;
-        
         const fuelData = fuelByDate[record.date];
         const oldFuelCost = record.fuelCost || 0;
-        
-        // Проверяем, связана ли запись с модулем топлива
         const isLinkedToFuelModule = record.fuelDetails || (record.fuelLogCount > 0);
         
         if (fuelData) {
-            // ✅ Для этой даты есть заправки (любого автомобиля)
             const newFuelCost = fuelData.totalAmount;
-            
-            const needsUpdate = newFuelCost !== oldFuelCost ||
-                !record.fuelDetails ||
-                record.fuelDetails.length === 0;
-            
+            const needsUpdate = newFuelCost !== oldFuelCost || !record.fuelDetails || record.fuelDetails.length === 0;
             if (needsUpdate) {
                 console.log(`📝 Обновление топлива за ${record.date}: ${oldFuelCost} ₽ → ${newFuelCost} ₽`);
                 record.fuelCost = newFuelCost;
                 record.fuelDetails = fuelData.details;
                 record.fuelLiters = fuelData.totalLiters;
                 record.fuelLogCount = fuelData.count;
-                
-                // Пересчитываем расходы и прибыль
                 record.totalExpenses = calcExpenses(record);
                 record.netProfit = calcIncome(record) - record.totalExpenses;
-                
                 updatedCount++;
                 changedDates.push(record.date);
             }
         } else if (isLinkedToFuelModule) {
-            // ⚠️ Для этой даты НЕТ заправок, НО запись была связана с модулем топлива
-            // (значит, все заправки за эту дату были удалены — нужно обнулить)
             if (oldFuelCost > 0 || record.fuelDetails) {
                 console.log(`🗑️ Обнуление топлива за ${record.date}: было ${oldFuelCost} ₽ (все заправки удалены)`);
                 record.fuelCost = 0;
                 record.fuelDetails = [];
                 record.fuelLiters = 0;
                 record.fuelLogCount = 0;
-                
                 record.totalExpenses = calcExpenses(record);
                 record.netProfit = calcIncome(record) - record.totalExpenses;
-                
                 updatedCount++;
                 changedDates.push(record.date);
             }
-        } else {
-            // ⏭️ Для этой даты нет заправок и запись НЕ связана с модулем топлива
-            // (старые ручные данные — не трогаем!)
         }
     });
     
     console.log(`📊 Итог синхронизации топлива: Обновлено ${updatedCount}, Пропущено ${records.length - updatedCount}`);
     
-    // 4. Сохраняем изменения
     if (updatedCount > 0) {
         saveData();
         if (currentUser && typeof db !== 'undefined') {
@@ -616,7 +745,6 @@ async function syncFuelToRecords() {
         renderTable();
         updateAnalytics();
     }
-    
     return updatedCount;
 }
 
@@ -638,7 +766,6 @@ function showFuelTooltip(event, cell) {
     const details = cell.getAttribute('data-fuel-details');
     const liters = cell.getAttribute('data-fuel-liters');
     const count = cell.getAttribute('data-fuel-count');
-    
     if (!details) return;
     
     const fuelDetails = JSON.parse(details.replace(/&apos;/g, "'"));
@@ -668,11 +795,8 @@ function showFuelTooltip(event, cell) {
     `;
     
     fuelDetails.forEach((detail) => {
-        // ✅ ДОБАВЛЕНО: Получаем название автомобиля
         const vehicleName = typeof window.getVehicleNameById === 'function' ?
-            window.getVehicleNameById(detail.vehicleId) :
-            'Неизвестный автомобиль';
-        
+            window.getVehicleNameById(detail.vehicleId) : 'Неизвестный автомобиль';
         html += `
             <div class="fuel-tooltip-detail-item">
                 <div class="detail-info">
@@ -746,5 +870,6 @@ window.renderFuelLogs = renderFuelLogs;
 window.updateFuelStats = updateFuelStats;
 window.updateFuelChart = updateFuelChart;
 window.syncFuelToRecords = syncFuelToRecords;
+window.evaluateMathExpression = evaluateMathExpression;
 
 console.log('✅ Модуль топлива (fuel-module.js) успешно загружен');

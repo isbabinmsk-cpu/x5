@@ -1,0 +1,723 @@
+/* ============================================
+   КАЛЕНДАРЬ СМЕН - БАЗОВЫЕ СТИЛИ (ИСПРАВЛЕННЫЕ)
+   ============================================ */
+
+#shift-calendar {
+    margin-top: 16px;
+}
+
+.shift-calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding: 0 4px;
+}
+
+.shift-calendar-header h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ios-text-primary);
+    margin: 0;
+}
+
+.shift-nav-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--ios-bg-tertiary);
+    border: 1px solid var(--ios-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--ios-text-primary);
+    transition: all 0.2s;
+}
+
+.shift-nav-btn:active {
+    transform: scale(0.95);
+    background: var(--ios-bg-secondary);
+}
+
+.shift-nav-btn ion-icon {
+    font-size: 18px;
+}
+
+.shift-calendar-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.shift-calendar-actions .btn {
+    font-size: 11px;
+    padding: 6px 10px;
+    min-width: 80px;
+}
+
+.shift-calendar-actions .btn ion-icon {
+    font-size: 14px;
+    margin-right: 4px;
+}
+
+/* Сетка дней недели */
+.shift-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-bottom: 6px;
+    padding: 0 2px;
+}
+
+.shift-weekday {
+    text-align: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ios-text-tertiary);
+    padding: 4px 0;
+    text-transform: uppercase;
+}
+
+/* Сетка дней */
+.shift-days-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    margin-bottom: 16px;
+}
+
+/* ⭐ ИСПРАВЛЕННАЯ ЯЧЕЙКА ДНЯ */
+.shift-day {
+    aspect-ratio: 1;
+    border: 2px solid var(--ios-border);
+    border-radius: 8px;
+    background: var(--ios-bg-secondary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 2px;
+    cursor: pointer;
+    transition: all 0.2s var(--ios-spring);
+    position: relative;
+    min-height: 45px;
+    overflow: hidden;
+}
+
+.shift-day:active {
+    transform: scale(0.95);
+}
+
+.shift-day.empty {
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.shift-day.today {
+    border-color: var(--ios-accent);
+    box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.2);
+}
+
+.shift-day.working {
+    background: rgba(48, 209, 88, 0.08);
+    border-color: var(--ios-success);
+}
+
+.shift-day.day-off {
+    background: rgba(255, 69, 58, 0.08);
+    border-color: var(--ios-danger);
+}
+
+.shift-day.unknown {
+    border-style: dashed;
+    border-color: var(--ios-border);
+    opacity: 0.6;
+}
+
+/* ⭐ Число дня - в левом верхнем углу, компактно */
+.shift-day-number {
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--ios-text-secondary);
+    line-height: 1;
+}
+
+.shift-day.working .shift-day-number {
+    color: var(--ios-success);
+}
+
+.shift-day.day-off .shift-day-number {
+    color: var(--ios-danger);
+}
+
+/* ⭐ Доход - по центру, уменьшен */
+.shift-day-income {
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--ios-success);
+    margin-top: 12px;
+    text-align: center;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+/* ⭐ Заказы - под доходом, компактно */
+.shift-day-orders {
+    font-size: 7px;
+    color: var(--ios-text-tertiary);
+    margin-top: 1px;
+    text-align: center;
+    line-height: 1;
+}
+
+/* ⭐ Индикатор цикла - прижат к низу */
+.shift-day-cycle {
+    font-size: 7px;
+    color: var(--ios-text-tertiary);
+    line-height: 1;
+    margin-top: auto;
+    margin-bottom: 2px;
+}
+
+/* Статус для выходных */
+.shift-day-status {
+    font-size: 14px;
+    margin-top: 8px;
+    opacity: 0.6;
+}
+
+/* Итоги месяца */
+.shift-month-total {
+    background: var(--ios-bg-tertiary);
+    border: 1px solid var(--ios-border);
+    border-radius: 14px;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.shift-month-total .total-item {
+    text-align: center;
+    padding: 6px;
+}
+
+.shift-month-total .total-item .label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ios-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+}
+
+.shift-month-total .total-item .value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ios-text-primary);
+}
+
+/* Информация о стартовом дне */
+.shift-start-info {
+    font-size: 10px;
+    color: var(--ios-text-tertiary);
+    background: var(--ios-bg-tertiary);
+    padding: 4px 10px;
+    border-radius: 100px;
+    white-space: nowrap;
+    align-self: center;
+    border: 1px solid var(--ios-border);
+}
+
+/* ============================================
+   МОДАЛЬНОЕ ОКНО
+   ============================================ */
+
+.shift-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 16px;
+    opacity: 0;
+    transition: opacity 0.3s var(--ios-spring);
+    pointer-events: none;
+}
+
+.shift-modal-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.shift-modal {
+    background: var(--ios-bg-secondary);
+    border-radius: 16px;
+    max-width: 360px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    transform: scale(0.9) translateY(20px);
+    transition: transform 0.3s var(--ios-spring-bounce);
+    overflow: hidden;
+}
+
+.shift-modal-overlay.visible .shift-modal {
+    transform: scale(1) translateY(0);
+}
+
+.shift-modal-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--ios-border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.shift-modal-header ion-icon {
+    font-size: 20px;
+    color: var(--ios-accent);
+}
+
+.shift-modal-header h3 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ios-text-primary);
+    margin: 0;
+    flex: 1;
+}
+
+.shift-modal-close {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ios-text-tertiary);
+}
+
+.shift-modal-close ion-icon {
+    font-size: 18px;
+}
+
+.shift-modal-body {
+    padding: 14px 16px;
+}
+
+.shift-modal-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.shift-modal-stats .stat-item {
+    text-align: center;
+    padding: 8px;
+    background: var(--ios-bg-tertiary);
+    border-radius: var(--ios-radius-sm);
+}
+
+.shift-modal-stats .stat-item .label {
+    display: block;
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--ios-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 2px;
+}
+
+.shift-modal-stats .stat-item .value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ios-text-primary);
+}
+
+.shift-modal-stats .stat-item .value.income {
+    color: var(--ios-success);
+}
+
+.shift-modal-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--ios-bg-tertiary);
+    border-radius: var(--ios-radius-sm);
+    margin-bottom: 12px;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 24px;
+    flex-shrink: 0;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #ccc;
+    transition: 0.3s;
+    border-radius: 30px;
+}
+
+.toggle-slider::before {
+    content: "";
+    position: absolute;
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    transition: 0.3s;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background: var(--ios-success);
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+    transform: translateX(16px);
+}
+
+.toggle-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ios-text-primary);
+}
+
+/* Расходы и бонусы */
+.shift-modal-expenses,
+.shift-modal-bonuses {
+    margin-bottom: 8px;
+}
+
+.shift-modal-expenses label,
+.shift-modal-bonuses label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ios-text-secondary);
+    margin-bottom: 4px;
+}
+
+.shift-modal-expenses input,
+.shift-modal-bonuses input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--ios-border);
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    background: var(--ios-bg-input);
+    color: var(--ios-text-primary);
+}
+
+.shift-modal-expenses input:focus,
+.shift-modal-bonuses input:focus {
+    outline: none;
+    border-color: var(--ios-accent);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+/* Чистый доход */
+.shift-net-income {
+    padding: 12px;
+    background: rgba(48, 209, 88, 0.1);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    border: 1px solid var(--ios-success);
+}
+
+.shift-net-income.negative {
+    background: rgba(255, 69, 58, 0.1);
+    border-color: var(--ios-danger);
+}
+
+.shift-net-income-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.shift-net-income-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ios-text-secondary);
+}
+
+.shift-net-income-value {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.shift-net-income-value.positive {
+    color: var(--ios-success);
+}
+
+.shift-net-income-value.negative {
+    color: var(--ios-danger);
+}
+
+.shift-modal-notes {
+    margin-top: 12px;
+}
+
+.shift-modal-notes label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ios-text-secondary);
+    margin-bottom: 4px;
+}
+
+.shift-modal-notes textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--ios-border);
+    border-radius: var(--ios-radius-sm);
+    font-size: 13px;
+    font-family: inherit;
+    background: var(--ios-bg-input);
+    color: var(--ios-text-primary);
+    resize: vertical;
+    min-height: 50px;
+}
+
+.shift-modal-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--ios-border);
+    display: flex;
+    gap: 8px;
+}
+
+.shift-modal-footer .btn {
+    flex: 1;
+    padding: 10px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* ============================================
+   МОБИЛЬНАЯ АДАПТАЦИЯ (УЛУЧШЕННАЯ)
+   ============================================ */
+
+@media (max-width: 480px) {
+    .shift-day {
+        min-height: 38px;
+        border-radius: 6px;
+        padding: 1px;
+    }
+    
+    .shift-day-number {
+        font-size: 8px;
+        top: 1px;
+        left: 3px;
+    }
+    
+    .shift-day-income {
+        font-size: 7px;
+        margin-top: 10px;
+    }
+    
+    .shift-day-orders {
+        font-size: 6px;
+    }
+    
+    .shift-day-cycle {
+        font-size: 6px;
+        margin-bottom: 1px;
+    }
+    
+    .shift-day-status {
+        font-size: 12px;
+        margin-top: 6px;
+    }
+    
+    .shift-weekday {
+        font-size: 8px;
+        padding: 2px 0;
+    }
+    
+    .shift-days-grid {
+        gap: 2px;
+    }
+    
+    .shift-month-total {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 4px;
+        padding: 8px 6px;
+    }
+    
+    .shift-month-total .total-item .label {
+        font-size: 8px;
+    }
+    
+    .shift-month-total .total-item .value {
+        font-size: 12px;
+    }
+    
+    .shift-calendar-actions .btn {
+        font-size: 10px;
+        padding: 4px 8px;
+        min-width: 50px;
+    }
+    
+    .shift-calendar-actions .btn ion-icon {
+        font-size: 12px;
+    }
+    
+    .shift-calendar-header h2 {
+        font-size: 14px;
+    }
+    
+    .shift-nav-btn {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .shift-nav-btn ion-icon {
+        font-size: 16px;
+    }
+    
+    .shift-modal {
+        max-width: calc(100% - 16px);
+    }
+    
+    .shift-modal-stats {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+    
+    .shift-modal-stats .stat-item {
+        padding: 6px;
+    }
+    
+    .shift-modal-stats .stat-item .value {
+        font-size: 14px;
+    }
+    
+    .shift-modal-expenses,
+    .shift-modal-bonuses {
+        margin-bottom: 6px;
+    }
+}
+
+@media (max-width: 360px) {
+    .shift-day {
+        min-height: 32px;
+    }
+    
+    .shift-day-number {
+        font-size: 7px;
+    }
+    
+    .shift-day-income {
+        font-size: 6px;
+        margin-top: 8px;
+    }
+    
+    .shift-day-orders {
+        font-size: 5px;
+    }
+    
+    .shift-day-cycle {
+        display: none; /* На очень маленьких экранах скрываем индикатор цикла */
+    }
+    
+    .shift-day-status {
+        font-size: 10px;
+    }
+    
+    .shift-weekday {
+        font-size: 7px;
+    }
+}
+
+/* ============================================
+   ТЁМНАЯ ТЕМА
+   ============================================ */
+
+body.dark-theme .shift-day {
+    background: var(--ios-bg-tertiary);
+    border-color: rgba(255, 255, 255, 0.06);
+}
+
+body.dark-theme .shift-day.working {
+    background: rgba(48, 209, 88, 0.12);
+    border-color: var(--ios-success);
+}
+
+body.dark-theme .shift-day.day-off {
+    background: rgba(255, 69, 58, 0.12);
+    border-color: var(--ios-danger);
+}
+
+body.dark-theme .shift-month-total {
+    background: var(--ios-bg-tertiary);
+    border-color: rgba(255, 255, 255, 0.06);
+}
+
+body.dark-theme .shift-modal {
+    background: var(--ios-bg-secondary);
+}
+
+body.dark-theme .shift-modal-stats .stat-item {
+    background: var(--ios-bg-tertiary);
+}
+
+body.dark-theme .shift-modal-toggle {
+    background: var(--ios-bg-tertiary);
+}
+
+body.dark-theme .shift-modal-notes textarea {
+    background: var(--ios-bg-tertiary);
+    border-color: rgba(255, 255, 255, 0.06);
+}
+
+body.dark-theme .shift-modal-expenses input,
+body.dark-theme .shift-modal-bonuses input {
+    background: var(--ios-bg-tertiary);
+    border-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Кнопки выбора дня в диалоге */
+.start-day-btn.selected {
+    background: var(--ios-accent-light) !important;
+    border-color: var(--ios-accent) !important;
+    color: var(--ios-accent) !important;
+    font-weight: 700 !important;
+}

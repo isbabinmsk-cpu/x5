@@ -45,6 +45,8 @@
     <!-- Стили -->
     <link rel="stylesheet" href="style.css">
     
+    <link rel="stylesheet" href="shift.css">
+    
     
 <!-- ⚡ Мгновенная проверка состояния авторизации -->
 <script>
@@ -100,6 +102,9 @@
 
     <!-- Модуль топлива -->
     <script type="module" src="fuel-module.js?v=1.0.4"></script>
+    
+    <!-- Модуль календаря смен -->
+<script src="shift-module.js?v=1.0.2"></script>
 
 
 </head>
@@ -246,7 +251,7 @@
 <header class="top-header">
     <div class="header-top-row">
         <div class="header-logo">
-            <ion-icon name="car-sport-outline"></ion-icon>
+            <img src="img/logo.PNG" alt="Логотип" class="header-logo-img">
         </div>
         <div class="header-titles">
             <h1>Журнал работы водителя</h1>
@@ -262,21 +267,21 @@
             </button>
         </div>
         
-<div class="header-actions">
-    <button class="header-settings" id="header-settings-btn" onclick="switchTab('settings')" title="Настройки">
-        <ion-icon name="settings-outline"></ion-icon>
-    </button>
-
-    <!-- НОВАЯ кнопка темы -->
-    <button class="theme-toggle-btn" id="theme-toggle-btn" title="Переключить тему">
-        <ion-icon name="sunny" class="tt-icon tt-sun"></ion-icon>
-        <ion-icon name="moon" class="tt-icon tt-moon"></ion-icon>
-    </button>
-
-    <button id="logout-btn" class="header-logout">
-        <ion-icon name="log-out-outline"></ion-icon>
-    </button>
-</div>
+        <div class="header-actions">
+            <button class="header-settings" id="header-settings-btn" onclick="switchTab('settings')" title="Настройки">
+                <ion-icon name="settings-outline"></ion-icon>
+            </button>
+            
+            <!-- НОВАЯ кнопка темы -->
+            <button class="theme-toggle-btn" id="theme-toggle-btn" title="Переключить тему">
+                <ion-icon name="sunny" class="tt-icon tt-sun"></ion-icon>
+                <ion-icon name="moon" class="tt-icon tt-moon"></ion-icon>
+            </button>
+            
+            <button id="logout-btn" class="header-logout">
+                <ion-icon name="log-out-outline"></ion-icon>
+            </button>
+        </div>
     </div>
 </header>
 <div class="header-spacer" id="header-spacer"></div>
@@ -1496,6 +1501,30 @@
     </div>
 </div>
 
+<!-- ============================================ -->
+<!-- ВКЛАДКА: КАЛЕНДАРЬ СМЕН -->
+<!-- ============================================ -->
+<div id="tab-shifts" class="tab-content">
+    <div class="card glass-heavy">
+        <h2>
+            <ion-icon name="calendar-outline" class="section-icon" style="color: var(--ios-accent);"></ion-icon>
+            Календарь смен
+        </h2>
+        <p style="color: var(--ios-text-tertiary); font-size: 14px; margin-bottom: 16px;">
+            📅 График 3/3 · Время работы: 9:00-22:00 (или 23:00)
+            <br>Кликните на день для просмотра деталей
+        </p>
+        
+        <!-- Контейнер календаря -->
+        <div id="shift-calendar">
+            <div style="text-align: center; padding: 40px; color: var(--ios-text-tertiary);">
+                <ion-icon name="calendar-outline" style="font-size: 48px; display: block; margin: 0 auto 12px;"></ion-icon>
+                Загрузка календаря...
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Вкладка: Настройки (Объединенные функции) -->
 <div id="tab-settings" class="tab-content">
     
@@ -1561,6 +1590,8 @@
             <!-- Сюда JavaScript добавит список тарифов -->
         </div>
     </div>
+    
+
     
     <!-- УПРАВЛЕНИЕ АВТОМОБИЛЯМИ -->
 <div class="card">
@@ -1668,28 +1699,37 @@
 </div>
 
 <!-- ============================================ -->
-<!-- НИЖНЕЕ МЕНЮ: ПРОФИЛЬ · ОТЧЁТЫ | FAB | АВТО · НАСТРОЙКИ -->
+<!-- НИЖНЕЕ МЕНЮ: ПРОФИЛЬ · ОТЧЁТЫ | FAB | АВТО · КАЛЕНДАРЬ -->
 <!-- ============================================ -->
 <div class="bottom-nav-wrap">
     <nav class="bottom-nav">
-        <!-- СЛЕВА -->
-        <button class="nav-item active magnetic wide" data-tab="home" onclick="switchTab('home')">
-            <ion-icon name="person-outline"></ion-icon><span class="label">Профиль</span>
+        
+        <!-- СЛЕВА (2 кнопки) -->
+        <button class="nav-item magnetic wide" data-tab="home" onclick="switchTab('home')">
+            <ion-icon name="person-outline"></ion-icon>
+            <span class="label">Профиль</span>
         </button>
         <button class="nav-item magnetic wide" data-tab="reports" id="nav-reports-btn" onclick="toggleReportsMenu(event)">
-            <ion-icon name="document-text-outline"></ion-icon><span class="label">Отчёты</span>
+            <ion-icon name="document-text-outline"></ion-icon>
+            <span class="label">Отчёты</span>
         </button>
         
+        <!-- ЦЕНТР: отступ под FAB -->
         <div class="nav-fab-gap"></div>
         
-        <!-- СПРАВА -->
+        <!-- СПРАВА (2 кнопки) -->
         <button class="nav-item magnetic wide" data-tab="auto" id="nav-auto-btn" onclick="toggleAutoMenu(event)">
-            <ion-icon name="car-outline"></ion-icon><span class="label">Авто</span>
+            <ion-icon name="car-outline"></ion-icon>
+            <span class="label">Авто</span>
         </button>
-<div class="nav-item nav-placeholder" aria-hidden="true"></div>
+        <button class="nav-item magnetic wide" data-tab="shifts" onclick="switchTab('shifts')">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <span class="label">Календарь</span>
+        </button>
+        
     </nav>
     
-    <!-- ✅ FAB ТЕПЕРЬ ОТКРЫВАЕТ МЕНЮ ДОБАВЛЕНИЯ -->
+    <!-- FAB по центру -->
     <button id="fab-add" onclick="toggleFabMenu(event)" aria-label="Добавить запись">
         <ion-icon name="add-outline"></ion-icon>
     </button>
@@ -1715,7 +1755,7 @@
     </button>
 </div>
 
-<!-- ✅ ВСПЛЫВАЮЩЕЕ МЕНЮ FAB: ЗАПИСЬ / ТОПЛИВО / РЕМОНТ -->
+<!-- ВСПЛЫВАЮЩЕЕ МЕНЮ FAB -->
 <div class="auto-menu" id="fab-menu">
     <button class="auto-menu-item" onclick="selectFabAction('entry')">
         <ion-icon name="calendar-outline"></ion-icon><span>Запись</span>
