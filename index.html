@@ -80,9 +80,10 @@
     <script nomodule src="https://unpkg.com/ionicons@7.4.0/dist/ionicons/ionicons.js"></script>
     
     <!-- Firebase (compat версия) -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>    
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>    
         
     <!-- Конфигурация Firebase -->
     <script src="firebase-config.js"></script>
@@ -92,13 +93,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.7.3" defer></script>
+    <script src="script.js?v=2.8.0" defer></script>
     
     <!-- 1. МОДУЛЬ АВТОМОБИЛЕЙ (ОБЯЗАТЕЛЬНО ПЕРВЫМ) -->
 <script src="vehicle-module.js?v=1.0.4"></script>
     
     <!-- Модуль ремонта -->
-<script type="module" src="repair-module.js?v=1.0.5"></script>
+<script type="module" src="repair-module.js?v=1.1.0"></script>
 
     <!-- Модуль топлива -->
     <script type="module" src="fuel-module.js?v=1.0.4"></script>
@@ -1395,6 +1396,55 @@
         <ion-icon name="add-outline"></ion-icon> Добавить работу
     </button>
 </div>
+
+<!-- ФОТО ЧЕКОВ И ДОКУМЕНТОВ -->
+<div class="form-section">
+    <h3><ion-icon name="camera-outline"></ion-icon> Фото чека и документов</h3>
+    
+    <div class="photo-upload-grid">
+        <!-- Загрузка фото чека -->
+        <div class="photo-upload-item">
+            <label for="repair-receipt-upload" class="photo-upload-label">
+                <ion-icon name="receipt-outline"></ion-icon>
+                <span>Чек</span>
+            </label>
+            <input type="file" id="repair-receipt-upload" accept="image/*" class="photo-upload-input" data-photo-type="receipt">
+            <div class="photo-preview" id="repair-receipt-preview">
+                <ion-icon name="image-outline"></ion-icon>
+                <span>Нет фото</span>
+            </div>
+            <div class="photo-rotate-controls" id="repair-receipt-rotate" style="display: none;">
+                <button type="button" class="photo-rotate-btn" onclick="rotatePhoto('receipt', -90)" title="Повернуть влево">
+                    <ion-icon name="refresh-outline" style="transform: scaleX(-1);"></ion-icon>
+                </button>
+                <button type="button" class="photo-rotate-btn" onclick="rotatePhoto('receipt', 90)" title="Повернуть вправо">
+                    <ion-icon name="refresh-outline"></ion-icon>
+                </button>
+            </div>
+        </div>
+
+        <!-- Загрузка фото документов -->
+        <div class="photo-upload-item">
+            <label for="repair-document-upload" class="photo-upload-label">
+                <ion-icon name="document-text-outline"></ion-icon>
+                <span>Документ</span>
+            </label>
+            <input type="file" id="repair-document-upload" accept="image/*" class="photo-upload-input" data-photo-type="document">
+            <div class="photo-preview" id="repair-document-preview">
+                <ion-icon name="image-outline"></ion-icon>
+                <span>Нет фото</span>
+            </div>
+            <div class="photo-rotate-controls" id="repair-document-rotate" style="display: none;">
+                <button type="button" class="photo-rotate-btn" onclick="rotatePhoto('document', -90)" title="Повернуть влево">
+                    <ion-icon name="refresh-outline" style="transform: scaleX(-1);"></ion-icon>
+                </button>
+                <button type="button" class="photo-rotate-btn" onclick="rotatePhoto('document', 90)" title="Повернуть вправо">
+                    <ion-icon name="refresh-outline"></ion-icon>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
             
             <!-- КОММЕНТАРИЙ -->
             <div class="form-row">
@@ -1769,7 +1819,24 @@
 </div>
 
 
-
+<!-- ============================================ -->
+<!-- ПРОСМОТРЩИК ФОТО РЕМОНТОВ (iOS-СТИЛЬ)         -->
+<!-- ============================================ -->
+<div id="photo-viewer" class="photo-viewer-overlay">
+    <div class="photo-viewer-header">
+        <div class="photo-viewer-counter" id="photo-viewer-counter">1 из 1</div>
+        <div class="photo-viewer-actions">
+            <button class="photo-viewer-btn" onclick="downloadCurrentPhoto()" title="Скачать">
+                <ion-icon name="download-outline"></ion-icon>
+            </button>
+            <button class="photo-viewer-btn" onclick="closePhotoViewer()" title="Закрыть">
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+    </div>
+    <div class="photo-viewer-track" id="photo-viewer-track"></div>
+    <div class="photo-viewer-dots" id="photo-viewer-dots"></div>
+</div>
 
 
 <script>

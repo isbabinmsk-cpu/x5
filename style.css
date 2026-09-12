@@ -7409,3 +7409,455 @@ body.dark-theme .vehicle-item .btn-danger {
         padding: 2px 10px 6px;
     }
 }
+
+/* ============================================
+   МОДУЛЬ РЕМОНТА: ЗАГРУЗКА ФОТО
+   ============================================ */
+
+.photo-upload-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.photo-upload-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.photo-upload-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    background: var(--ios-bg-secondary, #ffffff);
+    border: 1.5px dashed var(--ios-border, rgba(0,0,0,0.15));
+    border-radius: var(--ios-radius-md, 12px);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--ios-text-secondary, #86868b);
+    transition: all 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.photo-upload-label:hover {
+    border-color: var(--ios-accent, #007AFF);
+    color: var(--ios-accent, #007AFF);
+    background: var(--ios-accent-light, rgba(0,122,255,0.06));
+}
+
+.photo-upload-label ion-icon {
+    font-size: 20px;
+}
+
+.photo-upload-input {
+    display: none; /* Скрываем стандартный input */
+}
+
+.photo-preview {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: var(--ios-radius-md, 12px);
+    background: var(--ios-bg-tertiary, rgba(0,0,0,0.04));
+    border: 1px solid var(--ios-border, rgba(0,0,0,0.08));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--ios-text-tertiary, #a1a1a6);
+    font-size: 12px;
+    font-weight: 500;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.photo-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.photo-preview.has-image {
+    border: 2px solid var(--ios-success, #34C759);
+}
+
+.photo-preview .remove-photo-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 59, 48, 0.9);
+    color: white;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    transition: transform 0.2s;
+}
+
+.photo-preview .remove-photo-btn:hover {
+    transform: scale(1.1);
+}
+
+/* Список ремонтов: иконки фото */
+.repair-item .repair-photos-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--ios-text-secondary, #86868b);
+}
+
+.repair-item .repair-photos-indicator ion-icon {
+    font-size: 16px;
+    color: var(--ios-accent, #007AFF);
+    cursor: pointer;
+}
+
+.repair-item .repair-photos-indicator ion-icon:hover {
+    color: var(--ios-accent-hover, #0066D6);
+}
+
+/* ============================================
+   ПРОСМОТРЩИК ФОТО РЕМОНТОВ (iOS-СТИЛЬ)
+   ============================================ */
+.photo-viewer-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 20000;
+    background: rgba(0, 0, 0, 0.96);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.photo-viewer-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.photo-viewer-header {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    padding: max(16px, env(safe-area-inset-top)) 16px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    z-index: 2;
+    background: linear-gradient(180deg, rgba(0,0,0,0.7), transparent);
+    pointer-events: none;
+}
+.photo-viewer-header > * { pointer-events: auto; }
+
+.photo-viewer-counter {
+    padding: 6px 14px;
+    border-radius: 100px;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    color: #FFFFFF;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.photo-viewer-actions { display: flex; gap: 8px; }
+
+.photo-viewer-btn {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s, background 0.2s;
+    -webkit-tap-highlight-color: transparent;
+}
+.photo-viewer-btn ion-icon { font-size: 22px; }
+.photo-viewer-btn:active {
+    transform: scale(0.9);
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.photo-viewer-track {
+    flex: 1;
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+.photo-viewer-track::-webkit-scrollbar { display: none; }
+
+.photo-viewer-slide {
+    flex: 0 0 100%;
+    width: 100%; height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+    padding: 60px 0 80px;
+    position: relative;
+}
+
+.photo-viewer-slide img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+    user-select: none;
+    -webkit-user-drag: none;
+    transition: transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+    cursor: zoom-in;
+}
+.photo-viewer-slide img.zoomed { cursor: zoom-in; transition: none; }
+
+.photo-viewer-slide::after {
+    content: attr(data-label);
+    position: absolute;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 6px 16px;
+    border-radius: 100px;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    color: #FFFFFF;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.photo-viewer-dots {
+    position: absolute;
+    bottom: max(24px, env(safe-area-inset-bottom));
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 100px;
+    background: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 2;
+}
+.photo-viewer-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.35);
+    transition: all 0.25s;
+}
+.photo-viewer-dot.active {
+    background: #FFFFFF;
+    width: 20px;
+    border-radius: 100px;
+}
+
+/* ============================================
+   ИНДИКАТОР ФОТО В КАРТОЧКЕ РЕМОНТА (С МИНИАТЮРАМИ)
+   ============================================ */
+.repair-photos-indicator {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Тёмная тема — разделитель */
+body.dark-theme .repair-photos-indicator {
+    border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+.repair-photo-thumb {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    background: rgba(0, 0, 0, 0.03);
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+    -webkit-tap-highlight-color: transparent;
+    font-family: inherit;
+}
+
+.repair-photo-thumb:hover {
+    background: rgba(0, 122, 255, 0.08);
+    border-color: rgba(0, 122, 255, 0.3);
+    transform: translateY(-2px);
+}
+
+.repair-photo-thumb:active {
+    transform: scale(0.95);
+}
+
+/* Миниатюра фото */
+.repair-photo-mini {
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    object-fit: cover;
+    display: block;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    background: #f0f0f5;
+    pointer-events: none;
+}
+
+/* Подпись под миниатюрой */
+.repair-photo-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #007AFF;
+    letter-spacing: 0.2px;
+}
+
+.repair-photo-label ion-icon {
+    font-size: 13px;
+    color: #007AFF;
+}
+
+/* Тёмная тема — общий фон */
+body.dark-theme .repair-photo-thumb {
+    background: rgba(255, 255, 255, 0.05);
+}
+body.dark-theme .repair-photo-thumb:hover {
+    background: rgba(10, 132, 255, 0.15);
+    border-color: rgba(10, 132, 255, 0.4);
+}
+body.dark-theme .repair-photo-mini {
+    background: #2c2c2e;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+body.dark-theme .repair-photo-label,
+body.dark-theme .repair-photo-label ion-icon {
+    color: #64B5FF;
+}
+
+/* ============================================
+   АДАПТАЦИЯ ДЛЯ МОБИЛЬНЫХ
+   ============================================ */
+@media (max-width: 480px) {
+    .repair-photos-indicator {
+        gap: 8px;
+        margin-top: 10px;
+        padding-top: 10px;
+    }
+    .repair-photo-thumb {
+        padding: 6px;
+        border-radius: 10px;
+    }
+    .repair-photo-mini {
+        width: 64px;
+        height: 64px;
+        border-radius: 6px;
+    }
+    .repair-photo-label {
+        font-size: 10px;
+    }
+    .repair-photo-label ion-icon {
+        font-size: 12px;
+    }
+}
+
+/* Очень маленькие экраны */
+@media (max-width: 360px) {
+    .repair-photo-mini {
+        width: 56px;
+        height: 56px;
+    }
+}
+
+/* ============================================
+   КНОПКИ ПОВОРОТА ФОТО
+   ============================================ */
+.photo-rotate-controls {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.photo-rotate-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(0, 122, 255, 0.4);
+    background: rgba(0, 122, 255, 0.08);
+    color: #007AFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+    -webkit-tap-highlight-color: transparent;
+    padding: 0;
+}
+
+.photo-rotate-btn ion-icon {
+    font-size: 20px;
+}
+
+.photo-rotate-btn:hover {
+    background: #007AFF;
+    color: #FFFFFF;
+    border-color: #007AFF;
+    transform: scale(1.05);
+}
+
+.photo-rotate-btn:active {
+    transform: scale(0.92);
+}
+
+/* Тёмная тема */
+body.dark-theme .photo-rotate-btn {
+    border-color: rgba(10, 132, 255, 0.5);
+    background: rgba(10, 132, 255, 0.15);
+    color: #64B5FF;
+}
+body.dark-theme .photo-rotate-btn:hover {
+    background: #0A84FF;
+    color: #FFFFFF;
+    border-color: #0A84FF;
+}
+
+/* Адаптация под мобильные */
+@media (max-width: 480px) {
+    .photo-rotate-btn {
+        width: 36px;
+        height: 36px;
+    }
+    .photo-rotate-btn ion-icon {
+        font-size: 18px;
+    }
+}
