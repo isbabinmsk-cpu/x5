@@ -1515,7 +1515,20 @@ async function saveRecord(e) {
         await saveRecordToFirebase(normalizedRecord);
     }
     saveData();
-    alert('✅ Сохранено! Доход: ' + formatMoney(normalizedRecord.totalIncome));
+    // Умное сообщение в зависимости от типа записи
+let saveMsg = '✅ Сохранено!';
+if (normalizedRecord.recordType === 'expense') {
+    saveMsg += '\nРасход: ' + formatMoney(normalizedRecord.totalExpenses);
+} else if (normalizedRecord.recordType === 'bonus') {
+    saveMsg += '\nБонус: ' + formatMoney(normalizedRecord.bonusPay || 0);
+} else {
+    saveMsg += '\nДоход: ' + formatMoney(normalizedRecord.totalIncome);
+    if (normalizedRecord.totalExpenses > 0) {
+        saveMsg += '\nРасход: ' + formatMoney(normalizedRecord.totalExpenses);
+    }
+    saveMsg += '\nПрибыль: ' + formatMoney(normalizedRecord.netProfit);
+}
+alert(saveMsg);
     clearForm();
     renderTable();
     populateFilters();
