@@ -95,7 +95,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.8.1" defer></script>
+    <script src="script.js?v=2.8.2" defer></script>
     
     <!-- 1. МОДУЛЬ АВТОМОБИЛЕЙ (ОБЯЗАТЕЛЬНО ПЕРВЫМ) -->
 <script src="vehicle-module.js?v=1.0.4"></script>
@@ -1032,6 +1032,18 @@
                 </button>
             </div>
         </div>
+        
+        <!-- Вставить сразу после блока фильтров (history-month / history-year), перед <div class="table-container"> -->
+<div class="view-mode-toggle">
+    <button class="vmt-btn active" id="vmt-table" onclick="setViewMode('table')" title="Таблица">
+        <ion-icon name="grid-outline"></ion-icon>
+        <span>Таблица</span>
+    </button>
+    <button class="vmt-btn" id="vmt-cards" onclick="setViewMode('cards')" title="Карточки">
+        <ion-icon name="albums-outline"></ion-icon>
+        <span>Карточки</span>
+    </button>
+</div>
         
         <!-- ===== ИНФОРМАЦИЯ О ЗАГРУЖЕННЫХ ДАННЫХ ===== -->
         <div id="history-info" style="margin-bottom: 12px; font-size: 13px; color: var(--ios-text-tertiary); text-align: center;">

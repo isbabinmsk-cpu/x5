@@ -2353,8 +2353,267 @@ function getRecordRowHTML(r) {
  `;
 }
 
+// ============================================
+// КАРТОЧНЫЙ РЕЖИМ ТАБЛИЦЫ (пункт 12)
+// ============================================
+let currentViewMode = localStorage.getItem('historyViewMode') || 'auto';
+
+function setViewMode(mode) {
+    currentViewMode = mode;
+    localStorage.setItem('historyViewMode', mode);
+    // Обновляем кнопки
+    const btnTable = document.getElementById('vmt-table');
+    const btnCards = document.getElementById('vmt-cards');
+    if (btnTable) btnTable.classList.toggle('active', mode === 'table');
+    if (btnCards) btnCards.classList.toggle('active', mode === 'cards');
+    renderTable();
+}
+
+function isCardsMode() {
+    if (currentViewMode === 'cards') return true;
+    if (currentViewMode === 'table') return false;
+    // auto: карточки на мобильных
+    return window.innerWidth < 768;
+}
+
+function getRecordCardHTML(r) {
+    const typeIcon = r.recordType === 'bonus' ? 'gift-outline' :
+        r.recordType === 'expense' ? 'remove-circle-outline' : 'calendar-outline';
+    const typeColor = r.recordType === 'bonus' ? 'var(--ios-purple, #AF52DE)' :
+        r.recordType === 'expense' ? 'var(--ios-danger, #FF3B30)' : 'var(--ios-accent, #007AFF)';
+    const typeLabel = r.recordType === 'bonus' ? 'Бонус' :
+        r.recordType === 'expense' ? 'Расход' : 'Работа';
+    const profitColor = r.netProfit >= 0 ? 'var(--ios-success)' : 'var(--ios-danger)';
+    const totalOrders = r.ordersDelivery || 0;
+    const cardId = 'card-details-' + r.id;
+    
+    // Детали — объекты {label, value, cls, attrs}
+    const details = [];
+    if (r.ordersPickup) details.push({ label: 'Забор', value: r.ordersPickup + ' шт · ' + formatMoney(r.payPickup) });
+    if (r.ordersDelivery) details.push({ label: 'Выдача', value: r.ordersDelivery + ' шт · ' + formatMoney(r.payDelivery) });
+    if (r.payDistance) details.push({ label: 'Км', value: formatMoney(r.payDistance) });
+    if (r.payWeight) details.push({ label: 'Вес', value: formatMoney(r.payWeight) });
+    if (r.loadPay) details.push({ label: 'Нагрузка', value: formatMoney(r.loadPay) });
+    if (r.bonusPay) details.push({ label: 'Бонус', value: formatMoney(r.bonusPay) });
+    if (r.rating) details.push({ label: 'Рейтинг', value: formatMoney(r.rating) });
+    if (r.tips) details.push({ label: 'Чаевые', value: formatMoney(r.tips) });
+    
+    // ⛽ БЕНЗИН — кликабельная строка с data-атрибутами (как ячейка таблицы)
+    if (r.fuelCost) {
+        const hasFuel = r.fuelDetails && Array.isArray(r.fuelDetails) && r.fuelDetails.length > 0;
+        details.push({
+            label: 'Бензин',
+            value: formatMoney(r.fuelCost),
+            cls: hasFuel ? 'rcd-tappable rcd-fuel fuel-cell-with-details' : '',
+            attrs: hasFuel ?
+                `data-fuel-details='${JSON.stringify(r.fuelDetails).replace(/'/g, "&apos;")}' data-fuel-liters='${r.fuelLiters || 0}' data-fuel-count='${r.fuelLogCount || r.fuelDetails.length}' data-fuel-total='${r.fuelCost}'` :
+                ''
+        });
+    }
+    // 🔧 РЕМОНТ — кликабельная строка
+    if (r.repairCost) {
+        const hasRep = r.repairDetails && Array.isArray(r.repairDetails) && r.repairDetails.length > 0;
+        details.push({
+            label: 'Ремонт',
+            value: formatMoney(r.repairCost),
+            cls: hasRep ? 'rcd-tappable rcd-repair repair-cell-with-details' : '',
+            attrs: hasRep ?
+                `data-repair-details='${JSON.stringify(r.repairDetails).replace(/'/g, "&apos;")}' data-repair-total='${r.repairCost}' data-repair-count='${r.repairLogCount || r.repairDetails.length}'` :
+                ''
+        });
+    }
+    if (r.tax) details.push({ label: 'Налог', value: formatMoney(r.tax) });
+    
+    const detailsHTML = details.length ?
+        details.map(d =>
+            `<div class="rcd-item ${d.cls || ''}" ${d.attrs || ''}>
+                <span class="rcd-label">${d.label}</span>
+                <span class="rcd-val">${d.value}</span>
+            </div>`).join('') :
+        '<div class="rcd-empty">Нет дополнительных данных</div>';
+    
+    return `
+    <div class="record-card">
+        <div class="record-card-header">
+            <div class="record-card-date">
+                <ion-icon name="calendar-outline"></ion-icon>
+                ${formatDate(r.date)} · ${r.weekday || '—'}
+            </div>
+            <div class="record-card-type" style="color: ${typeColor}">
+                <ion-icon name="${typeIcon}"></ion-icon>
+                ${typeLabel}
+            </div>
+        </div>
+        <div class="record-card-metrics">
+            <div class="rcm"><ion-icon name="time-outline"></ion-icon> ${r.hours || 0} ч</div>
+            <div class="rcm"><ion-icon name="cube-outline"></ion-icon> ${totalOrders} зак.</div>
+            <div class="rcm"><ion-icon name="navigate-outline"></ion-icon> ${r.distance ? r.distance.toFixed(1) : 0} км</div>
+            ${r.weight ? `<div class="rcm"><ion-icon name="scale-outline"></ion-icon> ${r.weight.toFixed(1)} кг</div>` : ''}
+        </div>
+        <div class="record-card-financials">
+            <div class="rcf income">
+                <span class="rcf-label">Доход</span>
+                <span class="rcf-value">${formatMoney(r.totalIncome)}</span>
+            </div>
+            <div class="rcf expense">
+                <span class="rcf-label">Расход</span>
+                <span class="rcf-value">${formatMoney(r.totalExpenses)}</span>
+            </div>
+            <div class="rcf profit">
+                <span class="rcf-label">Прибыль</span>
+                <span class="rcf-value" style="color: ${profitColor}">${formatMoney(r.netProfit)}</span>
+            </div>
+        </div>
+        <div class="record-card-details" id="${cardId}">${detailsHTML}</div>
+        <div class="record-card-footer">
+            <button class="record-card-expand" onclick="toggleCardDetails('${cardId}', this)">
+                <span>Детали</span>
+                <ion-icon name="chevron-down-outline"></ion-icon>
+            </button>
+            <div class="record-card-actions">
+                <button class="btn btn-small btn-success" onclick="editRecord('${r.id}')">
+                    <ion-icon name="create-outline"></ion-icon>
+                </button>
+                <button class="btn btn-small btn-danger" onclick="deleteRecord('${r.id}')">
+                    <ion-icon name="trash-outline"></ion-icon>
+                </button>
+            </div>
+        </div>
+    </div>`;
+}
+
+function toggleCardDetails(cardId, btn) {
+    const el = document.getElementById(cardId);
+    if (!el) return;
+    const open = el.classList.toggle('open');
+    btn.classList.toggle('expanded', open);
+    btn.querySelector('span').textContent = open ? 'Скрыть' : 'Детали';
+}
+
+function renderCardsView(tbody, filteredRecords) {
+    // Скрываем таблицу, показываем контейнер карточек
+    const table = tbody.closest('table');
+    let cardsContainer = document.getElementById('records-cards');
+    if (!cardsContainer) {
+        cardsContainer = document.createElement('div');
+        cardsContainer.id = 'records-cards';
+        cardsContainer.className = 'records-cards-container';
+        table.parentNode.insertBefore(cardsContainer, table);
+    }
+    table.style.display = 'none';
+    const box = table.closest('.table-container') || table.parentElement;
+if (box) box.classList.add('cards-mode');
+    cardsContainer.style.display = 'flex';
+    cardsContainer.innerHTML = '';
+    
+    if (filteredRecords.length === 0) {
+        cardsContainer.innerHTML = `
+            <div style="text-align:center; padding:40px; color:var(--ios-text-tertiary);">
+                <ion-icon name="document-text-outline" style="font-size:48px; display:block; margin:0 auto 12px;"></ion-icon>
+                Нет записей за выбранный период
+            </div>`;
+        return;
+    }
+    
+    // Группируем по неделям
+    const weeksMap = new Map();
+    filteredRecords.forEach(r => {
+        if (!r.date) return;
+        const weekKey = getISOWeek(r.date);
+        if (!weeksMap.has(weekKey)) weeksMap.set(weekKey, []);
+        weeksMap.get(weekKey).push(r);
+    });
+    
+    const sortedWeeks = Array.from(weeksMap.keys()).sort((a, b) => b.localeCompare(a));
+    
+    sortedWeeks.forEach(weekKey => {
+        const weekRecords = weeksMap.get(weekKey);
+        const weekRange = getWeekDateRange(weekKey);
+        
+        // Заголовок недели
+        const header = document.createElement('div');
+        header.className = 'week-card-header';
+        header.innerHTML = `
+            <ion-icon name="calendar-outline"></ion-icon>
+            Неделя ${weekKey.split('-W')[1]} (${weekRange.label})`;
+        cardsContainer.appendChild(header);
+        
+        // Карточки записей
+        weekRecords.forEach(r => {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = getRecordCardHTML(r);
+            cardsContainer.appendChild(wrapper.firstElementChild);
+        });
+        
+        // Итоги недели
+        const summary = weekRecords.reduce((acc, r) => {
+            acc.totalIncome += r.totalIncome || 0;
+            acc.totalExpenses += r.totalExpenses || 0;
+            acc.netProfit += r.netProfit || 0;
+            acc.hours += r.hours || 0;
+            acc.orders += (r.ordersPickup || 0) + (r.ordersDelivery || 0);
+            return acc;
+        }, { totalIncome: 0, totalExpenses: 0, netProfit: 0, hours: 0, orders: 0 });
+        
+        const summaryEl = document.createElement('div');
+        summaryEl.className = 'week-card-summary';
+        summaryEl.innerHTML = `
+            <div class="wcs-item">
+                <div class="wcs-label">Доход</div>
+                <div class="wcs-value" style="color:var(--ios-success)">${formatMoney(summary.totalIncome)}</div>
+            </div>
+            <div class="wcs-item">
+                <div class="wcs-label">Прибыль</div>
+                <div class="wcs-value" style="color:${summary.netProfit >= 0 ? 'var(--ios-success)' : 'var(--ios-danger)'}">${formatMoney(summary.netProfit)}</div>
+            </div>
+            <div class="wcs-item">
+                <div class="wcs-label">Часы</div>
+                <div class="wcs-value">${summary.hours.toFixed(1)} ч</div>
+            </div>`;
+        cardsContainer.appendChild(summaryEl);
+    });
+}
+
+function showTableView() {
+    const table = document.querySelector('#tab-history table');
+    const cardsContainer = document.getElementById('records-cards');
+    if (table) table.style.display = '';
+    if (cardsContainer) cardsContainer.style.display = 'none';
+    const box = document.querySelector('.table-container.cards-mode');
+    if (box) box.classList.remove('cards-mode');
+}
+
 function renderTable() {
     const tbody = document.getElementById('records-body');
+    if (!tbody) {
+        console.error('❌ Элемент <tbody id="records-body"> не найден в HTML');
+        return;
+    }
+    
+    // === КАРТОЧНЫЙ РЕЖИМ ===
+    if (isCardsMode()) {
+        let filteredRecords = [...records];
+        const historyTab = document.getElementById('tab-history');
+        const isHistoryActive = historyTab && historyTab.classList.contains('active');
+        if (isHistoryActive && !showAllHistoryMode && currentHistoryMonth && currentHistoryYear) {
+            filteredRecords = filteredRecords.filter(r => {
+                if (!r.date) return false;
+                const d = parseLocalDate(r.date);
+                if (!d) return false;
+                return (d.getMonth() + 1) === currentHistoryMonth && d.getFullYear() === currentHistoryYear;
+            });
+        }
+        filteredRecords = applyFilters(filteredRecords);
+        filteredRecords.sort((a, b) => {
+            const da = parseLocalDate(a.date);
+            const db = parseLocalDate(b.date);
+            return (db || 0) - (da || 0);
+        });
+        renderCardsView(tbody, filteredRecords);
+        return;
+    }
+    // === КОНЕЦ КАРТОЧНОГО РЕЖИМА ===
+    showTableView();  
     
     if (!tbody) {
         console.error('❌ Элемент <tbody id="records-body"> не найден в HTML');
@@ -4367,11 +4626,37 @@ function removeFabPulse() {
 
 // Добавляем обработчик клика для удаления пульсации
 document.addEventListener('click', function(e) {
-    const fab = document.getElementById('fab-add');
-    if (fab && fab.contains(e.target)) {
-        removeFabPulse();
-    }
+    const row = e.target.closest('.rcd-fuel, .rcd-repair');
+    const myTip = document.getElementById('card-tooltip');
+    
+    // Тап вне тултипа — закрыть мой
+    if (myTip && !myTip.contains(e.target) && !row) closeCardTooltip();
+    if (!row) return;
+    
+    // Даём обработчику модуля среагировать на этот же клик
+    // (классы fuel-cell-with-details / repair-cell-with-details уже на строке).
+    // Если через 150 мс его тултип не появился (модуль вешает слушатели
+    // поточечно на ячейки, а не делегированием) — открываем свой.
+    setTimeout(() => {
+        const moduleTip = document.querySelector(
+            '.fuel-tooltip.visible:not(#card-tooltip), .repair-tooltip.visible:not(#card-tooltip)'
+        );
+        if (!moduleTip && !document.getElementById('card-tooltip')) {
+            row.classList.contains('rcd-fuel') ?
+                showCardFuelTooltip(row) :
+                showCardRepairTooltip(row);
+        }
+        unifyTooltipHint();
+    }, 150);
 });
+
+// На сенсорных экранах приводим подсказку к одному тексту в обоих тултипах
+function unifyTooltipHint() {
+    if (!window.matchMedia || !matchMedia('(hover: none)').matches) return;
+    document.querySelectorAll('.fuel-tooltip-hint, .repair-tooltip-hint').forEach(h => {
+        h.textContent = 'Тапните вне окна, чтобы закрыть';
+    });
+}
 
 // Убираем пульсацию через 10 секунд (если пользователь не нажал)
 setTimeout(removeFabPulse, 10000);
@@ -5122,6 +5407,27 @@ setTimeout(() => {
 }, 500);
 });
 
+// Автопереключение режим при изменении ширины экрана
+let _resizeTimer;
+window.addEventListener('resize', () => {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(() => {
+        if (currentViewMode === 'auto') renderTable();
+    }, 250);
+});
+
+// Инициализация кнопок переключателя
+const btnTable = document.getElementById('vmt-table');
+const btnCards = document.getElementById('vmt-cards');
+if (btnTable && btnCards) {
+    if (currentViewMode === 'cards') {
+        btnTable.classList.remove('active');
+        btnCards.classList.add('active');
+    } else if (currentViewMode === 'table') {
+        btnTable.classList.add('active');
+        btnCards.classList.remove('active');
+    }
+}
 
 
 
@@ -5914,3 +6220,169 @@ document.addEventListener('change', function(e) {
         overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
     };
 })();
+
+// ============================================
+// ТУЛТИПЫ БЕНЗИНА/РЕМОНТА В КАРТОЧКАХ (ВЕРХНИЙ УРОВЕНЬ!)
+// ============================================
+function _cardNum(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+
+function getRepairCategoryName(cat) {
+    if (!cat) return 'Ремонт';
+    if (/[а-яА-Я]/.test(cat)) return cat; // уже по-русски
+    const ext = window.REPAIR_CATEGORIES || window.repairCategories;
+    if (ext) {
+        if (!Array.isArray(ext) && ext[cat]) return ext[cat].name || ext[cat].label || ext[cat];
+        if (Array.isArray(ext)) {
+            const found = ext.find(c => (c.value || c.id) === cat);
+            if (found) return found.label || found.name;
+        }
+    }
+    const map = {
+        engine: 'Двигатель', transmission: 'Трансмиссия',
+        brakes: 'Тормозная система', brake: 'Тормозная система',
+        suspension: 'Подвеска', electrical: 'Электрика', electric: 'Электрика',
+        body: 'Кузов', tires: 'Шины/Диски', wheels: 'Шины/Диски',
+        oil: 'Масло/Жидкости', fluids: 'Масло/Жидкости',
+        cooling: 'Охлаждение', exhaust: 'Выхлопная система', other: 'Прочее'
+    };
+    if (map[cat]) return map[cat];
+    return cat.charAt(0).toUpperCase() + cat.slice(1);
+}
+
+function closeCardTooltip() {
+    const t = document.getElementById('card-tooltip');
+    if (t) { t.classList.remove('visible'); setTimeout(() => t.remove(), 250); }
+}
+
+function positionCardTooltip(tip, anchor) {
+    if (window.innerWidth <= 480) return; // на мобильных CSS центрирует сам
+    const r = anchor.getBoundingClientRect();
+    const tw = tip.offsetWidth, th = tip.offsetHeight;
+    let left = r.left + r.width / 2 - tw / 2;
+    left = Math.max(12, Math.min(left, window.innerWidth - tw - 12));
+    let top = r.bottom + 8;
+    if (top + th > window.innerHeight - 12) top = r.top - th - 8;
+    if (top < 12) top = 12;
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+}
+
+function showCardFuelTooltip(row) {
+    closeCardTooltip();
+    let details = [];
+    try { details = JSON.parse(row.getAttribute('data-fuel-details') || '[]'); } catch (e) { details = []; }
+    const liters = _cardNum(row.getAttribute('data-fuel-liters'));
+    const count  = _cardNum(row.getAttribute('data-fuel-count')) || details.length;
+    const total  = _cardNum(row.getAttribute('data-fuel-total'));
+
+    const detailsHTML = details.map(d => {
+        const name    = d.vehicleName || d.vehicle || d.name || 'Заправка';
+        const plate   = d.plate ? ' (' + d.plate + ')' : '';
+        const lit     = _cardNum(d.liters !== undefined ? d.liters : d.l);
+        const mile    = _cardNum(d.mileage !== undefined ? d.mileage : (d.odometer !== undefined ? d.odometer : d.km));
+        const amount  = _cardNum(d.amount !== undefined ? d.amount : (d.cost !== undefined ? d.cost : (d.sum !== undefined ? d.sum : d.price)));
+        const comment = d.comment || d.note || '';
+        return `
+        <div class="fuel-tooltip-detail-item">
+            <div class="detail-info">
+                <div style="font-weight:600;color:var(--ios-accent);">${name}${plate}</div>
+                ${(lit || mile) ? `<div class="detail-liters">⛽ ${lit ? lit.toFixed(2) + ' л' : ''}${lit && mile ? ' · ' : ''}${mile ? mile + ' км' : ''}</div>` : ''}
+                ${comment ? `<div class="detail-comment">${comment}</div>` : ''}
+            </div>
+            <div class="detail-amount">${formatMoney(amount)}</div>
+        </div>`;
+    }).join('');
+
+    const tip = document.createElement('div');
+    tip.className = 'fuel-tooltip visible';
+    tip.id = 'card-tooltip';
+    tip.innerHTML = `
+        <div class="fuel-tooltip-header">
+            <ion-icon name="fuel-outline"></ion-icon>
+            <h4>Подробности заправок</h4>
+        </div>
+        <div class="fuel-tooltip-summary">
+            <div class="fuel-tooltip-summary-item"><div class="label">Заправок</div><div class="value">${count}</div></div>
+            <div class="fuel-tooltip-summary-item"><div class="label">Литров</div><div class="value">${liters ? liters.toFixed(1) : '—'}</div></div>
+            <div class="fuel-tooltip-summary-item"><div class="label">Сумма</div><div class="value">${formatMoney(total)}</div></div>
+        </div>
+        <div class="fuel-tooltip-details">${detailsHTML || '<div style="padding:10px;text-align:center;color:var(--ios-text-tertiary);font-size:13px;">Нет деталей</div>'}</div>
+        <div class="fuel-tooltip-hint">Тапните вне окна, чтобы закрыть</div>`;
+    document.body.appendChild(tip);
+    positionCardTooltip(tip, row);
+}
+
+function showCardRepairTooltip(row) {
+    closeCardTooltip();
+    let details = [];
+    try { details = JSON.parse(row.getAttribute('data-repair-details') || '[]'); } catch (e) { details = []; }
+    const total = _cardNum(row.getAttribute('data-repair-total'));
+    const count = _cardNum(row.getAttribute('data-repair-count')) || details.length;
+
+    const detailsHTML = details.map(d => {
+        const category    = getRepairCategoryName(d.category);
+        const title       = d.title || d.name || category;
+        const description = d.description || d.desc || '';
+        const amount = _cardNum(d.amount !== undefined ? d.amount : (d.cost !== undefined ? d.cost : d.total));
+        const date   = d.date ? formatDate(d.date) : '';
+        const mile   = _cardNum(d.mileage !== undefined ? d.mileage : (d.odometer !== undefined ? d.odometer : d.km));
+        const parts  = Array.isArray(d.parts) ? d.parts : [];
+        const works  = Array.isArray(d.works) ? d.works : [];
+        const partsHTML = parts.length ? `<div class="repair-tooltip-detail-parts"><div class="label">Запчасти:</div>${parts.map(p => `<div class="item">• ${p.name || p.title || ''}${p.cost ? ' — ' + formatMoney(_cardNum(p.cost)) : ''}</div>`).join('')}</div>` : '';
+        const worksHTML = works.length ? `<div class="repair-tooltip-detail-works"><div class="label">Работы:</div>${works.map(w => `<div class="item">• ${w.name || w.title || ''}${w.cost ? ' — ' + formatMoney(_cardNum(w.cost)) : ''}</div>`).join('')}</div>` : '';
+        return `
+        <div class="repair-tooltip-detail-item">
+            <div class="repair-tooltip-detail-header">
+                <div class="repair-tooltip-detail-title">${title}</div>
+                <div class="repair-tooltip-detail-amount">${formatMoney(amount)}</div>
+            </div>
+            ${(date || mile) ? `<div class="repair-tooltip-detail-meta">${date}${date && mile ? ' · ' : ''}${mile ? mile + ' км' : ''}</div>` : ''}
+            ${description ? `<div class="repair-tooltip-detail-meta" style="font-style:italic;">${description}</div>` : ''}
+            ${partsHTML}${worksHTML}
+        </div>`;
+    }).join('');
+
+    const tip = document.createElement('div');
+    tip.className = 'repair-tooltip visible';
+    tip.id = 'card-tooltip';
+    tip.innerHTML = `
+        <div class="repair-tooltip-header">
+            <ion-icon name="construct-outline"></ion-icon>
+            <h4>Подробности ремонтов</h4>
+        </div>
+        <div class="repair-tooltip-summary">
+            <div class="repair-tooltip-summary-item"><div class="label">Ремонтов</div><div class="value">${count}</div></div>
+            <div class="repair-tooltip-summary-item"><div class="label">Сумма</div><div class="value">${formatMoney(total)}</div></div>
+            <div class="repair-tooltip-summary-item"><div class="label">Средний чек</div><div class="value">${count ? formatMoney(total / count) : '0 ₽'}</div></div>
+        </div>
+        <div class="repair-tooltip-details">${detailsHTML || '<div style="padding:10px;text-align:center;color:var(--ios-text-tertiary);font-size:13px;">Нет деталей</div>'}</div>
+        <div class="repair-tooltip-hint">Тапните вне окна, чтобы закрыть</div>`;
+    document.body.appendChild(tip);
+    positionCardTooltip(tip, row);
+}
+
+// Делегированный обработчик: тап по строке «Бензин» / «Ремонт» в карточке
+document.addEventListener('click', function (e) {
+    const fuelRow   = e.target.closest('.rcd-fuel');
+    const repairRow = e.target.closest('.rcd-repair');
+    const tip = document.getElementById('card-tooltip');
+
+    if (fuelRow || repairRow) {
+        const target  = fuelRow || repairRow;
+        const wasOpen = !!tip;
+        closeCardTooltip();
+        setTimeout(() => {
+            if (fuelRow) showCardFuelTooltip(target);
+            else showCardRepairTooltip(target);
+        }, wasOpen ? 260 : 0);
+        return;
+    }
+    if (tip && !tip.contains(e.target)) closeCardTooltip();
+});
+window.addEventListener('scroll', function(e) {
+    const tip = document.getElementById('card-tooltip');
+    // Скролл ВНУТРИ тултипа (чтение длинного списка) — НЕ закрываем
+    if (tip && (e.target === tip || tip.contains(e.target))) return;
+    closeCardTooltip();
+}, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCardTooltip(); });
