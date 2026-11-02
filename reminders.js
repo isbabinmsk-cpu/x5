@@ -1,6 +1,6 @@
 // ============================================
 // МОДУЛЬ НАПОМИНАНИЙ И УВЕДОМЛЕНИЙ (reminders.js)
-// ИСПРАВЛЕННАЯ ВЕРСИЯ: Устранен цикл синхронизации
+// ФИНАЛЬНАЯ ВЕРСИЯ: Разделение данных (Firebase + localStorage)
 // ============================================
 (function () {
     'use strict';
@@ -30,16 +30,15 @@
 
     let settings = { ...DEFAULT_SETTINGS };
     let dismissed = {};
-    let notified = {};
+    let notified = {}; // ХРАНИТСЯ ТОЛЬКО В LOCALSTORAGE!
     let activeReminders = [];
     let isDataLoaded = false;
     let isMigrated = false;
     let remindersUnsubscribe = null;
     let saveTimeout = null;
     let lastSaveTime = 0;
-    let isRemoteUpdate = false; // Флаг: данные пришли из Firebase
     const SAVE_DEBOUNCE_MS = 2000;
-    const MIN_SAVE_INTERVAL_MS = 60000; // УВЕЛИЧЕНО: 60 сек вместо 30
+    const MIN_SAVE_INTERVAL_MS = 60000;
 
     // ---------- УТИЛИТЫ ----------
     function num(v) { const n = parseFloat(v); return isFinite(n) ? n : 0; }
@@ -87,53 +86,34 @@
         } catch (e) { return []; }
     }
 
+    // Загружаем ВСЕ данные из localStorage
     function loadFromLocal() {
         settings = JSON.parse(localStorage.getItem('driverRemindersSettings') || 'null') || { ...DEFAULT_SETTINGS };
         dismissed = JSON.parse(localStorage.getItem('driverRemindersDismissed') || '{}') || {};
-        notified = JSON.parse(localStorage.getItem('driverRemindersNotified') || '{}') || {};
+        notified = JSON.parse(localStorage.getItem('driverRemindersNotified') || '{}') || {}; // ТОЛЬКО ЛОКАЛЬНО!
     }
 
-    // ---------- ХРАНИЛИЩЕ: ИСПРАВЛЕННЫЙ ЦИКЛ ----------
+    // ---------- ХРАНИЛИЩЕ: РАЗДЕЛЕНИЕ ДАННЫХ ----------
     async function loadRemindersData() {
+        // 1. Сначала загружаем из localStorage (быстро, бесплатно)
         loadFromLocal();
         isDataLoaded = true;
-        // УБРАНО: refresh() при загрузке (он вызовется из onSnapshot)
+        refresh();
 
         if (currentUser && typeof db !== 'undefined') {
             const docRef = db.collection('users').doc(currentUser.uid).collection('reminders').doc('config');
 
+            // 2. Миграция (только 1 раз)
             if (!isMigrated) {
                 try {
                     const doc = await docRef.get();
                     if (!doc.exists) {
-                        await docRef.set({ settings, dismissed, notified });
+                        // Сохраняем ТОЛЬКО settings и dismissed (без notified!)
+                        await docRef.set({ settings, dismissed });
                         console.log('✅ Данные мигрированы в Firebase');
-                    }
-                    isMigrated = true;
-                } catch (e) {
-                    console.warn('⚠️ Ошибка миграции:', e);
-                    isMigrated = true;
-                }
-            }
-
-            if (typeof remindersUnsubscribe === 'function') {
-                remindersUnsubscribe();
-            }
-
-            remindersUnsubscribe = docRef.onSnapshot((doc) => {
-                if (!currentUser) return;
-
-                if (doc.exists) {
-                    const data = doc.data();
-                    
-                    // Проверяем, действительно ли данные изменились
-                    const settingsChanged = JSON.stringify(settings) !== JSON.stringify(data.settings);
-                    const dismissedChanged = JSON.stringify(dismissed) !== JSON.stringify(data.dismissed);
-                    const notifiedChanged = JSON.stringify(notified) !== JSON.stringify(data.notified);
-
-                    if (settingsChanged || dismissedChanged || notifiedChanged) {
-                        isRemoteUpdate = true; // Помечаем как remote update
-                        
+                    } else {
+                        // Загружаем settings и dismissed из Firebase
+                        const data = doc.data();
                         settings = { 
                             ...DEFAULT_SETTINGS, 
                             ...data.settings,
@@ -144,11 +124,49 @@
                             }
                         };
                         dismissed = data.dismissed || {};
-                        notified = data.notified || {};
                         
+                        // Сохраняем в localStorage
                         localStorage.setItem('driverRemindersSettings', JSON.stringify(settings));
                         localStorage.setItem('driverRemindersDismissed', JSON.stringify(dismissed));
-                        localStorage.setItem('driverRemindersNotified', JSON.stringify(notified));
+                    }
+                    isMigrated = true;
+                } catch (e) {
+                    console.warn('⚠️ Ошибка миграции:', e);
+                    isMigrated = true;
+                }
+            }
+
+            // 3. Отписка от старого слушателя
+            if (typeof remindersUnsubscribe === 'function') {
+                remindersUnsubscribe();
+            }
+
+            // 4. Real-time слушатель ТОЛЬКО для settings и dismissed
+            remindersUnsubscribe = docRef.onSnapshot((doc) => {
+                if (!currentUser) return;
+
+                if (doc.exists) {
+                    const data = doc.data();
+                    
+                    // Проверяем изменения
+                    const settingsChanged = JSON.stringify(settings) !== JSON.stringify(data.settings);
+                    const dismissedChanged = JSON.stringify(dismissed) !== JSON.stringify(data.dismissed);
+
+                    if (settingsChanged || dismissedChanged) {
+                        settings = { 
+                            ...DEFAULT_SETTINGS, 
+                            ...data.settings,
+                            to: { 
+                                ...DEFAULT_SETTINGS.to, 
+                                ...(data.settings?.to || {}), 
+                                services: { ...DEFAULT_SETTINGS.to.services, ...(data.settings?.to?.services || {}) } 
+                            }
+                        };
+                        dismissed = data.dismissed || {};
+                        
+                        // Сохраняем в localStorage
+                        localStorage.setItem('driverRemindersSettings', JSON.stringify(settings));
+                        localStorage.setItem('driverRemindersDismissed', JSON.stringify(dismissed));
                         
                         console.log('📥 Данные обновлены из Firebase');
                     }
@@ -157,7 +175,7 @@
                 isDataLoaded = true;
                 refresh(); 
             }, (error) => {
-                console.warn('⚠️ Ошибка слушателя Firestore:', error);
+                console.warn('️ Ошибка слушателя Firestore:', error);
                 loadFromLocal();
                 isDataLoaded = true;
                 refresh();
@@ -167,14 +185,9 @@
         }
     }
 
-    // Debounced save — ТЕПЕРЬ БЕЗ ЦИКЛА
+    // Сохраняем: settings и dismissed → Firebase + localStorage
+    // notified → ТОЛЬКО localStorage
     async function saveRemindersData() {
-        // Если это remote update — НЕ сохраняем обратно (разрываем цикл!)
-        if (isRemoteUpdate) {
-            isRemoteUpdate = false;
-            return;
-        }
-
         const now = Date.now();
         
         if (now - lastSaveTime < MIN_SAVE_INTERVAL_MS) {
@@ -189,17 +202,19 @@
             saveTimeout = null;
         }
 
+        // ВСЕГДА сохраняем в localStorage (включая notified!)
         localStorage.setItem('driverRemindersSettings', JSON.stringify(settings));
         localStorage.setItem('driverRemindersDismissed', JSON.stringify(dismissed));
-        localStorage.setItem('driverRemindersNotified', JSON.stringify(notified));
+        localStorage.setItem('driverRemindersNotified', JSON.stringify(notified)); // ТОЛЬКО ЛОКАЛЬНО!
 
+        // В Firebase сохраняем ТОЛЬКО settings и dismissed (без notified!)
         if (currentUser && typeof db !== 'undefined') {
             try {
                 const docRef = db.collection('users').doc(currentUser.uid).collection('reminders').doc('config');
-                await docRef.set({ settings, dismissed, notified }, { merge: true });
-                console.log('💾 Настройки сохранены в Firebase');
+                await docRef.set({ settings, dismissed }, { merge: true }); // БЕЗ notified!
+                console.log('💾 Settings и dismissed сохранены в Firebase');
             } catch (e) {
-                console.error(' Ошибка сохранения:', e);
+                console.error('❌ Ошибка сохранения:', e);
             }
         }
     }
@@ -486,8 +501,7 @@
             }
         });
 
-        // Сохраняем ТОЛЬКО если это не remote update
-        if (hasChanges && !isRemoteUpdate) {
+        if (hasChanges) {
             saveRemindersData();
         }
     }
