@@ -442,3 +442,299 @@ body.dark-theme .rem-item-dismiss {
 body.dark-theme .rem-item-dismiss:hover {
     background: rgba(255, 255, 255, 0.10) !important;
 }
+
+/* ============================================
+МОДАЛЬНОЕ ОКНО НАСТРОЕК НАПОМИНАНИЙ — ИСПРАВЛЕНИЕ ШИРИНЫ
+============================================ */
+
+/* Увеличиваем минимальную ширину модального окна */
+.reminders-settings-modal,
+.modal-settings,
+[class*="reminders-settings"],
+[class*="settings-modal"] {
+    min-width: 320px !important;
+    max-width: 95vw !important;
+    width: calc(100% - 32px) !important;
+}
+
+/* Контейнер настроек — разрешаем перенос */
+.reminders-settings-content,
+.settings-modal-body,
+.modal-body {
+    overflow-x: hidden !important;
+    max-width: 100% !important;
+}
+
+/* Строки с переключателями — гибкая вёрстка */
+.reminder-setting-row,
+.setting-row,
+[class*="setting-row"] {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    min-width: 0 !important;
+}
+
+/* Текст настройки — может переноситься */
+.reminder-setting-label,
+.setting-label,
+[class*="setting-label"] {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    hyphens: auto !important;
+    max-width: calc(100% - 80px) !important;
+}
+
+/* Поля ввода — фиксированная ширина, но не больше контейнера */
+.reminder-setting-input,
+.setting-input,
+[class*="setting-input"],
+.setting-row input[type="number"],
+.setting-row input[type="text"] {
+    flex: 0 0 auto !important;
+    width: 100px !important;
+    min-width: 80px !important;
+    max-width: 120px !important;
+    font-size: 14px !important;
+    padding: 8px 10px !important;
+}
+
+/* Переключатели — не сжимаются */
+.reminder-setting-toggle,
+.setting-toggle,
+[class*="setting-toggle"] {
+    flex: 0 0 auto !important;
+    min-width: 51px !important;
+}
+
+/* Секции с интервалами — адаптивная сетка */
+.service-interval-block,
+.interval-settings,
+[class*="interval"] {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+    width: 100% !important;
+}
+
+.service-interval-block input,
+.interval-settings input {
+    width: 100% !important;
+    min-width: 0 !important;
+    font-size: 13px !important;
+    padding: 6px 8px !important;
+}
+
+/* Подписи к полям */
+.interval-label {
+    font-size: 12px !important;
+    color: var(--ios-text-tertiary, #86868b) !important;
+    margin-bottom: 4px !important;
+    display: block !important;
+}
+
+/* На мобильных — всё в одну колонку */
+@media (max-width: 480px) {
+    .reminders-settings-modal,
+    .modal-settings {
+        min-width: 280px !important;
+        max-width: calc(100% - 24px) !important;
+    }
+    
+    .reminder-setting-row,
+    .setting-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+    }
+    
+    .reminder-setting-label {
+        max-width: 100% !important;
+    }
+    
+    .reminder-setting-input,
+    .setting-row input {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    .service-interval-block,
+    .interval-settings {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Для очень маленьких экранов */
+@media (max-width: 360px) {
+    .reminders-settings-modal {
+        min-width: 260px !important;
+    }
+    
+    .reminder-setting-input {
+        width: 100% !important;
+        font-size: 13px !important;
+    }
+}
+
+/* ============================================
+ИСПРАВЛЕНИЕ: АДАПТИВНОСТЬ МОДАЛКИ НАСТРОЕК
+============================================ */
+
+/* Модальное окно — фиксированная ширина на всех экранах */
+.rem-overlay {
+    padding: 16px !important;
+}
+
+.rem-modal {
+    width: calc(100% - 32px) !important;
+    max-width: 420px !important;
+    min-width: 280px !important;
+}
+
+/* Тело модального окна — без горизонтальной прокрутки */
+.rem-modal-body {
+    overflow-x: hidden !important;
+    padding: 16px !important;
+}
+
+/* Строки настроек — гибкие, с переносом */
+.rem-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 12px 0 !important;
+}
+
+/* Текст в строке — может переноситься */
+.rem-row > span:first-child {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    hyphens: auto !important;
+    max-width: calc(100% - 140px) !important;
+}
+
+/* Поля ввода — адаптивная ширина */
+.rem-row input[type="number"],
+.rem-row input[type="date"] {
+    flex: 0 0 auto !important;
+    width: 110px !important;
+    min-width: 90px !important;
+    max-width: 140px !important;
+    font-size: 14px !important;
+    padding: 8px 10px !important;
+}
+
+/* Секции с интервалами (км и мес.) — сетка */
+.rem-modal-body > div[style*="margin-top"] {
+    width: 100% !important;
+    overflow: hidden !important;
+}
+
+/* Блоки с услугами ТО — адаптивные */
+.rem-modal-body > div[style*="margin: 8px"] {
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Сетка для интервалов */
+.rem-modal-body div[style*="display: grid"] {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+    width: 100% !important;
+}
+
+/* Подписи к полям */
+.rem-modal-body label {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    width: 100% !important;
+}
+
+/* На мобильных — всё в колонку */
+@media (max-width: 480px) {
+    .rem-modal {
+        width: calc(100% - 24px) !important;
+        max-width: none !important;
+        border-radius: 16px !important;
+    }
+    
+    .rem-modal-body {
+        padding: 12px !important;
+    }
+    
+    .rem-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+        padding: 10px 0 !important;
+    }
+    
+    .rem-row > span:first-child {
+        max-width: 100% !important;
+        font-size: 14px !important;
+    }
+    
+    .rem-row input[type="number"],
+    .rem-row input[type="date"] {
+        width: 100% !important;
+        max-width: 100% !important;
+        font-size: 15px !important;
+        padding: 10px 12px !important;
+    }
+    
+    /* Сетка интервалов в одну колонку */
+    .rem-modal-body div[style*="display: grid"] {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Чекбоксы услуг — полная ширина */
+    .rem-modal-body > div[style*="margin: 8px 0"] {
+        padding: 12px !important;
+    }
+}
+
+/* Для очень маленьких экранов */
+@media (max-width: 360px) {
+    .rem-modal {
+        width: calc(100% - 16px) !important;
+        min-width: 260px !important;
+    }
+    
+    .rem-row input[type="number"] {
+        font-size: 14px !important;
+        padding: 9px 10px !important;
+    }
+}
+
+/* Тёмная тема — исправления */
+body.dark-theme .rem-modal {
+    background: linear-gradient(180deg, #2A2A2E 0%, #1D1D21 100%) !important;
+}
+
+body.dark-theme .rem-row {
+    border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Убираем горизонтальную прокрутку у всего документа */
+html, body {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+}
+
+/* Предотвращаем вылезание контента */
+* {
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+}
