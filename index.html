@@ -47,6 +47,8 @@
    
     <link rel="stylesheet" href="style.css">
     
+    <link rel="stylesheet" href="reminders.css">
+    
     <link rel="stylesheet" href="shift.css">
     
     
@@ -95,7 +97,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.8.2" defer></script>
+    <script src="script.js?v=2.9.2" defer></script>
     
     <!-- 1. МОДУЛЬ АВТОМОБИЛЕЙ (ОБЯЗАТЕЛЬНО ПЕРВЫМ) -->
 <script src="vehicle-module.js?v=1.0.4"></script>
@@ -108,6 +110,11 @@
     
     <!-- Модуль календаря смен -->
 <script src="shift-module.js?v=1.0.5"></script>
+    
+   <!-- Модуль напоминаний ТО -->
+    <script src="reminders.js?v=1.0.0"></script>
+    <!-- Модуль Backup -->
+    <script src="backup-module.js?v=1.0.0"></script>
 
 
 </head>
@@ -1704,34 +1711,53 @@
 </div>
     
     <!-- БЛОК 4: Экспорт данных -->
-    <div class="card float-in texture-grain">
-        <h2>
-            <ion-icon name="cloud-download-outline" style="vertical-align: middle; margin-right: 8px; font-size: 28px !important; color: var(--ios-success);"></ion-icon>
-            Экспорт данных
-        </h2>
-        <p class="hint-text" style="margin-bottom: 20px; text-align: left;">
-            Выгрузите вашу статистику в удобном формате для печати, отчетов или анализа в Excel.
-        </p>
-        <div class="form-actions" style="flex-direction: column; gap: 12px;">
-            <!-- Экспорт в Excel -->
-            <button class="btn btn-primary glossy ripple magnetic" onclick="exportToExcel()" style="width: 100%; justify-content: flex-start;">
-                <ion-icon name="grid-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
-                Экспорт в Excel (.xlsx)
-            </button>
-            
-            <!-- Экспорт в PDF -->
-            <button class="btn btn-success glossy ripple magnetic" onclick="exportToPDF()" style="width: 100%; justify-content: flex-start;">
-                <ion-icon name="print-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
-                Экспорт в PDF (Полная таблица)
-            </button>
-            
-            <!-- Резервная копия JSON -->
-            <button class="btn btn-secondary glossy ripple magnetic" onclick="exportData()" style="width: 100%; justify-content: flex-start;">
-                <ion-icon name="save-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
-                Резервная копия (JSON)
-            </button>
-        </div>
+<div class="card float-in texture-grain">
+    <h2>
+        <ion-icon name="cloud-download-outline" style="vertical-align: middle; margin-right: 8px; font-size: 28px !important; color: var(--ios-success);"></ion-icon>
+        Резервное копирование
+    </h2>
+    <p class="hint-text" style="margin-bottom: 20px; text-align: left;">
+        Сохраните все данные приложения в один файл.
+        Бэкап включает: записи, тарифы, топливо, ремонты (с фото),
+        смены, автомобили, настройки и аватар.
+    </p>
+    
+    <div class="form-actions" style="flex-direction: column; gap: 12px;">
+        <!-- Экспорт в Excel -->
+        <button class="btn btn-primary glossy ripple magnetic" onclick="exportToExcel()" style="width: 100%; justify-content: flex-start;">
+            <ion-icon name="grid-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
+            Экспорт в Excel (.xlsx)
+        </button>
+        
+        <!-- Экспорт в PDF -->
+        <button class="btn btn-success glossy ripple magnetic" onclick="exportToPDF()" style="width: 100%; justify-content: flex-start;">
+            <ion-icon name="print-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
+            Экспорт в PDF (Полная таблица)
+        </button>
+        
+        <!-- Полный бэкап -->
+        <button class="btn btn-secondary glossy ripple magnetic" onclick="exportFullBackup()" style="width: 100%; justify-content: flex-start;">
+            <ion-icon name="save-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
+            Полный бэкап (все данные + фото)
+        </button>
+        
+        <!-- Восстановление -->
+        <button class="btn btn-secondary glossy ripple magnetic" onclick="importFullBackup()" style="width: 100%; justify-content: flex-start;">
+            <ion-icon name="cloud-upload-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
+            Восстановить из бэкапа
+        </button>
+        
+        <!-- Сброс -->
+        <button class="btn btn-danger glossy ripple magnetic" onclick="resetAllAppData()" style="width: 100%; justify-content: flex-start;">
+            <ion-icon name="trash-outline" style="font-size: 24px !important; margin-right: 10px;"></ion-icon>
+            Полный сброс данных
+        </button>
     </div>
+    
+    <p class="hint-text" style="margin-top: 16px;">
+        💡 <strong>Совет:</strong> Делайте бэкап регулярно, особенно перед обновлением приложения.
+    </p>
+</div>
     
     <!-- БЛОК 5: Управление и восстановление -->
     <div class="card float-in texture-grain">

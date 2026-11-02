@@ -1,5 +1,5 @@
 // =============================================
-// МОДУЛЬ УЧЕТА РЕМОНТА АВТО (v4.0 — Firestore Base64 + Поворот фото + EXIF)
+// МОДУЛЬ УЧЕТА РЕМОНТА АВТО (v4.1 — Исправлено хранение всех авто для бэкапа)
 // Фото хранятся прямо в Firestore как base64 (без Firebase Storage)
 // =============================================
 
@@ -42,9 +42,6 @@ function safeEscapeHtml(text) {
     return div.innerHTML;
 }
 
-/**
- * Генерация уникального ID
- */
 function generateRecordId() {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
         return 'repair_' + crypto.randomUUID();
@@ -52,9 +49,6 @@ function generateRecordId() {
     return 'repair_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 }
 
-/**
- * Глубокая копия объекта
- */
 function deepClone(obj) {
     if (!obj || typeof obj !== 'object') return obj;
     try {
@@ -112,7 +106,6 @@ function getCategoryColor(category) {
 function addRepairPart() {
     const container = document.getElementById('repair-parts-list');
     if (!container) return;
-
     const item = document.createElement('div');
     item.className = 'dynamic-item';
     item.innerHTML = `
@@ -129,7 +122,6 @@ function addRepairPart() {
 function addRepairWork() {
     const container = document.getElementById('repair-works-list');
     if (!container) return;
-
     const item = document.createElement('div');
     item.className = 'dynamic-item';
     item.innerHTML = `
@@ -146,7 +138,6 @@ function addRepairWork() {
 function setupDynamicListDelegation() {
     const partsContainer = document.getElementById('repair-parts-list');
     const worksContainer = document.getElementById('repair-works-list');
-
     const handleEvent = (e) => {
         if (e.target.closest('[data-action^="remove-"]')) {
             const item = e.target.closest('.dynamic-item');
@@ -156,12 +147,10 @@ function setupDynamicListDelegation() {
             }
             return;
         }
-        if (e.target.classList.contains('repair-part-cost') ||
-            e.target.classList.contains('repair-work-cost')) {
+        if (e.target.classList.contains('repair-part-cost') || e.target.classList.contains('repair-work-cost')) {
             calculateRepairTotal();
         }
     };
-
     [partsContainer, worksContainer].forEach(c => {
         if (!c || c._delegationBound) return;
         c._delegationBound = true;
@@ -172,14 +161,9 @@ function setupDynamicListDelegation() {
 
 function calculateRepairTotal() {
     let partsTotal = 0, worksTotal = 0;
-    document.querySelectorAll('.repair-part-cost').forEach(el => {
-        partsTotal += parseFloat(el.value) || 0;
-    });
-    document.querySelectorAll('.repair-work-cost').forEach(el => {
-        worksTotal += parseFloat(el.value) || 0;
-    });
+    document.querySelectorAll('.repair-part-cost').forEach(el => { partsTotal += parseFloat(el.value) || 0; });
+    document.querySelectorAll('.repair-work-cost').forEach(el => { worksTotal += parseFloat(el.value) || 0; });
     const total = partsTotal + worksTotal;
-
     const el1 = document.getElementById('repair-parts-total');
     const el2 = document.getElementById('repair-works-total');
     const el3 = document.getElementById('repair-total-cost');
@@ -189,14 +173,9 @@ function calculateRepairTotal() {
 }
 
 // ===== ФУНКЦИИ ДЛЯ РАБОТЫ С ФОТО =====
-
-/**
- * Обработчик выбора фото
- */
 function handlePhotoSelect(event, photoType) {
     const file = event.target.files[0];
     if (!file) return;
-
     if (!file.type.startsWith('image/')) {
         safeShowToast('Ошибка', 'Пожалуйста, выберите изображение', 'danger');
         return;
@@ -205,7 +184,6 @@ function handlePhotoSelect(event, photoType) {
         safeShowToast('Ошибка', 'Файл слишком большой. Максимум 5MB.', 'danger');
         return;
     }
-
     const reader = new FileReader();
     reader.onload = (e) => {
         repairPhotos[photoType] = { file: file, preview: e.target.result };
@@ -214,55 +192,32 @@ function handlePhotoSelect(event, photoType) {
     reader.readAsDataURL(file);
 }
 
-/**
- * Обновить превью фото + показать/скрыть кнопки поворота
- */
 function updatePhotoPreview(photoType) {
     const previewEl = document.getElementById(`repair-${photoType}-preview`);
     const rotateControls = document.getElementById(`repair-${photoType}-rotate`);
     if (!previewEl) return;
-
     const photoData = repairPhotos[photoType];
     const existingUrl = existingPhotos[photoType];
-
     let hasPhoto = false;
 
     if (photoData && photoData.preview) {
-        previewEl.innerHTML = `
-            <img src="${photoData.preview}" alt="Preview">
-            <button type="button" class="remove-photo-btn" onclick="removePhoto('${photoType}')">
-                <ion-icon name="close-outline"></ion-icon>
-            </button>
-        `;
+        previewEl.innerHTML = `<img src="${photoData.preview}" alt="Preview"><button type="button" class="remove-photo-btn" onclick="removePhoto('${photoType}')"><ion-icon name="close-outline"></ion-icon></button>`;
         previewEl.classList.add('has-image');
         hasPhoto = true;
     } else if (existingUrl) {
-        previewEl.innerHTML = `
-            <img src="${existingUrl}" alt="Existing">
-            <button type="button" class="remove-photo-btn" onclick="removePhoto('${photoType}')">
-                <ion-icon name="close-outline"></ion-icon>
-            </button>
-        `;
+        previewEl.innerHTML = `<img src="${existingUrl}" alt="Existing"><button type="button" class="remove-photo-btn" onclick="removePhoto('${photoType}')"><ion-icon name="close-outline"></ion-icon></button>`;
         previewEl.classList.add('has-image');
         hasPhoto = true;
     } else {
-        previewEl.innerHTML = `
-            <ion-icon name="image-outline"></ion-icon>
-            <span>Нет фото</span>
-        `;
+        previewEl.innerHTML = `<ion-icon name="image-outline"></ion-icon><span>Нет фото</span>`;
         previewEl.classList.remove('has-image');
         hasPhoto = false;
     }
-
-    // Показываем/скрываем кнопки поворота
     if (rotateControls) {
         rotateControls.style.display = hasPhoto ? 'flex' : 'none';
     }
 }
 
-/**
- * Удалить фото из превью
- */
 function removePhoto(photoType) {
     repairPhotos[photoType] = null;
     existingPhotos[photoType] = null;
@@ -271,16 +226,9 @@ function removePhoto(photoType) {
     if (inputEl) inputEl.value = '';
 }
 
-/**
- * 🔄 ПОВОРОТ ФОТО (ручной)
- * @param {string} photoType - 'receipt' или 'document'
- * @param {number} degrees - -90 (влево) или 90 (вправо)
- */
 function rotatePhoto(photoType, degrees) {
     const photoData = repairPhotos[photoType];
     const existingUrl = existingPhotos[photoType];
-
-    // Определяем, что поворачивать: новое фото или существующее
     let sourceDataUrl = null;
     let isNewPhoto = false;
 
@@ -298,7 +246,6 @@ function rotatePhoto(photoType, degrees) {
     img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-
         if (degrees === 90 || degrees === -90) {
             canvas.width = img.height;
             canvas.height = img.width;
@@ -306,76 +253,45 @@ function rotatePhoto(photoType, degrees) {
             canvas.width = img.width;
             canvas.height = img.height;
         }
-
         ctx.translate(canvas.width / 2, canvas.height / 2);
         ctx.rotate(degrees * Math.PI / 180);
         ctx.drawImage(img, -img.width / 2, -img.height / 2);
-
         const rotatedDataUrl = canvas.toDataURL('image/jpeg', 0.92);
 
         if (isNewPhoto) {
-            // Обновляем новый файл
             photoData.preview = rotatedDataUrl;
-            fetch(rotatedDataUrl)
-                .then(res => res.blob())
-                .then(blob => {
-                    photoData.file = new File([blob], `rotated_${Date.now()}.jpg`, { type: 'image/jpeg' });
-                    updatePhotoPreview(photoType);
-                    safeShowToast('Повёрнуто', 'Фото повёрнуто. Не забудьте сохранить.', 'info', 2000);
-                })
-                .catch(err => {
-                    console.error('Ошибка конвертации:', err);
-                    updatePhotoPreview(photoType);
-                });
+            fetch(rotatedDataUrl).then(res => res.blob()).then(blob => {
+                photoData.file = new File([blob], `rotated_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                updatePhotoPreview(photoType);
+                safeShowToast('Повёрнуто', 'Фото повёрнуто. Не забудьте сохранить.', 'info', 2000);
+            }).catch(err => { console.error('Ошибка конвертации:', err); updatePhotoPreview(photoType); });
         } else {
-            // Существующее фото — превращаем в "новый файл"
-            fetch(rotatedDataUrl)
-                .then(res => res.blob())
-                .then(blob => {
-                    repairPhotos[photoType] = {
-                        file: new File([blob], `rotated_${Date.now()}.jpg`, { type: 'image/jpeg' }),
-                        preview: rotatedDataUrl
-                    };
-                    updatePhotoPreview(photoType);
-                    safeShowToast('Повёрнуто', 'Фото повёрнуто. Не забудьте сохранить.', 'info', 2000);
-                })
-                .catch(err => {
-                    console.error('Ошибка конвертации:', err);
-                });
+            fetch(rotatedDataUrl).then(res => res.blob()).then(blob => {
+                repairPhotos[photoType] = { file: new File([blob], `rotated_${Date.now()}.jpg`, { type: 'image/jpeg' }), preview: rotatedDataUrl };
+                updatePhotoPreview(photoType);
+                safeShowToast('Повёрнуто', 'Фото повёрнуто. Не забудьте сохранить.', 'info', 2000);
+            }).catch(err => { console.error('Ошибка конвертации:', err); });
         }
     };
-    img.onerror = () => {
-        safeShowToast('Ошибка', 'Не удалось повернуть фото', 'danger');
-    };
+    img.onerror = () => { safeShowToast('Ошибка', 'Не удалось повернуть фото', 'danger'); };
     img.src = sourceDataUrl;
 }
 
-/**
- * 🔥 СЖАТИЕ С ПОДДЕРЖКОЙ EXIF-ОРИЕНТАЦИИ
- * Автоматически поворачивает фото правильно (iPhone/Android)
- */
 async function compressImageForUpload(file, maxWidth = 1400, initialQuality = 0.85) {
     try {
-        // ✅ КЛЮЧЕВОЕ: createImageBitmap с imageOrientation: 'from-image'
         let bitmap;
         try {
-            bitmap = await createImageBitmap(file, {
-                imageOrientation: 'from-image'
-            });
+            bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
         } catch (e) {
             console.warn('⚠️ createImageBitmap не поддерживает imageOrientation, используем fallback');
             bitmap = await createImageBitmap(file);
         }
-
         let width = bitmap.width;
         let height = bitmap.height;
-        console.log(`📐 Ориентация учтена: ${width}×${height}`);
-
         if (width > maxWidth) {
             height = Math.round((height * maxWidth) / width);
             width = maxWidth;
         }
-
         const canvas = document.createElement('canvas');
         canvas.width = width;
         canvas.height = height;
@@ -383,7 +299,6 @@ async function compressImageForUpload(file, maxWidth = 1400, initialQuality = 0.
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(bitmap, 0, 0, width, height);
-
         if (bitmap.close) bitmap.close();
 
         const photoBudgetKB = calculatePhotoBudget();
@@ -395,7 +310,6 @@ async function compressImageForUpload(file, maxWidth = 1400, initialQuality = 0.
             quality -= 0.05;
             dataUrl = canvas.toDataURL('image/jpeg', quality);
         }
-
         if (dataUrl.length > MAX_SIZE) {
             const scale = Math.sqrt(MAX_SIZE / dataUrl.length) * 0.95;
             canvas.width = Math.round(width * scale);
@@ -404,20 +318,15 @@ async function compressImageForUpload(file, maxWidth = 1400, initialQuality = 0.
             ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
             dataUrl = canvas.toDataURL('image/jpeg', 0.7);
         }
-
         const finalKB = (dataUrl.length * 0.75 / 1024).toFixed(0);
-        console.log(`📸 Сжатие: ${(file.size / 1024).toFixed(0)} KB → ${finalKB} KB (${canvas.width}×${canvas.height}, q=${quality.toFixed(2)})`);
+        console.log(`📸 Сжатие: ${(file.size / 1024).toFixed(0)} KB → ${finalKB} KB`);
         return dataUrl;
-
     } catch (error) {
         console.error('❌ Ошибка createImageBitmap, fallback на canvas:', error);
         return compressImageFallback(file, maxWidth, initialQuality);
     }
 }
 
-/**
- * Fallback для старых браузеров
- */
 function compressImageFallback(file, maxWidth, initialQuality) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -444,7 +353,6 @@ function compressImageFallback(file, maxWidth, initialQuality) {
                 let quality = initialQuality;
                 let dataUrl = canvas.toDataURL('image/jpeg', quality);
                 const MAX_SIZE = photoBudgetKB * 1024;
-
                 while (dataUrl.length > MAX_SIZE && quality > 0.3) {
                     quality -= 0.05;
                     dataUrl = canvas.toDataURL('image/jpeg', quality);
@@ -457,14 +365,10 @@ function compressImageFallback(file, maxWidth, initialQuality) {
     });
 }
 
-/**
- * 🎯 Расчёт бюджета для фото (KB)
- */
 function calculatePhotoBudget() {
     const hasReceipt = repairPhotos.receipt !== null;
     const hasDocument = repairPhotos.document !== null;
     const totalPhotos = (hasReceipt ? 1 : 0) + (hasDocument ? 1 : 0);
-
     const SAFE_BUDGET_KB = 990;
     if (totalPhotos === 0) return 0;
     if (totalPhotos === 1) return SAFE_BUDGET_KB - 30;
@@ -472,9 +376,6 @@ function calculatePhotoBudget() {
     return Math.floor((SAFE_BUDGET_KB - 30) / totalPhotos);
 }
 
-/**
- * 🔥 ВАРИАНТ FIRESTORE: возвращаем сжатый base64 data URL
- */
 async function uploadPhotoToStorage(file, recordId, photoType) {
     try {
         const base64DataUrl = await compressImageForUpload(file);
@@ -486,9 +387,6 @@ async function uploadPhotoToStorage(file, recordId, photoType) {
     }
 }
 
-/**
- * 🔥 ВАРИАНТ FIRESTORE: ничего не удаляем
- */
 async function deletePhotoFromStorage(photoUrl) {
     console.log('ℹ️ Удаление не требуется (base64 в Firestore)');
 }
@@ -502,14 +400,9 @@ async function loadRepairRecords() {
         const saved = localStorage.getItem(REPAIR_STORAGE_KEY);
         if (saved) {
             repairRecords = JSON.parse(saved);
-            renderRepairList();
-            updateRepairStats();
-            updateRepairCharts();
         }
 
-        if (typeof connectionMode !== 'undefined' && connectionMode === 'firebase' &&
-            typeof auth !== 'undefined' && auth.currentUser) {
-
+        if (typeof connectionMode !== 'undefined' && connectionMode === 'firebase' && typeof auth !== 'undefined' && auth.currentUser) {
             console.log('☁️ Подключение real-time слушателя ремонтов...');
             if (typeof repairUnsubscribe === 'function') repairUnsubscribe();
 
@@ -518,11 +411,9 @@ async function loadRepairRecords() {
                 .collection(COLLECTION_REPAIR)
                 .orderBy('date', 'desc')
                 .onSnapshot((snapshot) => {
-                    const vId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
-                    let fbData = snapshot.docs
-                        .map(doc => ({ id: doc.id, ...doc.data() }))
-                        .filter(r => (r.vehicleId || 'default') === vId);
-
+                    // ✅ ИСПРАВЛЕНО: Загружаем ВСЕ ремонты всех авто для корректного бэкапа
+                    let fbData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    
                     fbData.sort((a, b) => {
                         const dateA = parseLocalDate(a.date) || 0;
                         const dateB = parseLocalDate(b.date) || 0;
@@ -531,6 +422,8 @@ async function loadRepairRecords() {
 
                     repairRecords = fbData;
                     saveRepairLocal();
+                    
+                    // ✅ Функции отображения сами отфильтруют данные по текущему авто
                     renderRepairList();
                     updateRepairStats();
                     updateRepairCharts();
@@ -538,6 +431,10 @@ async function loadRepairRecords() {
                 }, (error) => {
                     console.error('❌ Ошибка слушателя ремонтов:', error);
                 });
+        } else {
+            renderRepairList();
+            updateRepairStats();
+            updateRepairCharts();
         }
     } catch (error) {
         console.error('❌ Критическая ошибка загрузки:', error);
@@ -562,21 +459,15 @@ function saveRepairLocal() {
 }
 
 async function syncRepairToFirebase(record) {
-    if (typeof connectionMode === 'undefined' || connectionMode !== 'firebase' ||
-        typeof auth === 'undefined' || !auth.currentUser) return false;
+    if (typeof connectionMode === 'undefined' || connectionMode !== 'firebase' || typeof auth === 'undefined' || !auth.currentUser) return false;
     try {
         const recordToSave = deepClone(record);
         delete recordToSave.id;
-
-        await db.collection('users')
-            .doc(auth.currentUser.uid)
-            .collection(COLLECTION_REPAIR)
-            .doc(record.id)
-            .set({
-                ...recordToSave,
-                userId: auth.currentUser.uid,
-                updatedAt: new Date().toISOString()
-            });
+        await db.collection('users').doc(auth.currentUser.uid).collection(COLLECTION_REPAIR).doc(record.id).set({
+            ...recordToSave,
+            userId: auth.currentUser.uid,
+            updatedAt: new Date().toISOString()
+        });
         return true;
     } catch (error) {
         console.error('❌ Ошибка сохранения в Firebase:', error);
@@ -588,14 +479,9 @@ async function syncRepairToFirebase(record) {
 }
 
 async function deleteRepairFromFirebase(id) {
-    if (typeof connectionMode === 'undefined' || connectionMode !== 'firebase' ||
-        typeof auth === 'undefined' || !auth.currentUser) return false;
+    if (typeof connectionMode === 'undefined' || connectionMode !== 'firebase' || typeof auth === 'undefined' || !auth.currentUser) return false;
     try {
-        await db.collection('users')
-            .doc(auth.currentUser.uid)
-            .collection(COLLECTION_REPAIR)
-            .doc(id)
-            .delete();
+        await db.collection('users').doc(auth.currentUser.uid).collection(COLLECTION_REPAIR).doc(id).delete();
         return true;
     } catch (error) {
         console.error('❌ Ошибка удаления из Firebase:', error);
@@ -614,7 +500,6 @@ async function handleRepairSubmit(e) {
     const description = document.getElementById('repair-description')?.value.trim();
     const comment = document.getElementById('repair-comment')?.value.trim();
     const vehicleId = document.getElementById('repair-vehicle-select')?.value || 'default';
-
     const isEditing = !!editingRepairId;
 
     if (!date || !mileage || mileage <= 0 || !category) {
@@ -646,27 +531,19 @@ async function handleRepairSubmit(e) {
         serviceItems.push(cb.value);
     });
 
-    // === БЕЗОПАСНАЯ ОБРАБОТКА ФОТО ===
     let receiptPhotoUrl = existingPhotos.receipt;
     let documentPhotoUrl = existingPhotos.document;
     const recordId = isEditing ? editingRepairId : generateRecordId();
 
     if (repairPhotos.receipt) {
         const newUrl = await uploadPhotoToStorage(repairPhotos.receipt.file, recordId, 'receipt');
-        if (newUrl) {
-            receiptPhotoUrl = newUrl;
-        } else {
-            safeShowToast('Внимание', 'Не удалось обработать фото чека. Старое фото сохранено.', 'warning');
-        }
+        if (newUrl) receiptPhotoUrl = newUrl;
+        else safeShowToast('Внимание', 'Не удалось обработать фото чека. Старое фото сохранено.', 'warning');
     }
-
     if (repairPhotos.document) {
         const newUrl = await uploadPhotoToStorage(repairPhotos.document.file, recordId, 'document');
-        if (newUrl) {
-            documentPhotoUrl = newUrl;
-        } else {
-            safeShowToast('Внимание', 'Не удалось обработать фото документа. Старое фото сохранено.', 'warning');
-        }
+        if (newUrl) documentPhotoUrl = newUrl;
+        else safeShowToast('Внимание', 'Не удалось обработать фото документа. Старое фото сохранено.', 'warning');
     }
 
     const repairData = {
@@ -718,7 +595,6 @@ async function handleRepairSubmit(e) {
 function editRepairRecord(id) {
     const record = repairRecords.find(r => r.id === id);
     if (!record) return;
-
     editingRepairId = id;
 
     document.getElementById('repair-date').value = record.date;
@@ -741,13 +617,7 @@ function editRepairRecord(id) {
         (record.parts || []).forEach(p => {
             const item = document.createElement('div');
             item.className = 'dynamic-item';
-            item.innerHTML = `
-                <input type="text" class="repair-part-name" placeholder="Название детали" value="${safeEscapeHtml(p.name)}">
-                <input type="number" class="repair-part-cost" placeholder="Стоимость" step="0.01" min="0" value="${p.cost}">
-                <button type="button" class="btn-remove" data-action="remove-part">
-                    <ion-icon name="trash-outline"></ion-icon>
-                </button>
-            `;
+            item.innerHTML = `<input type="text" class="repair-part-name" placeholder="Название детали" value="${safeEscapeHtml(p.name)}"><input type="number" class="repair-part-cost" placeholder="Стоимость" step="0.01" min="0" value="${p.cost}"><button type="button" class="btn-remove" data-action="remove-part"><ion-icon name="trash-outline"></ion-icon></button>`;
             partsContainer.appendChild(item);
         });
     }
@@ -758,18 +628,11 @@ function editRepairRecord(id) {
         (record.works || []).forEach(w => {
             const item = document.createElement('div');
             item.className = 'dynamic-item';
-            item.innerHTML = `
-                <input type="text" class="repair-work-name" placeholder="Название работы" value="${safeEscapeHtml(w.name)}">
-                <input type="number" class="repair-work-cost" placeholder="Стоимость" step="0.01" min="0" value="${w.cost}">
-                <button type="button" class="btn-remove" data-action="remove-work">
-                    <ion-icon name="trash-outline"></ion-icon>
-                </button>
-            `;
+            item.innerHTML = `<input type="text" class="repair-work-name" placeholder="Название работы" value="${safeEscapeHtml(w.name)}"><input type="number" class="repair-work-cost" placeholder="Стоимость" step="0.01" min="0" value="${w.cost}"><button type="button" class="btn-remove" data-action="remove-work"><ion-icon name="trash-outline"></ion-icon></button>`;
             worksContainer.appendChild(item);
         });
     }
 
-    // Фото
     existingPhotos.receipt = record.receiptPhotoUrl || null;
     existingPhotos.document = record.documentPhotoUrl || null;
     repairPhotos.receipt = null;
@@ -782,7 +645,6 @@ function editRepairRecord(id) {
 
     updatePhotoPreview('receipt');
     updatePhotoPreview('document');
-
     calculateRepairTotal();
 
     const submitBtn = document.querySelector('#repair-form button[type="submit"]');
@@ -791,7 +653,6 @@ function editRepairRecord(id) {
         submitBtn.classList.remove('btn-success');
         submitBtn.classList.add('btn-primary');
     }
-
     document.getElementById('repair-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
     safeShowToast('✏️', 'Редактирование ремонта', 'info', 2000);
 }
@@ -799,19 +660,15 @@ function editRepairRecord(id) {
 // ===== 10. УДАЛЕНИЕ =====
 async function deleteRepairRecord(id) {
     if (!await safeShowConfirm('Удаление ремонта', 'Вы уверены, что хотите удалить эту запись?', 'Удалить', 'Отмена', 'danger')) return;
-
     safeShowLoading('Удаление...');
-
     try {
         repairRecords = repairRecords.filter(r => r.id !== id);
         saveRepairLocal();
         await deleteRepairFromFirebase(id);
-
         renderRepairList();
         updateRepairStats();
         updateRepairCharts();
         syncRepairToMainRecords();
-
         safeHideLoading();
         safeShowToast('Успех', 'Запись удалена!', 'success');
     } catch (error) {
@@ -829,7 +686,6 @@ function clearRepairForm() {
     document.getElementById('repair-category').value = 'engine';
     document.getElementById('repair-description').value = '';
     document.getElementById('repair-comment').value = '';
-
     document.querySelectorAll('#repair-service-items input[type="checkbox"]').forEach(cb => cb.checked = false);
 
     const partsContainer = document.getElementById('repair-parts-list');
@@ -841,7 +697,6 @@ function clearRepairForm() {
     addRepairWork();
     calculateRepairTotal();
 
-    // Сброс фото
     repairPhotos.receipt = null;
     repairPhotos.document = null;
     existingPhotos.receipt = null;
@@ -854,7 +709,6 @@ function clearRepairForm() {
     updatePhotoPreview('document');
 
     editingRepairId = null;
-
     const submitBtn = document.querySelector('#repair-form button[type="submit"]');
     if (submitBtn) {
         submitBtn.innerHTML = '<ion-icon name="checkmark-circle-outline"></ion-icon> Сохранить ремонт';
@@ -868,8 +722,10 @@ function getFilteredRepairs() {
     const period = document.getElementById('repair-filter-period')?.value || 'all';
     const category = document.getElementById('repair-filter-category')?.value || 'all';
     const search = document.getElementById('repair-filter-search')?.value.toLowerCase() || '';
-
-    let filtered = [...repairRecords];
+    
+    // ✅ ИСПРАВЛЕНО: Получаем текущее авто и фильтруем список для отображения
+    const currentVId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
+    let filtered = [...repairRecords].filter(r => (r.vehicleId || 'default') === currentVId);
 
     if (period !== 'all') {
         const now = new Date();
@@ -900,16 +756,10 @@ function getFilteredRepairs() {
 function renderRepairList() {
     const container = document.getElementById('repair-list');
     if (!container) return;
-
     const filtered = getFilteredRepairs();
 
     if (filtered.length === 0) {
-        container.innerHTML = `
-            <div style="text-align: center; padding: 40px; color: var(--text-tertiary, #86868b);">
-                <ion-icon name="construct-outline" style="font-size: 48px; display: block; margin: 0 auto 12px;"></ion-icon>
-                Нет записей о ремонте
-            </div>
-        `;
+        container.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--text-tertiary, #86868b);"><ion-icon name="construct-outline" style="font-size: 48px; display: block; margin: 0 auto 12px;"></ion-icon>Нет записей о ремонте для этого авто</div>`;
         return;
     }
 
@@ -928,128 +778,64 @@ function renderRepairList() {
             const categoryIcon = getCategoryIcon(record.category);
             const categoryColor = getCategoryColor(record.category);
 
-            const partsHTML = (record.parts || []).length > 0 ? `
-                <div style="margin-top: 8px; font-size: 14px; color: var(--text-secondary, #86868b);">
-                    <strong>Запчасти:</strong>
-                    ${record.parts.map(p => `${escapeHtml(p.name)} (${formatMoney(p.cost)})`).join(', ')}
-                </div>
-            ` : '';
-
-            const worksHTML = (record.works || []).length > 0 ? `
-                <div style="margin-top: 4px; font-size: 14px; color: var(--text-secondary, #86868b);">
-                    <strong>Работы:</strong>
-                    ${record.works.map(w => `${escapeHtml(w.name)} (${formatMoney(w.cost)})`).join(', ')}
-                </div>
-            ` : '';
-
+            const partsHTML = (record.parts || []).length > 0 ? `<div style="margin-top: 8px; font-size: 14px; color: var(--text-secondary, #86868b);"><strong>Запчасти:</strong> ${record.parts.map(p => `${escapeHtml(p.name)} (${formatMoney(p.cost)})`).join(', ')}</div>` : '';
+            const worksHTML = (record.works || []).length > 0 ? `<div style="margin-top: 4px; font-size: 14px; color: var(--text-secondary, #86868b);"><strong>Работы:</strong> ${record.works.map(w => `${escapeHtml(w.name)} (${formatMoney(w.cost)})`).join(', ')}</div>` : '';
+            
             const serviceItemsHTML = (record.serviceItems || []).length > 0 ? `
                 <div style="margin-top: 4px; font-size: 13px; color: var(--text-tertiary, #a1a1a6);">
                     <strong>Выполнено:</strong>
                     ${record.serviceItems.map(item => {
-                        const names = {
-                            'oil': '🛢️ Масло', 'oilFilter': '🔵 Масляный фильтр',
-                            'airFilter': '💨 Воздушный фильтр', 'cabinFilter': '🌬️ Салонный фильтр',
-                            'sparkPlugs': '⚡ Свечи', 'brakePads': '🔴 Колодки',
-                            'coolant': '❄️ Охлаждающая жидкость', 'brakeFluid': '💧 Тормозная жидкость',
-                            'transmissionFluid': '⚙️ Трансмиссионное масло', 'tires': '🛞 Шины/Колёса',
-                            'battery': '🔋 Аккумулятор', 'wipers': '🌧️ Дворники'
-                        };
+                        const names = { 'oil': '🛢️ Масло', 'oilFilter': '🔵 Масляный фильтр', 'airFilter': '💨 Воздушный фильтр', 'cabinFilter': '🌬️ Салонный фильтр', 'sparkPlugs': '⚡ Свечи', 'brakePads': '🔴 Колодки', 'coolant': '❄️ Охлаждающая жидкость', 'brakeFluid': '💧 Тормозная жидкость', 'transmissionFluid': '⚙️ Трансмиссионное масло', 'tires': '🛞 Шины/Колёса', 'battery': '🔋 Аккумулятор', 'wipers': '🌧️ Дворники' };
                         return names[item] || item;
                     }).join(' · ')}
-                </div>
-            ` : '';
+                </div>` : '';
 
             const photosHTML = (record.receiptPhotoUrl || record.documentPhotoUrl) ? `
                 <div class="repair-photos-indicator" data-record-id="${record.id}">
-                    ${record.receiptPhotoUrl ? `
-                        <button type="button" class="repair-photo-thumb" onclick="openPhotoViewer('${record.id}', 'receipt')" title="Фото чека">
-                            <img src="${record.receiptPhotoUrl}" alt="Чек" class="repair-photo-mini" loading="lazy">
-                            <span class="repair-photo-label">
-                                <ion-icon name="receipt-outline"></ion-icon>
-                                Чек
-                            </span>
-                        </button>
-                    ` : ''}
-                    ${record.documentPhotoUrl ? `
-                        <button type="button" class="repair-photo-thumb" onclick="openPhotoViewer('${record.id}', 'document')" title="Фото документа">
-                            <img src="${record.documentPhotoUrl}" alt="Документ" class="repair-photo-mini" loading="lazy">
-                            <span class="repair-photo-label">
-                                <ion-icon name="document-text-outline"></ion-icon>
-                                Документ
-                            </span>
-                        </button>
-                    ` : ''}
-                </div>
-            ` : '';
+                    ${record.receiptPhotoUrl ? `<button type="button" class="repair-photo-thumb" onclick="openPhotoViewer('${record.id}', 'receipt')" title="Фото чека"><img src="${record.receiptPhotoUrl}" alt="Чек" class="repair-photo-mini" loading="lazy"><span class="repair-photo-label"><ion-icon name="receipt-outline"></ion-icon>Чек</span></button>` : ''}
+                    ${record.documentPhotoUrl ? `<button type="button" class="repair-photo-thumb" onclick="openPhotoViewer('${record.id}', 'document')" title="Фото документа"><img src="${record.documentPhotoUrl}" alt="Документ" class="repair-photo-mini" loading="lazy"><span class="repair-photo-label"><ion-icon name="document-text-outline"></ion-icon>Документ</span></button>` : ''}
+                </div>` : '';
 
             return `
-                <div class="repair-item" style="
-                    background: var(--bg-secondary, #ffffff);
-                    border: 1px solid var(--border-light, rgba(0,0,0,0.08));
-                    border-radius: 16px;
-                    padding: 16px;
-                    margin-bottom: 12px;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-                    border-left: 4px solid ${categoryColor};
-                    transition: all 0.2s;
-                ">
+                <div class="repair-item" style="background: var(--bg-secondary, #ffffff); border: 1px solid var(--border-light, rgba(0,0,0,0.08)); border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border-left: 4px solid ${categoryColor}; transition: all 0.2s;">
                     <div style="display: flex; align-items: flex-start; gap: 12px;">
-                        <div style="
-                            width: 40px; height: 40px;
-                            border-radius: 50%;
-                            background: ${categoryColor}20;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            flex-shrink: 0;
-                            color: ${categoryColor};
-                            font-size: 20px;
-                        ">
+                        <div style="width: 40px; height: 40px; border-radius: 50%; background: ${categoryColor}20; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: ${categoryColor}; font-size: 20px;">
                             <ion-icon name="${categoryIcon}"></ion-icon>
                         </div>
                         <div style="flex: 1; min-width: 0;">
                             <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
-                                <div style="font-weight: 600; font-size: 16px; color: var(--text-primary, #1d1d1f);">
-                                    ${categoryLabel}
-                                    ${record.description ? `— ${escapeHtml(record.description)}` : ''}
-                                </div>
-                                <div style="font-weight: 700; font-size: 20px; color: ${categoryColor};">
-                                    ${formatMoney(record.total || 0)}
-                                </div>
+                                <div style="font-weight: 600; font-size: 16px; color: var(--text-primary, #1d1d1f);">${categoryLabel} ${record.description ? `— ${escapeHtml(record.description)}` : ''}</div>
+                                <div style="font-weight: 700; font-size: 20px; color: ${categoryColor};">${formatMoney(record.total || 0)}</div>
                             </div>
                             <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; font-size: 14px; color: var(--text-secondary, #86868b);">
                                 <span><ion-icon name="calendar-outline" style="vertical-align: middle;"></ion-icon> ${dateStr}</span>
                                 <span><ion-icon name="speedometer-outline" style="vertical-align: middle;"></ion-icon> ${record.mileage.toLocaleString()} км</span>
                                 ${record.comment ? `<span style="font-style: italic; color: var(--text-tertiary, #a1a1a6);">${escapeHtml(record.comment)}</span>` : ''}
                             </div>
-                            ${partsHTML}
-                            ${worksHTML}
-                            ${serviceItemsHTML}
-                            ${photosHTML}
+                            ${partsHTML} ${worksHTML} ${serviceItemsHTML} ${photosHTML}
                         </div>
                     </div>
                     <div style="display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end;">
-                        <button class="btn btn-secondary btn-small" onclick="editRepairRecord('${record.id}')">
-                            <ion-icon name="create-outline"></ion-icon> Редактировать
-                        </button>
-                        <button class="btn btn-danger btn-small" onclick="deleteRepairRecord('${record.id}')">
-                            <ion-icon name="trash-outline"></ion-icon> Удалить
-                        </button>
+                        <button class="btn btn-secondary btn-small" onclick="editRepairRecord('${record.id}')"><ion-icon name="create-outline"></ion-icon> Редактировать</button>
+                        <button class="btn btn-danger btn-small" onclick="deleteRepairRecord('${record.id}')"><ion-icon name="trash-outline"></ion-icon> Удалить</button>
                     </div>
-                </div>
-            `;
+                </div>`;
         }).join('')}
     `;
 }
 
 // ===== 14. СТАТИСТИКА =====
 function updateRepairStats() {
-    const totalCount = repairRecords.length;
-    const totalAmount = repairRecords.reduce((sum, r) => sum + (r.total || 0), 0);
+    // ✅ ИСПРАВЛЕНО: Считаем статистику только для текущего авто
+    const currentVId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
+    const recordsForCurrent = repairRecords.filter(r => (r.vehicleId || 'default') === currentVId);
+
+    const totalCount = recordsForCurrent.length;
+    const totalAmount = recordsForCurrent.reduce((sum, r) => sum + (r.total || 0), 0);
     const avgAmount = totalCount > 0 ? totalAmount / totalCount : 0;
 
     const categoryCount = {};
-    repairRecords.forEach(r => {
+    recordsForCurrent.forEach(r => {
         const cat = r.category || 'other';
         categoryCount[cat] = (categoryCount[cat] || 0) + 1;
     });
@@ -1058,8 +844,8 @@ function updateRepairStats() {
         if (count > maxCount) { maxCount = count; mostCommon = getCategoryLabel(cat); }
     }
 
-    const maxMileage = repairRecords.reduce((max, r) => Math.max(max, r.mileage || 0), 0);
-    const minMileage = repairRecords.reduce((min, r) => Math.min(min, r.mileage || 9999999), 0);
+    const maxMileage = recordsForCurrent.reduce((max, r) => Math.max(max, r.mileage || 0), 0);
+    const minMileage = recordsForCurrent.reduce((min, r) => Math.min(min, r.mileage || 9999999), 0);
     const totalMileage = maxMileage - minMileage;
     const costPerKm = totalMileage > 0 ? totalAmount / totalMileage : 0;
 
@@ -1084,7 +870,11 @@ function updateRepairCategoryChart() {
     const ctx = canvas.getContext('2d');
     if (repairChart) { repairChart.destroy(); repairChart = null; }
 
-    if (repairRecords.length === 0) {
+    // ✅ ИСПРАВЛЕНО: Строим график только для текущего авто
+    const currentVId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
+    const recordsForCurrent = repairRecords.filter(r => (r.vehicleId || 'default') === currentVId);
+
+    if (recordsForCurrent.length === 0) {
         canvas.style.display = 'none';
         const emptyMsg = document.getElementById('repair-chart-empty');
         if (emptyMsg) emptyMsg.style.display = 'block';
@@ -1095,7 +885,7 @@ function updateRepairCategoryChart() {
     if (emptyMsg) emptyMsg.style.display = 'none';
 
     const categoryData = {};
-    repairRecords.forEach(r => {
+    recordsForCurrent.forEach(r => {
         const catKey = r.category || 'other';
         if (!categoryData[catKey]) categoryData[catKey] = { total: 0, label: getCategoryLabel(catKey) };
         categoryData[catKey].total += (r.total || 0);
@@ -1110,36 +900,16 @@ function updateRepairCategoryChart() {
         type: 'doughnut',
         data: {
             labels,
-            datasets: [{
-                data,
-                backgroundColor: colors.map(c => c + 'CC'),
-                borderColor: colors,
-                borderWidth: 2,
-                hoverOffset: 8
-            }]
+            datasets: [{ data, backgroundColor: colors.map(c => c + 'CC'), borderColor: colors, borderWidth: 2, hoverOffset: 8 }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { padding: 12, usePointStyle: true, pointStyle: 'circle', font: { size: 12, weight: '600' }, color: '#3C3C43' }
-                },
+                legend: { position: 'bottom', labels: { padding: 12, usePointStyle: true, pointStyle: 'circle', font: { size: 12, weight: '600' }, color: '#3C3C43' } },
                 tooltip: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    titleColor: '#1d1d1f',
-                    bodyColor: '#3C3C43',
-                    borderColor: 'rgba(0,0,0,0.1)',
-                    borderWidth: 1,
-                    padding: 12,
-                    callbacks: {
-                        label: function(context) {
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const pct = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : 0;
-                            return `${context.label}: ${safeFormatMoney(context.parsed)} (${pct}%)`;
-                        }
-                    }
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)', titleColor: '#1d1d1f', bodyColor: '#3C3C43', borderColor: 'rgba(0,0,0,0.1)', borderWidth: 1, padding: 12,
+                    callbacks: { label: function(context) { const total = context.dataset.data.reduce((a, b) => a + b, 0); const pct = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : 0; return `${context.label}: ${safeFormatMoney(context.parsed)} (${pct}%)`; } }
                 }
             }
         }
@@ -1152,7 +922,10 @@ function updateRepairTrendChart() {
     const ctx = canvas.getContext('2d');
     if (repairTrendChart) { repairTrendChart.destroy(); repairTrendChart = null; }
 
-    const sorted = [...repairRecords].sort((a, b) => (parseLocalDate(a.date) || 0) - (parseLocalDate(b.date) || 0));
+    // ✅ ИСПРАВЛЕНО: Строим график только для текущего авто
+    const currentVId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
+    const recordsForCurrent = repairRecords.filter(r => (r.vehicleId || 'default') === currentVId);
+    const sorted = [...recordsForCurrent].sort((a, b) => (parseLocalDate(a.date) || 0) - (parseLocalDate(b.date) || 0));
 
     if (sorted.length < 2) {
         canvas.style.display = 'none';
@@ -1164,35 +937,20 @@ function updateRepairTrendChart() {
     const emptyMsg = document.getElementById('repair-trend-empty');
     if (emptyMsg) emptyMsg.style.display = 'none';
 
-    const labels = sorted.map(r => {
-        const d = parseLocalDate(r.date);
-        return d ? d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : r.date;
-    });
+    const labels = sorted.map(r => { const d = parseLocalDate(r.date); return d ? d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : r.date; });
     const data = sorted.map(r => r.total || 0);
 
     repairTrendChart = new Chart(ctx, {
         type: 'bar',
         data: {
             labels,
-            datasets: [{
-                label: 'Расходы на ремонт',
-                data,
-                backgroundColor: 'rgba(255, 59, 48, 0.6)',
-                borderColor: '#FF3B30',
-                borderWidth: 2,
-                borderRadius: 4
-            }]
+            datasets: [{ label: 'Расходы на ремонт', data, backgroundColor: 'rgba(255, 59, 48, 0.6)', borderColor: '#FF3B30', borderWidth: 2, borderRadius: 4 }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
             plugins: { legend: { display: false } },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { callback: function(value) { return safeFormatMoney(value); } }
-                }
-            }
+            scales: { y: { beginAtZero: true, ticks: { callback: function(value) { return safeFormatMoney(value); } } } }
         }
     });
 }
@@ -1203,20 +961,11 @@ async function syncRepairToMainRecords() {
     if (typeof records === 'undefined') return 0;
 
     let allRepairRecords = [];
-
-    if (typeof connectionMode !== 'undefined' && connectionMode === 'firebase' &&
-        typeof auth !== 'undefined' && auth.currentUser) {
+    if (typeof connectionMode !== 'undefined' && connectionMode === 'firebase' && typeof auth !== 'undefined' && auth.currentUser) {
         try {
-            const snap = await db.collection('users')
-                .doc(auth.currentUser.uid)
-                .collection(COLLECTION_REPAIR)
-                .get();
-            if (!snap.empty) {
-                allRepairRecords = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-            }
-        } catch (error) {
-            console.error('❌ Ошибка загрузки для синхронизации:', error);
-        }
+            const snap = await db.collection('users').doc(auth.currentUser.uid).collection(COLLECTION_REPAIR).get();
+            if (!snap.empty) allRepairRecords = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (error) { console.error('❌ Ошибка загрузки для синхронизации:', error); }
     } else {
         const saved = localStorage.getItem(REPAIR_STORAGE_KEY);
         if (saved) allRepairRecords = JSON.parse(saved);
@@ -1231,14 +980,8 @@ async function syncRepairToMainRecords() {
         repairsByDate[r.date].totalAmount += r.total || 0;
         repairsByDate[r.date].count += 1;
         repairsByDate[r.date].details.push({
-            category: r.category,
-            description: r.description,
-            parts: r.parts || [],
-            works: r.works || [],
-            total: r.total || 0,
-            mileage: r.mileage,
-            comment: r.comment,
-            vehicleId: r.vehicleId || 'default'
+            category: r.category, description: r.description, parts: r.parts || [], works: r.works || [],
+            total: r.total || 0, mileage: r.mileage, comment: r.comment, vehicleId: r.vehicleId || 'default'
         });
     });
 
@@ -1254,23 +997,12 @@ async function syncRepairToMainRecords() {
         if (repairData) {
             const newRepairCost = repairData.totalAmount;
             let needsUpdate = false;
-
-            if (newRepairCost !== oldRepairCost) {
-                needsUpdate = true;
-            } else if (!record.repairDetails || record.repairDetails.length !== repairData.count) {
-                needsUpdate = true;
-            } else if (record.repairDetails && record.repairDetails.length > 0) {
-                const oldDetailsSimple = record.repairDetails.map(d => ({
-                    category: d.category, description: d.description, total: d.total, mileage: d.mileage
-                })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
-
-                const newDetailsSimple = repairData.details.map(d => ({
-                    category: d.category, description: d.description, total: d.total, mileage: d.mileage
-                })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
-
-                if (JSON.stringify(oldDetailsSimple) !== JSON.stringify(newDetailsSimple)) {
-                    needsUpdate = true;
-                }
+            if (newRepairCost !== oldRepairCost) needsUpdate = true;
+            else if (!record.repairDetails || record.repairDetails.length !== repairData.count) needsUpdate = true;
+            else if (record.repairDetails && record.repairDetails.length > 0) {
+                const oldDetailsSimple = record.repairDetails.map(d => ({ category: d.category, description: d.description, total: d.total, mileage: d.mileage })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+                const newDetailsSimple = repairData.details.map(d => ({ category: d.category, description: d.description, total: d.total, mileage: d.mileage })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+                if (JSON.stringify(oldDetailsSimple) !== JSON.stringify(newDetailsSimple)) needsUpdate = true;
             }
 
             if (needsUpdate) {
@@ -1297,15 +1029,11 @@ async function syncRepairToMainRecords() {
 
     if (updatedCount > 0) {
         if (typeof saveData === 'function') saveData();
-        if (typeof connectionMode !== 'undefined' && connectionMode === 'firebase' &&
-            typeof auth !== 'undefined' && auth.currentUser &&
-            typeof saveRecordsBatchToFirebase === 'function') {
+        if (typeof connectionMode !== 'undefined' && connectionMode === 'firebase' && typeof auth !== 'undefined' && auth.currentUser && typeof saveRecordsBatchToFirebase === 'function') {
             try {
                 const recordsToUpdate = records.filter(r => changedDates.includes(r.date));
                 await saveRecordsBatchToFirebase(recordsToUpdate);
-            } catch (error) {
-                console.error('❌ Ошибка синхронизации с Firebase:', error);
-            }
+            } catch (error) { console.error('❌ Ошибка синхронизации с Firebase:', error); }
         }
         if (typeof renderTable === 'function') renderTable();
         if (typeof updateAnalytics === 'function') updateAnalytics();
@@ -1333,11 +1061,7 @@ function exportRepairData() {
 // ===== 18. ОТКРЫТИЕ ВКЛАДКИ =====
 function openRepairTab() {
     if (typeof switchTab === 'function') switchTab('repair');
-    setTimeout(() => {
-        renderRepairList();
-        updateRepairStats();
-        updateRepairCharts();
-    }, 100);
+    setTimeout(() => { renderRepairList(); updateRepairStats(); updateRepairCharts(); }, 100);
 }
 
 // ===== 19. ИНИЦИАЛИЗАЦИЯ =====
@@ -1356,20 +1080,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Обработчики загрузки фото
     const receiptUpload = document.getElementById('repair-receipt-upload');
     const documentUpload = document.getElementById('repair-document-upload');
     if (receiptUpload) receiptUpload.addEventListener('change', (e) => handlePhotoSelect(e, 'receipt'));
     if (documentUpload) documentUpload.addEventListener('change', (e) => handlePhotoSelect(e, 'document'));
 
     setupDynamicListDelegation();
-
     addRepairPart();
     addRepairWork();
     calculateRepairTotal();
-
     loadRepairRecords();
-    console.log('✅ Модуль ремонта инициализирован (v4.0 — с поворотом фото и EXIF)');
+    console.log('✅ Модуль ремонта инициализирован (v4.1 — исправлено хранение всех авто)');
 });
 
 // ===== 20. ИНТЕГРАЦИЯ С ПЕРЕКЛЮЧЕНИЕМ ВКЛАДОК =====
@@ -1377,12 +1098,7 @@ const _origSwitchTabRepair = window.switchTab || function() {};
 window.switchTab = function(tabName) {
     if (typeof _origSwitchTabRepair === 'function') _origSwitchTabRepair(tabName);
     if (tabName === 'repair') {
-        setTimeout(() => {
-            renderRepairList();
-            updateRepairStats();
-            updateRepairCharts();
-            setupDynamicListDelegation();
-        }, 100);
+        setTimeout(() => { renderRepairList(); updateRepairStats(); updateRepairCharts(); setupDynamicListDelegation(); }, 100);
     }
 };
 
@@ -1412,7 +1128,7 @@ window.rotatePhoto = rotatePhoto;
 window.compressImageForUpload = compressImageForUpload;
 window.calculatePhotoBudget = calculatePhotoBudget;
 
-console.log('✅ Модуль ремонта полностью загружен (v4.0)');
+console.log('✅ Модуль ремонта полностью загружен (v4.1)');
 
 // ============================================
 // ПРОСМОТРЩИК ФОТО РЕМОНТОВ (iOS-СТИЛЬ)
@@ -1422,26 +1138,15 @@ let photoClickTimer = null;
 
 function openPhotoViewer(recordId, startType = 'receipt') {
     const record = repairRecords.find(r => r.id === recordId);
-    if (!record) {
-        safeShowToast('Ошибка', 'Запись не найдена', 'danger');
-        return;
-    }
-
+    if (!record) { safeShowToast('Ошибка', 'Запись не найдена', 'danger'); return; }
     const photos = [];
     if (record.receiptPhotoUrl) photos.push({ url: record.receiptPhotoUrl, label: 'Чек', type: 'receipt' });
     if (record.documentPhotoUrl) photos.push({ url: record.documentPhotoUrl, label: 'Документ', type: 'document' });
-
-    if (photos.length === 0) {
-        safeShowToast('Инфо', 'У этой записи нет фото', 'warning');
-        return;
-    }
-
+    if (photos.length === 0) { safeShowToast('Инфо', 'У этой записи нет фото', 'warning'); return; }
     let startIndex = photos.findIndex(p => p.type === startType);
     if (startIndex === -1) startIndex = 0;
-
     photoViewerState.photos = photos;
     photoViewerState.currentIndex = startIndex;
-
     renderPhotoViewer();
     openPhotoViewerOverlay();
 }
@@ -1451,37 +1156,15 @@ function renderPhotoViewer() {
     const dots = document.getElementById('photo-viewer-dots');
     const counter = document.getElementById('photo-viewer-counter');
     if (!track || !dots || !counter) return;
-
     const { photos, currentIndex } = photoViewerState;
-
-    track.innerHTML = photos.map((p, i) => `
-        <div class="photo-viewer-slide" data-label="${p.label}" data-index="${i}">
-            <img src="${p.url}" alt="${p.label}" 
-                 onclick="handlePhotoClick(event)"
-                 ondblclick="handlePhotoDoubleTap(event)">
-        </div>
-    `).join('');
-
+    track.innerHTML = photos.map((p, i) => `<div class="photo-viewer-slide" data-label="${p.label}" data-index="${i}"><img src="${p.url}" alt="${p.label}" onclick="handlePhotoClick(event)" ondblclick="handlePhotoDoubleTap(event)"></div>`).join('');
     if (photos.length > 1) {
         dots.style.display = 'flex';
-        dots.innerHTML = photos.map((_, i) =>
-            `<div class="photo-viewer-dot ${i === currentIndex ? 'active' : ''}" data-index="${i}"></div>`
-        ).join('');
-
-        dots.querySelectorAll('.photo-viewer-dot').forEach(dot => {
-            dot.addEventListener('click', () => scrollToSlide(parseInt(dot.dataset.index)));
-        });
-    } else {
-        dots.style.display = 'none';
-    }
-
+        dots.innerHTML = photos.map((_, i) => `<div class="photo-viewer-dot ${i === currentIndex ? 'active' : ''}" data-index="${i}"></div>`).join('');
+        dots.querySelectorAll('.photo-viewer-dot').forEach(dot => { dot.addEventListener('click', () => scrollToSlide(parseInt(dot.dataset.index))); });
+    } else { dots.style.display = 'none'; }
     counter.textContent = `${currentIndex + 1} из ${photos.length}`;
-
-    requestAnimationFrame(() => {
-        const slideWidth = track.clientWidth;
-        track.scrollLeft = currentIndex * slideWidth;
-    });
-
+    requestAnimationFrame(() => { const slideWidth = track.clientWidth; track.scrollLeft = currentIndex * slideWidth; });
     if (!track._photoViewerScrollBound) {
         track._photoViewerScrollBound = true;
         track.addEventListener('scroll', handlePhotoViewerScroll, { passive: true });
@@ -1492,14 +1175,11 @@ function handlePhotoViewerScroll(e) {
     const track = e.target;
     const slideWidth = track.clientWidth;
     if (slideWidth === 0) return;
-
     const index = Math.round(track.scrollLeft / slideWidth);
     if (index === photoViewerState.currentIndex) return;
-
     photoViewerState.currentIndex = index;
     const counter = document.getElementById('photo-viewer-counter');
     if (counter) counter.textContent = `${index + 1} из ${photoViewerState.photos.length}`;
-
     document.querySelectorAll('.photo-viewer-dot').forEach((d, i) => d.classList.toggle('active', i === index));
 }
 
@@ -1511,11 +1191,7 @@ function scrollToSlide(index) {
 
 function openPhotoViewerOverlay() {
     const overlay = document.getElementById('photo-viewer');
-    if (!overlay) {
-        console.error('❌ #photo-viewer не найден в DOM!');
-        safeShowToast('Ошибка', 'Просмотрщик не найден в HTML', 'danger');
-        return;
-    }
+    if (!overlay) { console.error('❌ #photo-viewer не найден в DOM!'); safeShowToast('Ошибка', 'Просмотрщик не найден в HTML', 'danger'); return; }
     overlay.classList.add('visible');
     document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', handlePhotoViewerKeydown);
@@ -1527,7 +1203,6 @@ function closePhotoViewer() {
     overlay.classList.remove('visible');
     document.body.style.overflow = '';
     document.removeEventListener('keydown', handlePhotoViewerKeydown);
-
     setTimeout(() => {
         const track = document.getElementById('photo-viewer-track');
         if (track) track.innerHTML = '';
@@ -1545,29 +1220,16 @@ function handlePhotoViewerKeydown(e) {
 function handlePhotoDoubleTap(event) {
     event.stopPropagation();
     clearTimeout(photoClickTimer);
-
     const img = event.currentTarget;
     const isZoomed = img.classList.contains('zoomed');
-
-    if (isZoomed) {
-        img.classList.remove('zoomed');
-        img.style.transform = 'scale(1)';
-    } else {
-        img.classList.add('zoomed');
-        img.style.transform = 'scale(2.5)';
-    }
+    if (isZoomed) { img.classList.remove('zoomed'); img.style.transform = 'scale(1)'; }
+    else { img.classList.add('zoomed'); img.style.transform = 'scale(2.5)'; }
 }
 
 function handlePhotoClick(event) {
     event.stopPropagation();
     const img = event.currentTarget;
-
-    if (img.classList.contains('zoomed')) {
-        img.classList.remove('zoomed');
-        img.style.transform = 'scale(1)';
-        return;
-    }
-
+    if (img.classList.contains('zoomed')) { img.classList.remove('zoomed'); img.style.transform = 'scale(1)'; return; }
     clearTimeout(photoClickTimer);
     photoClickTimer = setTimeout(() => closePhotoViewer(), 250);
 }
@@ -1575,9 +1237,7 @@ function handlePhotoClick(event) {
 async function downloadCurrentPhoto() {
     const { photos, currentIndex } = photoViewerState;
     if (!photos[currentIndex]) return;
-
     const photo = photos[currentIndex];
-
     if (photo.url.startsWith('data:')) {
         const a = document.createElement('a');
         a.href = photo.url;
@@ -1588,12 +1248,10 @@ async function downloadCurrentPhoto() {
         safeShowToast('Успех', `${photo.label} сохранён`, 'success');
         return;
     }
-
     try {
         const response = await fetch(photo.url);
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
-
         const a = document.createElement('a');
         a.href = url;
         a.download = `repair_${photo.type}_${Date.now()}.jpg`;
@@ -1601,7 +1259,6 @@ async function downloadCurrentPhoto() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-
         safeShowToast('Успех', `${photo.label} сохранён`, 'success');
     } catch (error) {
         console.error('Ошибка скачивания:', error);
@@ -1614,7 +1271,6 @@ window.closePhotoViewer = closePhotoViewer;
 window.downloadCurrentPhoto = downloadCurrentPhoto;
 window.handlePhotoClick = handlePhotoClick;
 window.handlePhotoDoubleTap = handlePhotoDoubleTap;
-
 console.log('✅ Просмотрщик фото инициализирован');
 
 // ============================================
@@ -1634,87 +1290,26 @@ function showRepairTooltip(event, cell) {
     const details = cell.getAttribute('data-repair-details');
     const count = cell.getAttribute('data-repair-count');
     if (!details) return;
-
     let repairDetails;
-    try {
-        repairDetails = JSON.parse(details.replace(/&apos;/g, "'"));
-    } catch (e) {
-        console.error('Ошибка парсинга деталей тултипа:', e);
-        return;
-    }
-
+    try { repairDetails = JSON.parse(details.replace(/&apos;/g, "'")); } catch (e) { console.error('Ошибка парсинга деталей тултипа:', e); return; }
     const tooltip = createRepairTooltip();
-
-    let html = `
-        <div class="repair-tooltip-header">
-            <ion-icon name="construct-outline"></ion-icon>
-            <h4>Подробности ремонта</h4>
-        </div>
-        <div class="repair-tooltip-summary">
-            <div class="repair-tooltip-summary-item">
-                <div class="label">Ремонтов</div>
-                <div class="value">${count}</div>
-            </div>
-            <div class="repair-tooltip-summary-item">
-                <div class="label">Всего</div>
-                <div class="value">${cell.textContent.trim()}</div>
-            </div>
-        </div>
-        <div class="repair-tooltip-details">
-    `;
-
+    let html = `<div class="repair-tooltip-header"><ion-icon name="construct-outline"></ion-icon><h4>Подробности ремонта</h4></div><div class="repair-tooltip-summary"><div class="repair-tooltip-summary-item"><div class="label">Ремонтов</div><div class="value">${count}</div></div><div class="repair-tooltip-summary-item"><div class="label">Всего</div><div class="value">${cell.textContent.trim()}</div></div></div><div class="repair-tooltip-details">`;
     repairDetails.forEach((detail) => {
         const categoryLabel = getCategoryLabel ? getCategoryLabel(detail.category) : detail.category;
-        const vehicleName = typeof window.getVehicleNameById === 'function' ?
-            window.getVehicleNameById(detail.vehicleId) : 'Неизвестный автомобиль';
-
-        const partsHTML = (detail.parts || []).length > 0 ? `
-            <div class="repair-tooltip-detail-parts">
-                <div class="label">Запчасти:</div>
-                ${detail.parts.map(p => `<div class="item">• ${safeEscapeHtml(p.name)} - ${safeFormatMoney(p.cost)}</div>`).join('')}
-            </div>
-        ` : '';
-
-        const worksHTML = (detail.works || []).length > 0 ? `
-            <div class="repair-tooltip-detail-works">
-                <div class="label">Работы:</div>
-                ${detail.works.map(w => `<div class="item">• ${safeEscapeHtml(w.name)} - ${safeFormatMoney(w.cost)}</div>`).join('')}
-            </div>
-        ` : '';
-
-        html += `
-            <div class="repair-tooltip-detail-item">
-                <div style="font-weight: 600; color: var(--ios-accent); font-size: 12px; margin-bottom: 6px;">
-                    ${safeEscapeHtml(vehicleName)}
-                </div>
-                <div class="repair-tooltip-detail-header">
-                    <div class="repair-tooltip-detail-title">${safeEscapeHtml(categoryLabel)}</div>
-                    <div class="repair-tooltip-detail-amount">${safeFormatMoney(detail.total)}</div>
-                </div>
-                ${detail.description && detail.description !== categoryLabel ? `<div class="repair-tooltip-detail-meta">${safeEscapeHtml(detail.description)}</div>` : ''}
-                ${detail.mileage ? `<div class="repair-tooltip-detail-meta">Пробег: ${detail.mileage.toLocaleString()} км</div>` : ''}
-                ${partsHTML}
-                ${worksHTML}
-            </div>
-        `;
+        const vehicleName = typeof window.getVehicleNameById === 'function' ? window.getVehicleNameById(detail.vehicleId) : 'Неизвестный автомобиль';
+        const partsHTML = (detail.parts || []).length > 0 ? `<div class="repair-tooltip-detail-parts"><div class="label">Запчасти:</div>${detail.parts.map(p => `<div class="item">• ${safeEscapeHtml(p.name)} - ${safeFormatMoney(p.cost)}</div>`).join('')}</div>` : '';
+        const worksHTML = (detail.works || []).length > 0 ? `<div class="repair-tooltip-detail-works"><div class="label">Работы:</div>${detail.works.map(w => `<div class="item">• ${safeEscapeHtml(w.name)} - ${safeFormatMoney(w.cost)}</div>`).join('')}</div>` : '';
+        html += `<div class="repair-tooltip-detail-item"><div style="font-weight: 600; color: var(--ios-accent); font-size: 12px; margin-bottom: 6px;">${safeEscapeHtml(vehicleName)}</div><div class="repair-tooltip-detail-header"><div class="repair-tooltip-detail-title">${safeEscapeHtml(categoryLabel)}</div><div class="repair-tooltip-detail-amount">${safeFormatMoney(detail.total)}</div></div>${detail.description && detail.description !== categoryLabel ? `<div class="repair-tooltip-detail-meta">${safeEscapeHtml(detail.description)}</div>` : ''}${detail.mileage ? `<div class="repair-tooltip-detail-meta">Пробег: ${detail.mileage.toLocaleString()} км</div>` : ''}${partsHTML}${worksHTML}</div>`;
     });
-
-    html += `
-        </div>
-        <div class="repair-tooltip-hint">Наведите для просмотра деталей</div>
-    `;
-
+    html += `</div><div class="repair-tooltip-hint">Наведите для просмотра деталей</div>`;
     tooltip.innerHTML = html;
-
     const rect = cell.getBoundingClientRect();
     const tooltipWidth = 350;
     const tooltipHeight = tooltip.offsetHeight || 250;
     let left = rect.right + 10;
     let top = rect.top;
-
     if (left + tooltipWidth > window.innerWidth) left = rect.left - tooltipWidth - 10;
     if (top + tooltipHeight > window.innerHeight) top = window.innerHeight - tooltipHeight - 10;
-
     tooltip.style.left = left + 'px';
     tooltip.style.top = top + 'px';
     tooltip.classList.add('visible');
@@ -1728,7 +1323,6 @@ document.addEventListener('mouseover', function(event) {
     const cell = event.target.closest('.repair-cell-with-details');
     if (cell) showRepairTooltip(event, cell);
 });
-
 document.addEventListener('mouseout', function(event) {
     const cell = event.target.closest('.repair-cell-with-details');
     if (cell) {
@@ -1736,20 +1330,12 @@ document.addEventListener('mouseout', function(event) {
         if (tooltip && !tooltip.contains(event.relatedTarget)) hideRepairTooltip();
     }
 });
-
 document.addEventListener('click', function(event) {
     const cell = event.target.closest('.repair-cell-with-details');
     if (cell) {
-        if (repairTooltipElement && repairTooltipElement.classList.contains('visible')) {
-            hideRepairTooltip();
-        } else {
-            showRepairTooltip(event, cell);
-        }
-    } else if (!event.target.closest('#repair-tooltip')) {
-        hideRepairTooltip();
-    }
+        if (repairTooltipElement && repairTooltipElement.classList.contains('visible')) { hideRepairTooltip(); } else { showRepairTooltip(event, cell); }
+    } else if (!event.target.closest('#repair-tooltip')) { hideRepairTooltip(); }
 });
-
 console.log('✅ Tooltip для ремонта инициализирован');
 
 // ============================================
@@ -1757,47 +1343,31 @@ console.log('✅ Tooltip для ремонта инициализирован');
 // ============================================
 (function() {
     function setup() {
-        const heads = Array.from(
-            document.querySelectorAll('#tab-repair h3, #tab-repair h4, #tab-repair .section-title, #tab-repair .form-section > h3')
-        ).filter(el =>
-            el.children.length <= 1 &&
-            el.textContent.trim().replace(/\s+/g, ' ') === 'Что менялось?'
-        );
-
+        const heads = Array.from(document.querySelectorAll('#tab-repair h3, #tab-repair h4, #tab-repair .section-title, #tab-repair .form-section > h3')).filter(el => el.children.length <= 1 && el.textContent.trim().replace(/\s+/g, ' ') === 'Что менялось?');
         for (const head of heads) {
             if (head.closest('.chg-collapse')) continue;
             const list = head.nextElementSibling;
             if (!list || list.closest('.chg-collapse')) continue;
-
             const wrap = document.createElement('div');
             wrap.className = 'chg-collapse collapsed';
             head.parentNode.insertBefore(wrap, head);
-
             const header = document.createElement('div');
             header.className = 'chg-collapse-header';
             const chev = document.createElement('ion-icon');
             chev.setAttribute('name', 'chevron-down-outline');
             chev.className = 'chg-chevron';
-
             wrap.appendChild(header);
             header.appendChild(head);
             header.appendChild(chev);
-
             const inner = document.createElement('div');
             inner.className = 'chg-collapse-inner';
             inner.appendChild(list);
             wrap.appendChild(inner);
-
             header.addEventListener('click', () => wrap.classList.toggle('collapsed'));
         }
     }
-
     let tries = 0;
-    const timer = setInterval(() => {
-        setup();
-        if (++tries > 30) clearInterval(timer);
-    }, 1000);
-
+    const timer = setInterval(() => { setup(); if (++tries > 30) clearInterval(timer); }, 1000);
     const rep = document.getElementById('tab-repair');
     if (rep) new MutationObserver(() => setup()).observe(rep, { childList: true, subtree: true });
     setup();
