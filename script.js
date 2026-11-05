@@ -814,12 +814,11 @@ function restoreState() {
         if (c2y && state.compare2Year) c2y.value = state.compare2Year;
         
         // ✅ ИСПРАВЛЕНИЕ: Используем switchTab() вместо ручной манипуляции
-        if (state.activeTab && state.activeTab !== 'home') {
-            // Небольшая задержка, чтобы DOM успел полностью загрузиться
-            setTimeout(() => {
-                switchTab(state.activeTab);
-            }, 100);
-        }
+        if (state.activeTab && state.activeTab !== 'home' && state.activeTab !== 'entry') {
+    setTimeout(() => {
+        switchTab(state.activeTab);
+    }, 100);
+}
     } catch (e) {
         console.error('❌ Ошибка восстановления:', e);
     }
@@ -1111,9 +1110,7 @@ function switchTab(tabName) {
                 updateHomeTab();
             }, 50);
             break;
-        case 'entry':
-            // Опциональные действия для вкладки ввода
-            break;
+        
         
         // ===== ДОБАВЛЕНО: Обработка вкладки "Топливо" =====
         case 'fuel':
@@ -1437,11 +1434,15 @@ function recalcCurrentByTariff() {
     alert('✅ Пересчитано и сохранено по тарифу на ' + document.getElementById('date').value);
 }
 
-function cancelEdit() {
-    if (!confirm('Отменить редактирование? Все изменения будут потеряны.')) return;
+
+
+// Тиховая отмена редактирования (без confirm) — для модуля
+function cancelEditSilent() {
     editingId = null;
-    document.getElementById('editing-notice').style.display = 'none';    clearForm();
+    const editingNotice = document.getElementById('editing-notice');
+    if (editingNotice) editingNotice.style.display = 'none';
 }
+window.cancelEditSilent = cancelEditSilent;
 
 function onDateChange() {
     updateWeekday();
@@ -1467,13 +1468,16 @@ function calcExpenses(r) {
 }
 
 async function saveRecord(e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
+    
     const recordType = document.getElementById('record-type').value;
+    
+    // Собираем данные
     const record = {
         id: editingId || Date.now().toString(),
         date: document.getElementById('date').value,
-        weekday: document.getElementById('weekday').value.charAt(0).toUpperCase() + 
-             document.getElementById('weekday').value.slice(1).toLowerCase(),
+        weekday: document.getElementById('weekday').value.charAt(0).toUpperCase() +
+            document.getElementById('weekday').value.slice(1).toLowerCase(),
         hours: parseFloat(document.getElementById('hours').value) || 0,
         ordersPickup: parseInt(document.getElementById('orders-pickup').value) || 0,
         payPickup: parseFloat(document.getElementById('pay-pickup').value) || 0,
@@ -1492,47 +1496,87 @@ async function saveRecord(e) {
         tax: parseFloat(document.getElementById('tax').value) || 0,
         recordType: recordType,
         bonusPeriod: document.getElementById('bonus-period').value || ''
-    };    const normalizedRecord = normalizeRecord(record);
-    if (editingId) {
-        const idx = records.findIndex(r => r.id === editingId);
-        if (idx >= 0) {
-            records[idx] = normalizedRecord;
+    };
+    
+    const normalizedRecord = normalizeRecord(record);
+    
+    // ⚠️ ГЛАВНОЕ ИСПРАВЛЕНИЕ: Всегда ищем дубликат по дате
+    // Даже если это режим редактирования, мы ищем запись на эту дату (кроме самой себя)
+    const existingIdx = records.findIndex(r => r.date === record.date && r.id !== editingId);
+    
+    if (existingIdx >= 0) {
+        // Нашли дубликат на эту дату! Спрашиваем.
+        if (!confirm('Запись за ' + formatDate(record.date) + ' уже существует. Перезаписать её?')) {
+            return false;
         }
-        editingId = null;
-        document.getElementById('editing-notice').style.display = 'none';
+        
+        // Забираем ID старой записи, чтобы обновить её, а не создавать новую в Firebase
+        normalizedRecord.id = records[existingIdx].id;
+        
+        // Обновляем старую запись новой
+        records[existingIdx] = normalizedRecord;
+        
+        // Если мы редактировали другую запись, её нужно удалить
+        if (editingId) {
+            const oldIdx = records.findIndex(r => r.id === editingId);
+            if (oldIdx >= 0 && oldIdx !== existingIdx) {
+                if (typeof deleteRecordFromFirebase === 'function') {
+                    await deleteRecordFromFirebase(editingId);
+                }
+                records.splice(oldIdx, 1);
+            }
+        }
     } else {
-        const idx = records.findIndex(r => r.date === record.date && r.recordType === record.recordType);
-        if (idx >= 0) {
-            if (confirm('Запись за эту дату с таким типом уже существует. Перезаписать?')) {
+        // Дубликата нет
+        if (editingId) {
+            // Обновляем текущую
+            const idx = records.findIndex(r => r.id === editingId);
+            if (idx >= 0) {
+                normalizedRecord.id = editingId; // сохраняем старый ID
                 records[idx] = normalizedRecord;
-            } else return;
-        } else { 
+            }
+        } else {
+            // Создаем новую
             records.push(normalizedRecord);
         }
     }
+    
+    // Сбрасываем флаг редактирования
+    editingId = null;
+    const en = document.getElementById('editing-notice');
+    if (en) en.style.display = 'none';
+    
+    // Сортируем, сохраняем
     records.sort((a, b) => new Date(a.date) - new Date(b.date));
-    if (typeof db !== 'undefined') {
+    
+    if (typeof db !== 'undefined' && typeof saveRecordToFirebase === 'function') {
         await saveRecordToFirebase(normalizedRecord);
     }
+    
     saveData();
-    // Умное сообщение в зависимости от типа записи
-let saveMsg = '✅ Сохранено!';
-if (normalizedRecord.recordType === 'expense') {
-    saveMsg += '\nРасход: ' + formatMoney(normalizedRecord.totalExpenses);
-} else if (normalizedRecord.recordType === 'bonus') {
-    saveMsg += '\nБонус: ' + formatMoney(normalizedRecord.bonusPay || 0);
-} else {
-    saveMsg += '\nДоход: ' + formatMoney(normalizedRecord.totalIncome);
-    if (normalizedRecord.totalExpenses > 0) {
+    
+    // Уведомление
+    let saveMsg = '✅ Сохранено!';
+    if (normalizedRecord.recordType === 'expense') {
         saveMsg += '\nРасход: ' + formatMoney(normalizedRecord.totalExpenses);
+    } else if (normalizedRecord.recordType === 'bonus') {
+        saveMsg += '\nБонус: ' + formatMoney(normalizedRecord.bonusPay || 0);
+    } else {
+        saveMsg += '\nДоход: ' + formatMoney(normalizedRecord.totalIncome);
+        if (normalizedRecord.totalExpenses > 0) {
+            saveMsg += '\nРасход: ' + formatMoney(normalizedRecord.totalExpenses);
+        }
+        saveMsg += '\nПрибыль: ' + formatMoney(normalizedRecord.netProfit);
     }
-    saveMsg += '\nПрибыль: ' + formatMoney(normalizedRecord.netProfit);
+    alert(saveMsg);
+    
+    if (typeof clearForm === 'function') clearForm();
+    if (typeof renderTable === 'function') renderTable();
+    if (typeof populateFilters === 'function') populateFilters();
+    
+    return true;
 }
-alert(saveMsg);
-    clearForm();
-    renderTable();
-    populateFilters();
-}
+window.saveRecord = saveRecord;
 
 function clearForm() {
     document.getElementById('daily-form').reset();
@@ -2952,30 +2996,9 @@ function renderTableWithWeeklySummary(tbody, records) {
 }
 
 function editRecord(id) {
-    const r = records.find(x => x.id === id);
-    if (!r) return;
-    editingId = id;
-    document.getElementById('date').value = r.date;
-    updateWeekday();
-    document.getElementById('hours').value = r.hours;
-    document.getElementById('orders-pickup').value = r.ordersPickup;    document.getElementById('pay-pickup').value = r.payPickup;
-    document.getElementById('orders-delivery').value = r.ordersDelivery;
-    document.getElementById('pay-delivery').value = r.payDelivery;
-    document.getElementById('distance').value = r.distance;
-    document.getElementById('pay-distance').value = r.payDistance;
-    document.getElementById('weight').value = r.weight;
-    document.getElementById('pay-weight').value = r.payWeight;
-    document.getElementById('load-pay').value = r.loadPay;
-    document.getElementById('bonus-pay').value = r.bonusPay || '';
-    document.getElementById('rating').value = r.rating;
-    document.getElementById('tips').value = r.tips;
-    document.getElementById('fuel-cost').value = r.fuelCost;
-    document.getElementById('repair-cost').value = r.repairCost;
-    document.getElementById('tax').value = r.tax;
-    document.getElementById('record-type').value = r.recordType || 'work';
-    document.getElementById('bonus-period').value = r.bonusPeriod || '';
-    document.getElementById('editing-notice').style.display = 'block';
-    switchTab('entry');
+    if (typeof window.openEntryModal === 'function') {
+        window.openEntryModal(id);
+    }
 }
 
 async function deleteRecord(id, confirmDelete = true) {
@@ -4577,40 +4600,6 @@ function showToast(message) {
 // ПЛАВАЮЩАЯ КНОПКА "+" ДЛЯ ДОБАВЛЕНИЯ
 // ============================================
 
-// Функция открытия вкладки "Ввод"
-function openEntryTab() {
-    // Переключаемся на вкладку "Ввод"
-    switchTab('entry');
-    
-    // Устанавливаем сегодняшнюю дату
-    const dateInput = document.getElementById('date');
-    if (dateInput) {
-        dateInput.valueAsDate = new Date();
-        // Обновляем день недели
-        if (typeof onDateChange === 'function') {
-            onDateChange();
-        }
-    }
-    
-    // Прокручиваем к форме
-    setTimeout(() => {
-        const form = document.getElementById('daily-form');
-        if (form) {
-            form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    }, 300);
-    
-    // Анимируем кнопку
-    const fab = document.getElementById('fab-add');
-    if (fab) {
-        fab.style.transform = 'scale(0.8) rotate(45deg)';
-        setTimeout(() => {
-            fab.style.transform = 'scale(1) rotate(0deg)';
-        }, 300);
-    }
-}
-
-
 
 // Убираем пульсацию после первого использования
 let fabPulseRemoved = false;
@@ -5256,17 +5245,9 @@ document.addEventListener('DOMContentLoaded', function() {
             saveData();
         }
         
-        const dateInput = document.getElementById('date');
-        if (dateInput) {
-            dateInput.addEventListener('change', onDateChange);
-            dateInput.valueAsDate = new Date();
-            onDateChange();
-        }
         
-        const dailyForm = document.getElementById('daily-form');
-        if (dailyForm) {
-            dailyForm.addEventListener('submit', saveRecord);
-        }
+        
+        
         
         const tariffForm = document.getElementById('tariff-form');
         if (tariffForm) {
@@ -5656,17 +5637,22 @@ function closeFabMenu() {
 function selectFabAction(action) {
     closeFabMenu();
     
-    // 1. Запись дня — старое поведение FAB
-    if (action === 'entry') { openEntryTab(); return; }
+    // 1. Запись дня — открывает модалку (реализация в entry-module.js)
+    if (action === 'entry') {
+        if (typeof window.openEntryModal === 'function') {
+            window.openEntryModal();
+        }
+        return;
+    }
     
-    // 2. Топливо: вкладка + прокрутка к форме заправки
+    // 2. Топливо
     if (action === 'fuel') {
         switchTab('fuel');
         setTimeout(() => scrollToFirstField('tab-fuel', ['fuel-form', 'fuel-log-form', 'add-fuel-form']), 350);
         return;
     }
     
-    // 3. Ремонт: вкладка + прокрутка к форме ремонта
+    // 3. Ремонт
     if (action === 'repair') {
         switchTab('repair');
         setTimeout(() => scrollToFirstField('tab-repair', ['repair-form', 'add-repair-form']), 350);

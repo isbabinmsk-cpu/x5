@@ -47,6 +47,8 @@
    
     <link rel="stylesheet" href="style.css">
     
+    <link rel="stylesheet" href="entry-module.css">
+    
     <link rel="stylesheet" href="reminders.css">
     
     <link rel="stylesheet" href="shift.css">
@@ -97,7 +99,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.9.3" defer></script>
+    <script src="script.js?v=2.9.5" defer></script>
+    
+    <!-- Модуль ввода данных за день (модальное окно) -->
+
+<script src="entry-module.js?v=1.0.1" ></script>
     
     <!-- 1. МОДУЛЬ АВТОМОБИЛЕЙ (ОБЯЗАТЕЛЬНО ПЕРВЫМ) -->
 <script src="vehicle-module.js?v=1.0.4"></script>
@@ -114,7 +120,7 @@
    <!-- Модуль напоминаний ТО -->
     <script src="reminders.js?v=1.0.1"></script>
     <!-- Модуль Backup -->
-    <script src="backup-module.js?v=1.0.0"></script>
+    <script src="backup-module.js?v=1.0.1"></script>
 
 
 </head>
@@ -529,10 +535,10 @@
             Быстрые действия
         </h3>
         <div class="action-buttons" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
-    <button class="btn btn-primary glossy ripple magnetic" onclick="openEntryTab()" style="width: 100%;">
-        <ion-icon name="add-circle-outline"></ion-icon>
-        Заполнить день
-    </button>
+   <button class="btn btn-primary glossy ripple magnetic" onclick="openEntryTab()" style="width: 100%;">
+    <ion-icon name="add-circle-outline"></ion-icon>
+    Заполнить день
+</button>
     <button class="btn btn-success glossy ripple magnetic" onclick="switchTab('analytics')" style="width: 100%;">
         <ion-icon name="stats-chart-outline"></ion-icon>
         Аналитика
@@ -546,254 +552,7 @@
     </div>
 </div>
         
-        <!-- Вкладка: Ввод -->
-        <div id="tab-entry" class="tab-content ">
-            <div class="card float-in texture-grain">
-                <h2>Ввод данных за день</h2>
-                
-                <div id="editing-notice" class="editing-notice" style="display:none;">
-    <ion-icon name="create-outline" class="notice-icon"></ion-icon>
-    Режим редактирования. 
-    <button type="button" class="btn btn-secondary btn-small magnetic" onclick="recalcCurrentByTariff()">
-        <ion-icon name="calculator-outline" class="btn-icon-small"></ion-icon>
-        Пересчитать по тарифу
-    </button>
-    <button type="button" class="btn btn-danger btn-small magnetic" onclick="cancelEdit()">
-        <ion-icon name="close-circle-outline" class="btn-icon-small"></ion-icon>
-        Отменить
-    </button>
-</div>
 
-                <div class="current-tariffs-info">
-    <h3>
-        <ion-icon name="pricetag-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>
-        ДЕЙСТВУЮЩИЕ ТАРИФЫ НА <span id="tariff-date-display">сегодня</span>
-    </h3>
-    <div class="tariff-badges">
-        <div class="tariff-badge tariff-pickup magnetic">
-            <ion-icon name="arrow-down-outline" class="tariff-icon"></ion-icon>
-            Забор: <strong id="t-pickup">60</strong> ₽/шт
-        </div>
-        <div class="tariff-badge tariff-delivery magnetic">
-            <ion-icon name="arrow-up-outline" class="tariff-icon"></ion-icon>
-            Выдача: <strong id="t-delivery">81</strong> ₽/шт
-        </div>
-        <div class="tariff-badge tariff-km magnetic">
-            <ion-icon name="navigate-outline" class="tariff-icon"></ion-icon>
-            Км: <strong id="t-km">11</strong> ₽/км
-        </div>
-        <div class="tariff-badge tariff-weight magnetic">
-            <ion-icon name="scale-outline" class="tariff-icon"></ion-icon>
-            Вес: <strong id="t-weight">2</strong> ₽/кг
-        </div>
-    </div>
-</div>
-
-                <form id="daily-form">
-                    <div class="form-row">
-    <div class="form-group">
-        <label>
-            <ion-icon name="calendar-outline" class="form-icon date-field-icon"></ion-icon>
-            Дата *
-        </label>
-        <input type="date" id="date" required>
-    </div>
-    <div class="form-group">
-        <label>
-            <ion-icon name="calendar-number-outline" class="form-icon weekday-icon"></ion-icon>
-            День недели
-        </label>
-        <input type="text" id="weekday" readonly>
-    </div>
-    <div class="form-group">
-        <label>
-            <ion-icon name="time-outline" class="form-icon hours-icon"></ion-icon>
-            Часы работы
-        </label>
-        <input type="number" id="hours" step="0.1" min="0">
-    </div>
-</div>
-
-                    <div class="auto-calc-row">
-    <div class="form-row">
-        <div class="form-group">
-            <label>
-                <ion-icon name="arrow-down-circle-outline" class="form-icon"></ion-icon>
-                Забор (шт)
-            </label>
-            <input type="number" id="orders-pickup" min="0" oninput="autoCalc('pickup')">
-        </div>
-        <div class="form-group">
-            <label>
-                <ion-icon name="arrow-down-circle-outline" class="form-icon"></ion-icon>
-                Забор (₽) 
-                <span class="auto-hint">автоматически</span>
-            </label>
-            <input type="number" id="pay-pickup" readonly>
-        </div>
-    </div>
-</div>
-
-                    <div class="auto-calc-row">
-    <div class="form-row">
-        <div class="form-group">
-            <label>
-                <ion-icon name="arrow-up-circle-outline" class="form-icon delivery-icon"></ion-icon>
-                Выдача (шт)
-            </label>
-            <input type="number" id="orders-delivery" min="0" oninput="autoCalc('delivery')">
-        </div>
-        <div class="form-group">
-            <label>
-                <ion-icon name="arrow-up-circle-outline" class="form-icon delivery-icon"></ion-icon>
-                Выдача (₽) 
-                <span class="auto-hint">автоматически</span>
-            </label>
-            <input type="number" id="pay-delivery" readonly>
-        </div>
-    </div>
-</div>
-
-                    <div class="auto-calc-row">
-    <div class="form-row">
-        <div class="form-group">
-            <label>
-                <ion-icon name="navigate-outline" class="form-icon km-icon"></ion-icon>
-                Км
-            </label>
-            <input type="number" id="distance" step="0.001" min="0" oninput="autoCalc('km')">
-        </div>
-        <div class="form-group">
-            <label>
-                <ion-icon name="navigate-outline" class="form-icon km-icon"></ion-icon>
-                Км (₽)
-                <span class="auto-hint">автоматически</span>
-                <button type="button" class="btn-auto-toggle" onclick="toggleAutoCalc('km')" title="Переключить авто-расчет">
-                    <ion-icon name="sync-outline"></ion-icon>
-                </button>
-            </label>
-            <input type="number" id="pay-distance" step="0.01" min="0" oninput="markManualEdit('km')">
-        </div>
-    </div>
-</div>
-
-<div class="auto-calc-row">
-    <div class="form-row">
-        <div class="form-group">
-            <label>
-                <ion-icon name="scale-outline" class="form-icon weight-icon"></ion-icon>
-                Вес (кг)
-            </label>
-            <input type="number" id="weight" step="0.001" min="0" oninput="autoCalc('weight')">
-        </div>
-        <div class="form-group">
-            <label>
-                <ion-icon name="scale-outline" class="form-icon weight-icon"></ion-icon>
-                Вес (₽)
-                <span class="auto-hint">автоматически</span>
-                <button type="button" class="btn-auto-toggle" onclick="toggleAutoCalc('weight')" title="Переключить авто-расчет">
-                    <ion-icon name="sync-outline"></ion-icon>
-                </button>
-            </label>
-            <input type="number" id="pay-weight" step="0.01" min="0" oninput="markManualEdit('weight')">
-        </div>
-    </div>
-</div>
-
-
-
-                    <div class="form-row">
-    <div class="form-group">
-        <label>
-            <ion-icon name="layers-outline" class="form-icon load-icon"></ion-icon>
-            Нагрузка (₽)
-        </label>
-        <input type="number" id="load-pay" step="0.01" min="0">
-    </div>
-    <div class="form-group">
-        <label>
-            <ion-icon name="gift-outline" class="form-icon bonus-icon"></ion-icon>
-            Бонус (₽)
-        </label>
-        <input type="number" id="bonus-pay" step="0.01" min="0">
-    </div>
-</div>
-
-<div class="form-row">
-    <div class="form-group">
-        <label>
-            <ion-icon name="trophy-outline" class="form-icon rating-icon"></ion-icon>
-            Рейтинг (₽)
-        </label>
-        <input type="number" id="rating" step="0.01" min="0">
-    </div>
-    <div class="form-group">
-        <label>
-            <ion-icon name="cash-outline" class="form-icon tips-icon"></ion-icon>
-            Чаевые (₽)
-        </label>
-        <input type="number" id="tips" step="0.01" min="0">
-    </div>
-</div>
-
-<div class="form-row">
-    <div class="form-group">
-        <label>
-            <ion-icon name="flame-outline" class="form-icon fuel-icon"></ion-icon>
-            Бензин (₽)
-        </label>
-        <input type="number" id="fuel-cost" step="0.01" min="0">
-    </div>
-    <div class="form-group">
-        <label>
-            <ion-icon name="construct-outline" class="form-icon repair-icon"></ion-icon>
-            Ремонт (₽)
-        </label>
-        <input type="number" id="repair-cost" step="0.01" min="0">
-    </div>
-    <div class="form-group">
-        <label>
-            <ion-icon name="receipt-outline" class="form-icon tax-icon"></ion-icon>
-            Налог (₽)
-        </label>
-        <input type="number" id="tax" step="0.01" min="0">
-    </div>
-</div>
-
-                    <div class="form-row">
-    <div class="form-group">
-        <label>
-            <ion-icon name="list-outline" class="form-icon type-icon"></ion-icon>
-            Тип записи
-        </label>
-        <select id="record-type">
-            <option value="work">Рабочий день</option>
-            <option value="bonus">Бонус</option>
-            <option value="expense">Только расход</option>
-        </select>
-    </div>
-    <div class="form-group">
-        <label>
-            <ion-icon name="calendar-number-outline" class="form-icon bonus-period-icon"></ion-icon>
-            Период бонуса (если бонус)
-        </label>
-        <input type="text" id="bonus-period" placeholder="Например: Июль 2024">
-    </div>
-</div>
-
-                    <div class="form-actions">
-    <button type="submit" class="btn btn-success glossy ripple magnetic">
-        <ion-icon name="save-outline" class="btn-icon"></ion-icon>
-        Сохранить
-    </button>
-    <button type="reset" class="btn btn-secondary btn-clear ripple magnetic" onclick="clearForm()">
-        <ion-icon name="trash-outline" class="btn-icon"></ion-icon>
-        Очистить
-    </button>
-</div>
-                </form>
-            </div>
-        </div>
 
         <!-- Вкладка: Аналитика -->
         <div id="tab-analytics" class="tab-content">
@@ -1132,7 +891,7 @@
     <div class="top-header">
         <h1><ion-icon name="fuel-outline" class="header-icon" style="color: var(--ios-warning);"></ion-icon> Калькулятор топлива</h1>
     </div>
-
+    
     <!-- Сводная статистика -->
     <div class="card">
         <h2><ion-icon name="stats-chart-outline" class="section-icon"></ion-icon> Статистика</h2>
@@ -1163,62 +922,17 @@
             </div>
         </div>
     </div>
-
-    <!-- Форма добавления заправки -->
+    
+    <!-- Кнопка добавления заправки (вместо большой формы) -->
     <div class="card">
-        <h2><ion-icon name="add-circle-outline" class="section-icon"></ion-icon> Добавить заправку</h2>
-        <div class="form-group">
-    <label>Автомобиль</label>
-    <select id="fuel-vehicle-select" class="form-control">
-        <!-- Заполняется через JS -->
-    </select>
-</div>
-        <form id="fuel-form">
-            <div class="form-row">
-                <div class="form-group">
-                    <label><ion-icon name="calendar-outline"></ion-icon> Дата *</label>
-                    <input type="date" id="fuel-date" required>
-                </div>
-                <div class="form-group">
-                    <label><ion-icon name="speedometer-outline"></ion-icon> Пробег (км) *</label>
-                    <input type="number" id="fuel-mileage" step="0.1" min="0" placeholder="Например: 125000" required>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label><ion-icon name="water-outline"></ion-icon> Литры *</label>
-                    <input type="number" id="fuel-liters" step="0.01" min="0" placeholder="Например: 45.5" required>
-                </div>
-                <div class="form-group">
-                    <label><ion-icon name="cash-outline"></ion-icon> Сумма (₽) *</label>
-                    <input type="number" id="fuel-amount" step="0.01" min="0" placeholder="Например: 2500" required>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label><ion-icon name="pricetag-outline"></ion-icon> Цена за литр (₽)</label>
-                    <input type="number" id="fuel-price" step="0.01" min="0" placeholder="Авторасчет" readonly style="background: var(--ios-bg-tertiary);">
-                </div>
-                <div class="form-group">
-                    <label><ion-icon name="analytics-outline"></ion-icon> Расход л/100км</label>
-                    <input type="number" id="fuel-consumption" step="0.1" min="0" placeholder="Авторасчет" readonly style="background: var(--ios-bg-tertiary);">
-                </div>
-            </div>
-            <div class="form-group" style="margin-top: 16px;">
-                <label><ion-icon name="document-text-outline"></ion-icon> Комментарий</label>
-                <input type="text" id="fuel-comment" placeholder="АЗС, марка бензина и т.д.">
-            </div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-success">
-                    <ion-icon name="checkmark-circle-outline"></ion-icon> Сохранить заправку
-                </button>
-                <button type="button" class="btn btn-secondary" onclick="clearFuelForm()">
-                    <ion-icon name="close-circle-outline"></ion-icon> Очистить
-                </button>
-            </div>
-        </form>
+        <div class="fuel-add-trigger">
+            <button class="btn btn-primary fuel-add-btn" onclick="openFuelModal()">
+                <ion-icon name="add-circle-outline"></ion-icon>
+                Добавить заправку
+            </button>
+        </div>
     </div>
-
+    
     <!-- График расхода -->
     <div class="card">
         <h2><ion-icon name="trending-up-outline" class="section-icon"></ion-icon> Динамика расхода топлива</h2>
@@ -1230,7 +944,7 @@
             Добавьте минимум 2 заправки с указанием пробега для построения графика
         </div>
     </div>
-
+    
     <!-- История заправок -->
     <div class="card">
         <h2><ion-icon name="time-outline" class="section-icon"></ion-icon> История заправок</h2>
@@ -1250,6 +964,64 @@
                 <ion-icon name="fuel-outline" style="font-size: 48px; display: block; margin: 0 auto 12px;"></ion-icon>
                 Нет заправок. Добавьте первую!
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ ЗАПРАВКИ -->
+<div class="fuel-modal-overlay" id="fuel-modal-overlay">
+    <div class="fuel-modal">
+        <div class="fuel-modal-header">
+            <ion-icon name="fuel-outline"></ion-icon>
+            <h3>Добавить заправку</h3>
+            <button class="fuel-modal-close" onclick="closeFuelModal()" aria-label="Закрыть">
+                <ion-icon name="close-circle-outline"></ion-icon>
+            </button>
+        </div>
+        <div class="fuel-modal-body">
+            <form id="fuel-form">
+                <div class="form-group">
+                    <label><ion-icon name="car-outline"></ion-icon> Автомобиль</label>
+                    <select id="fuel-vehicle-select"></select>
+                </div>
+                <div class="form-group">
+                    <label><ion-icon name="calendar-outline"></ion-icon> Дата *</label>
+                    <input type="date" id="fuel-date" required>
+                </div>
+                <div class="form-group">
+                    <label><ion-icon name="speedometer-outline"></ion-icon> Пробег (км) *</label>
+                    <input type="number" id="fuel-mileage" placeholder="Например: 125000" required min="0" step="1">
+                </div>
+                <div class="form-group">
+                    <label><ion-icon name="water-outline"></ion-icon> Литры *</label>
+                    <input type="number" id="fuel-liters" placeholder="Например: 45.5" required min="0" step="0.01">
+                </div>
+                <div class="form-group">
+                    <label><ion-icon name="cash-outline"></ion-icon> Сумма (₽) *</label>
+                    <input type="text" id="fuel-amount" placeholder="Например: 45.5*2 или 1500+300" required autocomplete="off">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label><ion-icon name="pricetag-outline"></ion-icon> Цена за литр (₽)</label>
+                        <input type="number" id="fuel-price" placeholder="Авторасчет" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label><ion-icon name="trending-up-outline"></ion-icon> Расход л/100км</label>
+                        <input type="number" id="fuel-consumption" placeholder="Авторасчет" readonly>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label><ion-icon name="document-text-outline"></ion-icon> Комментарий</label>
+                    <input type="text" id="fuel-comment" placeholder="АЗС, марка бензина и т.д.">
+                </div>
+            </form>
+        </div>
+        <div class="fuel-modal-footer">
+            <button class="btn btn-secondary" onclick="closeFuelModal()">Отмена</button>
+            <button class="btn btn-success" type="submit" form="fuel-form">
+                <ion-icon name="checkmark-circle-outline"></ion-icon>
+                <span id="fuel-submit-text">Сохранить заправку</span>
+            </button>
         </div>
     </div>
 </div>
@@ -1795,10 +1567,10 @@
     <nav class="bottom-nav">
         
         <!-- СЛЕВА (2 кнопки) -->
-        <button class="nav-item magnetic wide" data-tab="home" onclick="switchTab('home')">
-            <ion-icon name="person-outline"></ion-icon>
-            <span class="label">Профиль</span>
-        </button>
+<button class="nav-item magnetic wide active" data-tab="home" onclick="switchTab('home')">
+    <ion-icon name="person-outline"></ion-icon>
+    <span class="label">Профиль</span>
+</button>
         <button class="nav-item magnetic wide" data-tab="reports" id="nav-reports-btn" onclick="toggleReportsMenu(event)">
             <ion-icon name="document-text-outline"></ion-icon>
             <span class="label">Отчёты</span>
@@ -1850,7 +1622,7 @@
     <button class="auto-menu-item" onclick="selectFabAction('entry')">
         <ion-icon name="calendar-outline"></ion-icon><span>Запись</span>
     </button>
-    <button class="auto-menu-item" onclick="selectFabAction('fuel')">
+    <button class="auto-menu-item" onclick="handleFabFuelClick(event)">
         <ion-icon name="flame-outline"></ion-icon><span>Топливо</span>
     </button>
     <button class="auto-menu-item" onclick="selectFabAction('repair')">

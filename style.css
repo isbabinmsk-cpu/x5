@@ -8088,3 +8088,120 @@ body.dark-theme .week-card-summary {
     .record-card { padding: 14px; }
     .records-cards-container { gap: 10px; }
 }
+
+
+/* ============================================
+МОДАЛЬНОЕ ОКНО ТОПЛИВА
+============================================ */
+.fuel-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+.fuel-modal-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+.fuel-modal {
+    background: var(--ios-bg-card, #FFFFFF);
+    border-radius: 20px;
+    max-width: 500px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+.fuel-modal-overlay.visible .fuel-modal {
+    transform: scale(1);
+}
+.fuel-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+    border-bottom: 1px solid var(--ios-border);
+}
+.fuel-modal-header ion-icon:first-child {
+    font-size: 28px;
+    color: var(--ios-accent);
+}
+.fuel-modal-header h3 {
+    flex: 1;
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+}
+.fuel-modal-close {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    color: var(--ios-text-tertiary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.fuel-modal-close:hover {
+    background: var(--ios-bg-tertiary);
+}
+.fuel-modal-close ion-icon {
+    font-size: 24px;
+}
+.fuel-modal-body {
+    padding: 20px;
+}
+.fuel-modal-body .form-group {
+    margin-bottom: 16px;
+}
+.fuel-modal-body .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+.fuel-modal-footer {
+    display: flex;
+    gap: 12px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--ios-border);
+}
+.fuel-modal-footer .btn {
+    flex: 1;
+}
+.fuel-add-btn {
+    width: 100%;
+    min-height: 56px;
+    font-size: 17px;
+    font-weight: 600;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    cursor: pointer;
+}
+.fuel-add-btn ion-icon {
+    font-size: 24px;
+}
+@media (max-width: 480px) {
+    .fuel-modal {
+        max-width: 100%;
+        border-radius: 16px;
+    }
+    .fuel-modal-body .form-row {
+        grid-template-columns: 1fr;
+    }
+}
+

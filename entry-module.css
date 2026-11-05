@@ -1,0 +1,615 @@
+/* ============================================
+   МОДУЛЬ ВВОДА ДАННЫХ ЗА ДЕНЬ — МОДАЛЬНОЕ ОКНО
+   v1.1 — вдавленные поля
+   ============================================ */
+
+/* ---------- Оверлей ---------- */
+.entry-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+    pointer-events: none;
+}
+
+.entry-modal-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ---------- Контейнер ---------- */
+.entry-modal {
+    background: #F2F2F7;
+    border-radius: 24px 24px 0 0;
+    width: 100%;
+    max-width: 720px;
+    max-height: 94vh;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+    box-shadow: 0 -12px 60px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+
+.entry-modal-overlay.visible .entry-modal {
+    transform: translateY(0);
+}
+
+@media (min-width: 769px) {
+    .entry-modal-overlay {
+        align-items: center;
+        padding: 20px;
+    }
+    .entry-modal {
+        border-radius: 24px;
+        max-height: 90vh;
+        transform: scale(0.92) translateY(20px);
+    }
+    .entry-modal-overlay.visible .entry-modal {
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* ---------- Заголовок ---------- */
+.entry-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: rgba(242, 242, 247, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 2;
+}
+
+.entry-modal-handle {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 4px;
+    border-radius: 100px;
+    background: rgba(0, 0, 0, 0.2);
+    display: none;
+}
+
+.entry-modal-title {
+    flex: 1;
+    font-size: 18px;
+    font-weight: 700;
+    color: #000;
+    margin: 0;
+    letter-spacing: -0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.entry-modal-title ion-icon {
+    font-size: 24px;
+    color: #007AFF;
+}
+
+.entry-modal-close {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(120, 120, 128, 0.16);
+    color: #3C3C43;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.15s cubic-bezier(0.32,0.72,0,1), background 0.15s;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+    padding: 0;
+}
+.entry-modal-close:active {
+    transform: scale(0.9);
+    background: rgba(120, 120, 128, 0.28);
+}
+.entry-modal-close ion-icon {
+    font-size: 20px;
+    pointer-events: none;
+}
+
+/* ---------- Тело ---------- */
+.entry-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 20px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+}
+.entry-modal-body::-webkit-scrollbar { width: 6px; }
+.entry-modal-body::-webkit-scrollbar-track { background: transparent; }
+.entry-modal-body::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 3px;
+}
+
+.entry-modal-body .card {
+    margin-bottom: 16px;
+    padding: 16px;
+    border-radius: 18px;
+}
+.entry-modal-body .card:last-child { margin-bottom: 0; }
+.entry-modal-body .card h2 { font-size: 18px; margin-bottom: 16px; }
+
+/* ============================================
+   ВДАВЛЕННЫЕ ПОЛЯ ВВОДА (iOS / Neumorphism)
+   ============================================ */
+
+/* --- Базовый стиль всех полей --- */
+.entry-modal-body input,
+.entry-modal-body select,
+.entry-modal-body textarea {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 16px;
+    font-weight: 500;
+    color: #1C1C1E;
+    font-family: inherit;
+    border-radius: 12px;
+    border: 1px solid #b8b8c0;
+    background: linear-gradient(to bottom,
+        #cfcfd7 0%,
+        #e8e8ee 8%,
+        #f8f8fb 50%,
+        #ffffff 100%);
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.35),
+        inset 0 3px 8px rgba(0, 0, 0, 0.12),
+        0 1px 0 rgba(255, 255, 255, 0.85);
+    -webkit-appearance: none;
+    appearance: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+}
+
+/* Placeholder — приглушённый */
+.entry-modal-body input::placeholder,
+.entry-modal-body textarea::placeholder {
+    color: #8E8E93;
+    font-weight: 400;
+}
+
+/* --- Фокус: акцентная синяя рамка + свечение, поле остаётся вдавленным --- */
+.entry-modal-body input:focus,
+.entry-modal-body select:focus,
+.entry-modal-body textarea:focus {
+    outline: none;
+    border-color: #007AFF;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.35),
+        inset 0 3px 8px rgba(0, 0, 0, 0.12),
+        0 0 0 3px rgba(0, 122, 255, 0.25),
+        0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+/* --- Поля только для чтения (Забор ₽, Выдача ₽, День недели) --- */
+.entry-modal-body input[readonly] {
+    background: linear-gradient(to bottom,
+        #d8d8df 0%,
+        #e0e0e6 10%,
+        #ececf0 100%);
+    color: #636366;
+    cursor: default;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.30),
+        inset 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+/* --- Select: свой chevron, вдавленный --- */
+.entry-modal-body select {
+    background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23636366' d='M6 9L1 4h10z'/%3E%3C/svg%3E"),
+        linear-gradient(to bottom, #cfcfd7 0%, #e8e8ee 8%, #f8f8fb 50%, #ffffff 100%);
+    background-repeat: no-repeat, no-repeat;
+    background-position: right 16px center, center;
+    background-size: 12px, 100% 100%;
+    padding-right: 40px;
+    cursor: pointer;
+}
+
+.entry-modal-body select:focus {
+    background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23007AFF' d='M6 9L1 4h10z'/%3E%3C/svg%3E"),
+        linear-gradient(to bottom, #cfcfd7 0%, #e8e8ee 8%, #f8f8fb 50%, #ffffff 100%);
+}
+
+/* --- Числовые поля: выравнивание цифр --- */
+.entry-modal-body input[type="number"] {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    -moz-appearance: textfield;
+}
+.entry-modal-body input[type="number"]::-webkit-outer-spin-button,
+.entry-modal-body input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* --- Дата --- */
+.entry-modal-body input[type="date"] {
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+}
+
+/* --- Метки полей --- */
+.entry-modal-body .form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #3C3C43;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.entry-modal-body .form-icon {
+    font-size: 15px;
+    color: #8E8E93;
+}
+
+.entry-modal-body .auto-hint {
+    font-size: 11px;
+    font-weight: 600;
+    color: #34C759;
+    margin-left: auto;
+}
+
+/* --- Кнопка переключения авто-расчёта --- */
+.entry-modal-body .btn-auto-toggle {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    border: none;
+    background: rgba(0, 122, 255, 0.12);
+    color: #007AFF;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 4px;
+    transition: transform 0.15s, background 0.15s;
+}
+.entry-modal-body .btn-auto-toggle ion-icon {
+    font-size: 15px;
+    pointer-events: none;
+}
+.entry-modal-body .btn-auto-toggle:active {
+    transform: scale(0.9);
+}
+.entry-modal-body .btn-auto-toggle.manual-mode {
+    background: rgba(255, 59, 48, 0.14);
+    color: #FF3B30;
+}
+
+/* --- Поле с ручным вводом (когда авто выключено) --- */
+.entry-modal-body input.manual-edit {
+    background: linear-gradient(to bottom, #fff5d6 0%, #fffbeb 100%);
+    border-color: #f59e0b;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.25),
+        inset 0 3px 8px rgba(0, 0, 0, 0.10),
+        0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+/* ============================================
+   Блоки формы внутри модалки
+   ============================================ */
+.entry-modal-body .form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.entry-modal-body .form-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* Плашка авто-расчёта (Забор/Выдача/Км/Вес) */
+.entry-modal-body .auto-calc-row {
+    background: rgba(52, 199, 89, 0.08);
+    border: 1px solid rgba(52, 199, 89, 0.20);
+    border-radius: 14px;
+    padding: 12px;
+    margin-bottom: 14px;
+}
+.entry-modal-body .auto-calc-row .form-row {
+    margin-bottom: 0;
+}
+
+/* ============================================
+   Блок действующих тарифов
+   ============================================ */
+.entry-modal-body .current-tariffs-info {
+    background: rgba(0, 122, 255, 0.06);
+    border: 1px solid rgba(0, 122, 255, 0.18);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+}
+
+.entry-modal-body .current-tariffs-info h3 {
+    font-size: 12px;
+    font-weight: 700;
+    color: #007AFF;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 10px 0;
+}
+
+.entry-modal-body .tariff-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.entry-modal-body .tariff-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    background: #FFFFFF;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #3C3C43;
+    box-shadow:
+        inset 0 1px 2px rgba(0, 0, 0, 0.06),
+        0 1px 2px rgba(0, 0, 0, 0.06);
+}
+.entry-modal-body .tariff-badge strong {
+    color: #007AFF;
+    font-weight: 700;
+}
+.entry-modal-body .tariff-icon {
+    font-size: 13px;
+    color: #8E8E93;
+}
+
+/* ============================================
+   Уведомление о редактировании
+   ============================================ */
+.entry-modal-body .editing-notice {
+    background: rgba(255, 149, 0, 0.12);
+    border: 1px solid rgba(255, 149, 0, 0.3);
+    border-radius: 14px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #C77700;
+}
+.entry-modal-body .editing-notice .notice-icon {
+    font-size: 18px;
+}
+
+/* ============================================
+   Футер
+   ============================================ */
+.entry-modal-footer {
+    display: flex;
+    gap: 12px;
+    padding: 16px 20px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    background: rgba(242, 242, 247, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    flex-shrink: 0;
+}
+
+.entry-modal-footer .btn {
+    flex: 1;
+    min-height: 50px;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.15s cubic-bezier(0.32,0.72,0,1);
+}
+.entry-modal-footer .btn:active {
+    transform: scale(0.97);
+}
+
+/* Мобильные */
+@media (max-width: 480px) {
+    .entry-modal-handle { display: block; }
+    .entry-modal-header { padding: 18px 16px 12px; }
+    .entry-modal-body { padding: 16px; }
+    .entry-modal-footer {
+        padding: 12px 16px;
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
+    .entry-modal-footer .btn {
+        min-height: 46px;
+        font-size: 15px;
+    }
+    .entry-modal-body .form-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+    .entry-modal { max-width: 600px; }
+}
+
+/* ============================================
+   ТЁМНАЯ ТЕМА — вдавленные поля
+   ============================================ */
+body.dark-theme .entry-modal {
+    background: #1C1C1E;
+    box-shadow: 0 -12px 60px rgba(0, 0, 0, 0.7);
+}
+
+body.dark-theme .entry-modal-header,
+body.dark-theme .entry-modal-footer {
+    background: rgba(28, 28, 30, 0.92);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-theme .entry-modal-handle {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+body.dark-theme .entry-modal-title { color: #FFFFFF; }
+
+body.dark-theme .entry-modal-close {
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(235, 235, 245, 0.72);
+}
+body.dark-theme .entry-modal-close:active {
+    background: rgba(255, 255, 255, 0.20);
+}
+
+/* --- Тёмные вдавленные поля --- */
+body.dark-theme .entry-modal-body input,
+body.dark-theme .entry-modal-body select,
+body.dark-theme .entry-modal-body textarea {
+    background: linear-gradient(to bottom,
+        #08080a 0%,
+        #101013 25%,
+        #1a1a1e 100%);
+    border: 1px solid #000000;
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+    color: #FFFFFF;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.90),
+        inset 0 3px 8px rgba(0, 0, 0, 0.55),
+        0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+body.dark-theme .entry-modal-body input::placeholder,
+body.dark-theme .entry-modal-body textarea::placeholder {
+    color: rgba(235, 235, 245, 0.35);
+}
+
+body.dark-theme .entry-modal-body input:focus,
+body.dark-theme .entry-modal-body select:focus,
+body.dark-theme .entry-modal-body textarea:focus {
+    border-color: #0A84FF;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.90),
+        inset 0 3px 8px rgba(0, 0, 0, 0.55),
+        0 0 0 3px rgba(10, 132, 255, 0.30),
+        0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+body.dark-theme .entry-modal-body input[readonly] {
+    background: linear-gradient(to bottom,
+        #141416 0%,
+        #1c1c1e 100%);
+    color: rgba(235, 235, 245, 0.55);
+}
+
+body.dark-theme .entry-modal-body select {
+    background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238E8E93' d='M6 9L1 4h10z'/%3E%3C/svg%3E"),
+        linear-gradient(to bottom, #08080a 0%, #101013 25%, #1a1a1e 100%);
+}
+body.dark-theme .entry-modal-body select:focus {
+    background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%230A84FF' d='M6 9L1 4h10z'/%3E%3C/svg%3E"),
+        linear-gradient(to bottom, #08080a 0%, #101013 25%, #1a1a1e 100%);
+}
+
+/* Тёмные метки */
+body.dark-theme .entry-modal-body .form-group label {
+    color: rgba(235, 235, 245, 0.72);
+}
+body.dark-theme .entry-modal-body .form-icon {
+    color: rgba(235, 235, 245, 0.45);
+}
+
+/* Тёмный блок тарифов */
+body.dark-theme .entry-modal-body .current-tariffs-info {
+    background: rgba(10, 132, 255, 0.10);
+    border-color: rgba(10, 132, 255, 0.25);
+}
+body.dark-theme .entry-modal-body .current-tariffs-info h3 {
+    color: #64B5FF;
+}
+body.dark-theme .entry-modal-body .tariff-badge {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(235, 235, 245, 0.85);
+    box-shadow:
+        inset 0 1px 2px rgba(0, 0, 0, 0.4),
+        0 1px 2px rgba(0, 0, 0, 0.3);
+}
+body.dark-theme .entry-modal-body .tariff-badge strong {
+    color: #64B5FF;
+}
+
+/* Тёмная плашка авто-расчёта */
+body.dark-theme .entry-modal-body .auto-calc-row {
+    background: rgba(48, 209, 88, 0.08);
+    border-color: rgba(48, 209, 88, 0.25);
+}
+
+/* Тёмное уведомление о редактировании */
+body.dark-theme .entry-modal-body .editing-notice {
+    background: rgba(255, 159, 10, 0.14);
+    border-color: rgba(255, 159, 10, 0.35);
+    color: #FFB340;
+}
+
+/* Ручной ввод — тёмная тема */
+body.dark-theme .entry-modal-body input.manual-edit {
+    background: linear-gradient(to bottom, #3a2f00 0%, #2a2200 100%);
+    border-color: #f59e0b;
+}
+
+/* ============================================
+   Анимации
+   ============================================ */
+.entry-modal-overlay.visible .entry-modal-body > * {
+    animation: entryContentIn 0.4s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.entry-modal-overlay.visible .entry-modal-body > *:nth-child(1) { animation-delay: 0.05s; }
+.entry-modal-overlay.visible .entry-modal-body > *:nth-child(2) { animation-delay: 0.10s; }
+.entry-modal-overlay.visible .entry-modal-body > *:nth-child(3) { animation-delay: 0.15s; }
+
+@keyframes entryContentIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .entry-modal-overlay,
+    .entry-modal,
+    .entry-modal-overlay.visible .entry-modal-body > * {
+        transition: none !important;
+        animation: none !important;
+    }
+}
