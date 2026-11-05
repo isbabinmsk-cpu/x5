@@ -5637,7 +5637,7 @@ function closeFabMenu() {
 function selectFabAction(action) {
     closeFabMenu();
     
-    // 1. Запись дня — открывает модалку (реализация в entry-module.js)
+    // 1. Запись дня — открывает модалку
     if (action === 'entry') {
         if (typeof window.openEntryModal === 'function') {
             window.openEntryModal();
@@ -5645,10 +5645,15 @@ function selectFabAction(action) {
         return;
     }
     
-    // 2. Топливо
+    // 2. Топливо — ОТКРЫВАЕМ МОДАЛКУ (ИСПРАВЛЕНО)
     if (action === 'fuel') {
-        switchTab('fuel');
-        setTimeout(() => scrollToFirstField('tab-fuel', ['fuel-form', 'fuel-log-form', 'add-fuel-form']), 350);
+        if (typeof window.openFuelModal === 'function') {
+            window.openFuelModal();
+        } else {
+            // Фолбэк, только если модуль топлива вдруг не загрузился
+            switchTab('fuel');
+            setTimeout(() => scrollToFirstField('tab-fuel', ['fuel-form', 'fuel-log-form', 'add-fuel-form']), 350);
+        }
         return;
     }
     

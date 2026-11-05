@@ -375,22 +375,28 @@
             return;
         }
         
-        // Клик по "Топливо"
-        if (entryBtn.querySelector('ion-icon[name="flame-outline"]') || text.includes('Топливо')) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            const fabMenu = document.getElementById('fab-menu');
-            const fab = document.getElementById('fab-add');
-            if (fabMenu) fabMenu.classList.remove('open');
-            if (fab) fab.classList.remove('fab-open');
-            if (typeof window.switchTab === 'function') window.switchTab('fuel');
-            setTimeout(() => {
-                const form = document.getElementById('fuel-form');
-                if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 350);
-            return;
-        }
+        // Клик по "Топливо" — ОТКРЫВАЕМ МОДАЛКУ (ИСПРАВЛЕНО)
+if (entryBtn.querySelector('ion-icon[name="flame-outline"]') || text.includes('Топливо')) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    console.log('🔵 Перехвачен клик по "Топливо" в FAB-меню — открываем модалку');
+    
+    // Закрываем меню
+    const fabMenu = document.getElementById('fab-menu');
+    const fab = document.getElementById('fab-add');
+    if (fabMenu) fabMenu.classList.remove('open');
+    if (fab) fab.classList.remove('fab-open');
+    
+    // Открываем МОДАЛКУ, а не вкладку!
+    if (typeof window.openFuelModal === 'function') {
+        window.openFuelModal();
+    } else {
+        console.warn('⚠️ openFuelModal не найден, открываем вкладку (фолбэк)');
+        if (typeof window.switchTab === 'function') window.switchTab('fuel');
+    }
+    return;
+}
         
         // Клик по "Ремонт"
         if (entryBtn.querySelector('ion-icon[name="construct-outline"]') || text.includes('Ремонт')) {
