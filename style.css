@@ -8531,3 +8531,78 @@ body.dark-theme .fuel-modal-body .form-group label ion-icon {
         animation: none !important;
     }
 }
+
+/* === ОТСТУПЫ В МОДАЛЬНОМ ОКНЕ РЕМОНТА === */
+
+/* Отступы между карточками запчастей и работ */
+#repair-modal-parts-list .dynamic-item,
+#repair-modal-works-list .dynamic-item {
+    margin-bottom: 12px;
+    padding: 12px;
+    background: var(--ios-secondary-bg, #2c2c2e);
+    border-radius: 10px;
+    border: 1px solid var(--ios-border, rgba(255, 255, 255, 0.1));
+}
+
+/* Последнему элементу не нужен отступ снизу */
+#repair-modal-parts-list .dynamic-item:last-child,
+#repair-modal-works-list .dynamic-item:last-child {
+    margin-bottom: 0;
+}
+
+/* Отступы между секциями */
+#repair-modal-parts-list,
+#repair-modal-works-list {
+    margin-bottom: 20px;
+}
+
+/* Заголовки секций */
+.fuel-modal-body h4 {
+    margin: 20px 0 12px 0;
+    padding-top: 8px;
+    border-top: 1px solid var(--ios-border, rgba(255, 255, 255, 0.1));
+}
+
+/* Первая секция без верхней границы */
+.fuel-modal-body h4:first-of-type {
+    margin-top: 8px;
+    border-top: none;
+}
+
+/* Поля ввода */
+#repair-modal-form input[type="text"],
+#repair-modal-form input[type="number"],
+#repair-modal-form select,
+#repair-modal-form textarea {
+    margin-bottom: 8px;
+}
+
+/* Кнопка "Добавить деталь/работу" */
+#repair-modal-parts-list+.btn,
+#repair-modal-works-list+.btn {
+    margin: 8px 0 16px 0;
+}
+
+/* Поля в форме (дата, пробег и т.д.) */
+#repair-modal-form .form-group {
+    margin-bottom: 12px;
+}
+
+/* Строки с полями */
+#repair-modal-form .form-row {
+    margin-bottom: 8px;
+    gap: 12px;
+}
+
+/* Итоги */
+.repair-modal-totals {
+    margin-top: 20px !important;
+    padding: 16px !important;
+}
+
+/* Футер модалки */
+.fuel-modal-footer {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--ios-border, rgba(255, 255, 255, 0.1));
+}

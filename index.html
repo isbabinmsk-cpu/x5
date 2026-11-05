@@ -99,7 +99,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.9.6" defer></script>
+    <script src="script.js?v=2.9.7" defer></script>
     
    
     
@@ -107,14 +107,14 @@
 <script src="vehicle-module.js?v=1.0.4"></script>
     
     <!-- Модуль ремонта -->
-<script type="module" src="repair-module.js?v=1.1.0"></script>
+<script type="module" src="repair-module.js?v=1.1.1"></script>
 
     <!-- Модуль топлива -->
     <script type="module" src="fuel-module.js?v=1.0.5"></script>
     
      <!-- Модуль ввода данных за день (модальное окно) -->
 
-<script src="entry-module.js?v=1.0.2" ></script>
+<script src="entry-module.js?v=1.0.3" ></script>
     
     <!-- Модуль календаря смен -->
 <script src="shift-module.js?v=1.0.5"></script>
@@ -1061,219 +1061,12 @@
             </div>
         </div>
         
-        <!-- ФОРМА -->
-        <form id="repair-form" style="margin-bottom: 24px;">
-            <div class="form-row">
-                <!-- Внутри формы ремонта, после поля "Дата" -->
-                <div class="form-group">
-                    <label>Автомобиль</label>
-                    <select id="repair-vehicle-select" class="form-control">
-                        <!-- Заполняется через JS -->
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label><ion-icon name="calendar-outline"></ion-icon> Дата *</label>
-                    <input type="date" id="repair-date" required>
-                </div>
-                <div class="form-group">
-                    <label><ion-icon name="speedometer-outline"></ion-icon> Пробег (км) *</label>
-                    <input type="number" id="repair-mileage" placeholder="Текущий пробег" min="0" required>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label><ion-icon name="construct-outline"></ion-icon> Категория *</label>
-                    <select id="repair-category" required>
-                        <option value="engine">Двигатель</option>
-                        <option value="transmission">Трансмиссия</option>
-                        <option value="brakes">Тормозная система</option>
-                        <option value="suspension">Подвеска</option>
-                        <option value="electrics">Электрика</option>
-                        <option value="body">Кузов</option>
-                        <option value="tires">Шины/Диски</option>
-                        <option value="oil">Масло/Жидкости</option>
-                        <option value="cooling">Охлаждение</option>
-                        <option value="exhaust">Выхлопная система</option>
-                        <option value="other">Прочее</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label><ion-icon name="document-text-outline"></ion-icon> Описание</label>
-                    <input type="text" id="repair-description" placeholder="Краткое описание">
-                </div>
-            </div>
-            
-            <!-- ЧТО МЕНЯЛОСЬ? -->
-            <div class="form-section">
-                <h3>Что менялось?</h3>
-                <div class="repair-service-grid" id="repair-service-items">
-                    <label class="repair-service-item">
-                        <input type="checkbox" value="oil">
-                        <span class="service-icon">🛢️</span>
-                        <span class="service-name">Масло</span>
-                    </label>
-                    <label class="repair-service-item">
-                        <input type="checkbox" value="oilFilter">
-                        <span class="service-icon">🔵</span>
-                        <span class="service-name">Масляный фильтр</span>
-                    </label>
-                    <label class="repair-service-item">
-                        <input type="checkbox" value="airFilter">
-                        <span class="service-icon">💨</span>
-                        <span class="service-name">Воздушный фильтр</span>
-                    </label>
-                    <label class="repair-service-item">
-                        <input type="checkbox" value="cabinFilter">
-                        <span class="service-icon">🌬️</span>
-                        <span class="service-name">Салонный фильтр</span>
-                    </label>
-                    <label class="repair-service-item">
-                        <input type="checkbox" value="sparkPlugs">
-                        <span class="service-icon">⚡</span>
-                        <span class="service-name">Свечи зажигания</span>
-                    </label>
-                    <label class="repair-service-item">
-                        <input type="checkbox" value="brakePads">
-                        <span class="service-icon">🔴</span>
-                        <span class="service-name">Тормозные колодки</span>
-                    </label>
-                    <label class="repair-service-item">
-                        <input type="checkbox" value="coolant">
-                        <span class="service-icon">❄️</span>
-                        <span class="service-name">Охлаждающая жидкость</span>
-                    </label>
-                    <label class="repair-service-item">
-                        <input type="checkbox" value="brakeFluid">
-                        <span class="service-icon">💧</span>
-                        <span class="service-name">Тормозная жидкость</span>
-                    </label>
-                    <label class="repair-service-item">
-                        <input type="checkbox" value="transmissionFluid">
-                        <span class="service-icon">⚙️</span>
-                        <span class="service-name">Трансмиссионное масло</span>
-                    </label>
-                    <label class="repair-service-item">
-                        <input type="checkbox" value="tires">
-                        <span class="service-icon">🛞</span>
-                        <span class="service-name">Шины/Колёса</span>
-                    </label>
-                    <label class="repair-service-item">
-                        <input type="checkbox" value="battery">
-                        <span class="service-icon">🔋</span>
-                        <span class="service-name">Аккумулятор</span>
-                    </label>
-                    <label class="repair-service-item">
-                        <input type="checkbox" value="wipers">
-                        <span class="service-icon">🌧️</span>
-                        <span class="service-name">Дворники</span>
-                    </label>
-                </div>
-            </div>
-            
-<!-- ЗАПЧАСТИ -->
-<div class="form-section">
-    <h3><ion-icon name="cube-outline"></ion-icon> Запчасти и материалы</h3>
-    <div id="repair-parts-list" class="dynamic-list-container">
-        <!-- Элементы будут добавлены динамически -->
-    </div>
-    <button type="button" class="btn-add-dynamic" onclick="addRepairPart()">
-        <ion-icon name="add-outline"></ion-icon> Добавить деталь
-    </button>
-</div>
-
-<!-- РАБОТЫ -->
-<div class="form-section">
-    <h3><ion-icon name="settings-outline"></ion-icon> Работы</h3>
-    <div id="repair-works-list" class="dynamic-list-container">
-        <!-- Элементы будут добавлены динамически -->
-    </div>
-    <button type="button" class="btn-add-dynamic" onclick="addRepairWork()">
-        <ion-icon name="add-outline"></ion-icon> Добавить работу
-    </button>
-</div>
-
-<!-- ФОТО ЧЕКОВ И ДОКУМЕНТОВ -->
-<div class="form-section">
-    <h3><ion-icon name="camera-outline"></ion-icon> Фото чека и документов</h3>
-    
-    <div class="photo-upload-grid">
-        <!-- Загрузка фото чека -->
-        <div class="photo-upload-item">
-            <label for="repair-receipt-upload" class="photo-upload-label">
-                <ion-icon name="receipt-outline"></ion-icon>
-                <span>Чек</span>
-            </label>
-            <input type="file" id="repair-receipt-upload" accept="image/*" class="photo-upload-input" data-photo-type="receipt">
-            <div class="photo-preview" id="repair-receipt-preview">
-                <ion-icon name="image-outline"></ion-icon>
-                <span>Нет фото</span>
-            </div>
-            <div class="photo-rotate-controls" id="repair-receipt-rotate" style="display: none;">
-                <button type="button" class="photo-rotate-btn" onclick="rotatePhoto('receipt', -90)" title="Повернуть влево">
-                    <ion-icon name="refresh-outline" style="transform: scaleX(-1);"></ion-icon>
-                </button>
-                <button type="button" class="photo-rotate-btn" onclick="rotatePhoto('receipt', 90)" title="Повернуть вправо">
-                    <ion-icon name="refresh-outline"></ion-icon>
-                </button>
-            </div>
+        <!-- КНОПКА ДОБАВИТЬ РЕМОНТ -->
+        <div style="margin: 24px 0;">
+            <button type="button" class="btn btn-primary" onclick="openRepairModal()" style="width: 100%; padding: 14px; font-size: 16px;">
+                <ion-icon name="add-circle-outline"></ion-icon> Добавить ремонт
+            </button>
         </div>
-
-        <!-- Загрузка фото документов -->
-        <div class="photo-upload-item">
-            <label for="repair-document-upload" class="photo-upload-label">
-                <ion-icon name="document-text-outline"></ion-icon>
-                <span>Документ</span>
-            </label>
-            <input type="file" id="repair-document-upload" accept="image/*" class="photo-upload-input" data-photo-type="document">
-            <div class="photo-preview" id="repair-document-preview">
-                <ion-icon name="image-outline"></ion-icon>
-                <span>Нет фото</span>
-            </div>
-            <div class="photo-rotate-controls" id="repair-document-rotate" style="display: none;">
-                <button type="button" class="photo-rotate-btn" onclick="rotatePhoto('document', -90)" title="Повернуть влево">
-                    <ion-icon name="refresh-outline" style="transform: scaleX(-1);"></ion-icon>
-                </button>
-                <button type="button" class="photo-rotate-btn" onclick="rotatePhoto('document', 90)" title="Повернуть вправо">
-                    <ion-icon name="refresh-outline"></ion-icon>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-            
-            <!-- КОММЕНТАРИЙ -->
-            <div class="form-row">
-                <div class="form-group">
-                    <label><ion-icon name="chatbubble-outline"></ion-icon> Комментарий</label>
-                    <input type="text" id="repair-comment" placeholder="Дополнительная информация">
-                </div>
-            </div>
-            
-            <!-- ИТОГО -->
-            <div class="repair-calc-results">
-                <div class="repair-calc-item">
-                    <span>Запчасти:</span>
-                    <span class="value" id="repair-parts-total">0 ₽</span>
-                </div>
-                <div class="repair-calc-item">
-                    <span>Работы:</span>
-                    <span class="value" id="repair-works-total">0 ₽</span>
-                </div>
-                <div class="repair-calc-item total">
-                    <span>Итого:</span>
-                    <span class="value" id="repair-total-cost">0 ₽</span>
-                </div>
-            </div>
-            
-            <div class="form-actions">
-                <button type="submit" class="btn btn-success">
-                    <ion-icon name="checkmark-circle-outline"></ion-icon> Сохранить ремонт
-                </button>
-                <button type="button" class="btn btn-secondary" onclick="clearRepairForm()">
-                    <ion-icon name="close-circle-outline"></ion-icon> Очистить
-                </button>
-            </div>
-        </form>
         
         <!-- ГРАФИКИ -->
         <div class="repair-charts-grid">
@@ -1341,6 +1134,109 @@
         <div class="repair-export-btn">
             <button class="btn btn-secondary" onclick="exportRepairData()">
                 <ion-icon name="download-outline"></ion-icon> Экспорт ремонтов (JSON)
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- МОДАЛЬНОЕ ОКНО ДОБАВЛЕНИЯ РЕМОНТА            -->
+<!-- ============================================ -->
+<div id="repair-modal-overlay" class="fuel-modal-overlay" style="display:none;">
+    <div class="fuel-modal" role="dialog" aria-modal="true" style="max-width:600px;max-height:90vh;overflow-y:auto;">
+        <div class="fuel-modal-header">
+            <div class="fuel-modal-handle"></div>
+            <h3 class="fuel-modal-title">
+                <ion-icon name="construct-outline"></ion-icon>
+                <span id="repair-modal-title-text">Добавить ремонт</span>
+            </h3>
+            <button class="fuel-modal-close" type="button" onclick="closeRepairModal()" aria-label="Закрыть">
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+        <div class="fuel-modal-body">
+            <form id="repair-modal-form" onsubmit="return false;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label><ion-icon name="car-outline" class="form-icon"></ion-icon> Автомобиль</label>
+                        <select id="repair-modal-vehicle-select"></select>
+                    </div>
+                    <div class="form-group">
+                        <label><ion-icon name="calendar-outline" class="form-icon"></ion-icon> Дата *</label>
+                        <input type="date" id="repair-modal-date" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label><ion-icon name="speedometer-outline" class="form-icon"></ion-icon> Пробег (км) *</label>
+                        <input type="number" id="repair-modal-mileage" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label><ion-icon name="pricetag-outline" class="form-icon"></ion-icon> Категория *</label>
+                        <select id="repair-modal-category" required>
+                            <option value="engine">Двигатель</option>
+                            <option value="transmission">Трансмиссия</option>
+                            <option value="brakes">Тормозная система</option>
+                            <option value="suspension">Подвеска</option>
+                            <option value="electrics">Электрика</option>
+                            <option value="body">Кузов</option>
+                            <option value="tires">Шины/Диски</option>
+                            <option value="oil">Масло/Жидкости</option>
+                            <option value="cooling">Охлаждение</option>
+                            <option value="exhaust">Выхлопная система</option>
+                            <option value="other">Прочее</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label><ion-icon name="document-text-outline" class="form-icon"></ion-icon> Описание</label>
+                    <input type="text" id="repair-modal-description" placeholder="Что менялось?">
+                </div>
+                
+                <div class="form-section">
+                    <h4><ion-icon name="cube-outline"></ion-icon> Запчасти и материалы</h4>
+                    <div id="repair-modal-parts-list"></div>
+                    <button type="button" class="btn btn-secondary btn-small" onclick="addRepairModalPart()">
+                        <ion-icon name="add-circle-outline"></ion-icon> Добавить деталь
+                    </button>
+                </div>
+                
+                <div class="form-section">
+                    <h4><ion-icon name="construct-outline"></ion-icon> Работы</h4>
+                    <div id="repair-modal-works-list"></div>
+                    <button type="button" class="btn btn-secondary btn-small" onclick="addRepairModalWork()">
+                        <ion-icon name="add-circle-outline"></ion-icon> Добавить работу
+                    </button>
+                </div>
+                
+                <div class="form-group">
+                    <label><ion-icon name="chatbox-ellipses-outline" class="form-icon"></ion-icon> Комментарий</label>
+                    <textarea id="repair-modal-comment" rows="2" placeholder="Дополнительная информация"></textarea>
+                </div>
+                
+                <div class="repair-modal-totals">
+                    <div class="repair-modal-total-row">
+                        <span>Запчасти:</span>
+                        <strong id="repair-modal-parts-total">0 ₽</strong>
+                    </div>
+                    <div class="repair-modal-total-row">
+                        <span>Работы:</span>
+                        <strong id="repair-modal-works-total">0 ₽</strong>
+                    </div>
+                    <div class="repair-modal-total-row repair-modal-total-final">
+                        <span>Итого:</span>
+                        <strong id="repair-modal-total-cost">0 ₽</strong>
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="fuel-modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeRepairModal()">
+                <ion-icon name="close-outline"></ion-icon> Отмена
+            </button>
+            <button type="button" class="btn btn-success" onclick="submitRepairModal()">
+                <ion-icon name="save-outline"></ion-icon>
+                <span id="repair-modal-submit-text">Сохранить ремонт</span>
             </button>
         </div>
     </div>

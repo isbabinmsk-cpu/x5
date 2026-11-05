@@ -398,21 +398,28 @@ if (entryBtn.querySelector('ion-icon[name="flame-outline"]') || text.includes('�
     return;
 }
         
-        // Клик по "Ремонт"
-        if (entryBtn.querySelector('ion-icon[name="construct-outline"]') || text.includes('Ремонт')) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-            const fabMenu = document.getElementById('fab-menu');
-            const fab = document.getElementById('fab-add');
-            if (fabMenu) fabMenu.classList.remove('open');
-            if (fab) fab.classList.remove('fab-open');
-            if (typeof window.switchTab === 'function') window.switchTab('repair');
-            setTimeout(() => {
-                const form = document.getElementById('repair-form');
-                if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }, 350);
-        }
+// Клик по "Ремонт" — ОТКРЫВАЕМ МОДАЛКУ (ИСПРАВЛЕНО)
+if (entryBtn.querySelector('ion-icon[name="construct-outline"]') || text.includes('Ремонт')) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    console.log('🔵 Перехвачен клик по "Ремонт" в FAB-меню — открываем модалку');
+    
+    // Закрываем меню
+    const fabMenu = document.getElementById('fab-menu');
+    const fab = document.getElementById('fab-add');
+    if (fabMenu) fabMenu.classList.remove('open');
+    if (fab) fab.classList.remove('fab-open');
+    
+    // Открываем МОДАЛКУ, а не вкладку!
+    if (typeof window.openRepairModal === 'function') {
+        window.openRepairModal();
+    } else {
+        console.warn('⚠️ openRepairModal не найден, открываем вкладку (фолбэк)');
+        if (typeof window.switchTab === 'function') window.switchTab('repair');
+    }
+    return;
+}
     }, true); // ← capture:true — перехватываем ДО того, как сработает onclick
 
     console.log('✅ entry-module v1.0.3 загружен (перехват кликов через capture)');

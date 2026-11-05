@@ -1,13 +1,14 @@
 // =============================================
-// МОДУЛЬ УЧЕТА РЕМОНТА АВТО (v4.1 — Исправлено хранение всех авто для бэкапа)
+// МОДУЛЬ УЧЕТА РЕМОНТА АВТО (v5.0 — С поддержкой модального окна)
 // Фото хранятся прямо в Firestore как base64 (без Firebase Storage)
 // =============================================
 
-// ===== 1. КОНСТАНТЫ =====
+// ===== 1. КОНСТАНТЫ И СОСТОЯНИЕ =====
 const COLLECTION_REPAIR = 'repair_records';
 const REPAIR_STORAGE_KEY = 'repair_records';
 let repairRecords = [];
-let editingRepairId = null;
+let editingRepairId = null; // Для старой формы на вкладке
+let editingRepairModalId = null; // Для модального окна
 let repairChart = null;
 let repairTrendChart = null;
 let repairPhotos = { receipt: null, document: null };
@@ -70,7 +71,7 @@ function parseLocalDate(dateStr) {
 // ===== 4. КАТЕГОРИИ =====
 function getCategoryLabel(category) {
     const labels = {
-        'engine': 'Двигатель', 'transmission': 'Трансмиссия',
+        'engine': 'Двигатель', 'transmission': 'Transмиссия',
         'brakes': 'Тормозная система', 'suspension': 'Подвеска',
         'electrics': 'Электрика', 'body': 'Кузов',
         'tires': 'Шины/Диски', 'oil': 'Масло/Жидкости',
@@ -102,7 +103,305 @@ function getCategoryColor(category) {
     return colors[category] || '#636366';
 }
 
-// ===== 5. ДИНАМИЧЕСКИЕ СПИСКИ =====
+// ============================================
+// 5. УПРАВЛЕНИЕ МОДАЛЬНЫМ ОКНОМ РЕМОНТА
+// ============================================
+function openRepairModal(editId) {
+    const overlay = document.getElementById('repair-modal-overlay');
+    if (!overlay) {
+        console.error('❌ Модалка ремонта не найдена в HTML (#repair-modal-overlay)');
+        return;
+ا}
+    
+    editingRepairModalId = editId || null;
+    
+    if (editId) {
+        fillRepairModalFromRecord(editId);
+        const titleText = document.getElementById('repair-modal-title-text');
+        if (titleText) titleText.textContent = 'Редактировать ремонт';
+        const submitText = document.getElementById('repair-modal-submit-text');
+        if (submitText) submitText.textContent = 'Обновить ремонт';
+    } else {
+        resetRepairModalForm();
+        const titleText = document.getElementById('repair-modal-title-text');
+        if (titleText) titleText.textContent = 'Добавить ремонт';
+        const submitText = document.getElementById('repair-modal-submit-text');
+        if (submitText) submitText.textContent = 'Сохранить ремонт';
+    }
+    
+    populateRepairModalVehicleSelect();
+    
+    overlay.style.display = 'flex';
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+    document.body.style.overflow = 'hidden';
+    
+    setTimeout(() => {
+        const dateInput = document.getElementById('repair-modal-date');
+        if (dateInput && !dateInput.value) {
+            dateInput.valueAsDate = new Date();
+        }
+    }, 100);
+    
+    calculateRepairModalTotal();
+}
+
+function closeRepairModal() {
+    const overlay = document.getElementById('repair-modal-overlay');
+    if (!overlay) return;
+    
+    overlay.classList.remove('visible');
+    setTimeout(() => {
+        overlay.style.display = 'none';
+        resetRepairModalForm();
+    }, 300);
+    document.body.style.overflow = '';
+    editingRepairModalId = null;
+}
+
+function resetRepairModalForm() {
+    const form = document.getElementById('repair-modal-form');
+    if (form) form.reset();
+    
+    const dateEl = document.getElementById('repair-modal-date');
+    if (dateEl) dateEl.valueAsDate = new Date();
+    
+    const partsList = document.getElementById('repair-modal-parts-list');
+    if (partsList) partsList.innerHTML = '';
+    
+    const worksList = document.getElementById('repair-modal-works-list');
+    if (worksList) worksList.innerHTML = '';
+    
+    addRepairModalPart();
+    addRepairModalWork();
+    calculateRepairModalTotal();
+    editingRepairModalId = null;
+}
+
+function fillRepairModalFromRecord(id) {
+    const record = repairRecords.find(r => r.id === id);
+    if (!record) return;
+    
+    const set = (elId, val) => {
+        const el = document.getElementById(elId);
+        if (el) el.value = val != null ? val : '';
+    };
+    
+    set('repair-modal-date', record.date);
+    set('repair-modal-mileage', record.mileage);
+    set('repair-modal-category', record.category);
+    set('repair-modal-description', record.description || '');
+    set('repair-modal-comment', record.comment || '');
+    
+    const vehicleSelect = document.getElementById('repair-modal-vehicle-select');
+    if (vehicleSelect) vehicleSelect.value = record.vehicleId || 'default';
+    
+    const partsList = document.getElementById('repair-modal-parts-list');
+    if (partsList) {
+        partsList.innerHTML = '';
+        (record.parts || []).forEach(p => {
+            const item = document.createElement('div');
+            item.className = 'dynamic-item';
+            item.innerHTML = `<input type="text" class="repair-modal-part-name" placeholder="Название" value="${safeEscapeHtml(p.name)}">
+                <input type="number" class="repair-modal-part-cost" placeholder="Стоимость" step="0.01" min="0" value="${p.cost || 0}">
+                <button type="button" class="btn-remove" onclick="this.parentElement.remove(); calculateRepairModalTotal();">
+                    <ion-icon name="trash-outline"></ion-icon>
+                </button>`;
+            partsList.appendChild(item);
+        });
+    }
+    
+    const worksList = document.getElementById('repair-modal-works-list');
+    if (worksList) {
+        worksList.innerHTML = '';
+        (record.works || []).forEach(w => {
+            const item = document.createElement('div');
+            item.className = 'dynamic-item';
+            item.innerHTML = `<input type="text" class="repair-modal-work-name" placeholder="Название" value="${safeEscapeHtml(w.name)}">
+                <input type="number" class="repair-modal-work-cost" placeholder="Стоимость" step="0.01" min="0" value="${w.cost || 0}">
+                <button type="button" class="btn-remove" onclick="this.parentElement.remove(); calculateRepairModalTotal();">
+                    <ion-icon name="trash-outline"></ion-icon>
+                </button>`;
+            worksList.appendChild(item);
+        });
+    }
+}
+
+function populateRepairModalVehicleSelect() {
+    const select = document.getElementById('repair-modal-vehicle-select');
+    if (!select) return;
+    
+    select.innerHTML = '';
+    if (typeof vehicles !== 'undefined' && Array.isArray(vehicles)) {
+        vehicles.forEach(v => {
+            const option = document.createElement('option');
+            option.value = v.id;
+            option.textContent = v.name || `${v.brand} ${v.model}`;
+            select.appendChild(option);
+        });
+    } else {
+        const option = document.createElement('option');
+        option.value = 'default';
+        option.textContent = 'Автомобиль по умолчанию';
+        select.appendChild(option);
+    }
+    
+    const currentVId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
+    select.value = currentVId;
+}
+
+function addRepairModalPart() {
+    const container = document.getElementById('repair-modal-parts-list');
+    if (!container) return;
+    const item = document.createElement('div');
+    item.className = 'dynamic-item';
+    item.innerHTML = `<input type="text" class="repair-modal-part-name" placeholder="Название детали">
+        <input type="number" class="repair-modal-part-cost" placeholder="Стоимость" step="0.01" min="0">
+        <button type="button" class="btn-remove" onclick="this.parentElement.remove(); calculateRepairModalTotal();">
+            <ion-icon name="trash-outline"></ion-icon>
+        </button>`;
+    container.appendChild(item);
+    calculateRepairModalTotal();
+}
+
+function addRepairModalWork() {
+    const container = document.getElementById('repair-modal-works-list');
+    if (!container) return;
+    const item = document.createElement('div');
+    item.className = 'dynamic-item';
+    item.innerHTML = `<input type="text" class="repair-modal-work-name" placeholder="Название работы">
+        <input type="number" class="repair-modal-work-cost" placeholder="Стоимость" step="0.01" min="0">
+        <button type="button" class="btn-remove" onclick="this.parentElement.remove(); calculateRepairModalTotal();">
+            <ion-icon name="trash-outline"></ion-icon>
+        </button>`;
+    container.appendChild(item);
+    calculateRepairModalTotal();
+}
+
+function calculateRepairModalTotal() {
+    let partsTotal = 0, worksTotal = 0;
+    document.querySelectorAll('.repair-modal-part-cost').forEach(el => {
+        partsTotal += parseFloat(el.value) || 0;
+    });
+    document.querySelectorAll('.repair-modal-work-cost').forEach(el => {
+        worksTotal += parseFloat(el.value) || 0;
+    });
+    const total = partsTotal + worksTotal;
+    
+    const fmt = safeFormatMoney;
+    const el1 = document.getElementById('repair-modal-parts-total');
+    const el2 = document.getElementById('repair-modal-works-total');
+    const el3 = document.getElementById('repair-modal-total-cost');
+    if (el1) el1.textContent = fmt(partsTotal);
+    if (el2) el2.textContent = fmt(worksTotal);
+    if (el3) el3.textContent = fmt(total);
+}
+
+async function submitRepairModal() {
+    const date = document.getElementById('repair-modal-date')?.value;
+    const mileage = parseInt(document.getElementById('repair-modal-mileage')?.value);
+    const category = document.getElementById('repair-modal-category')?.value;
+    const description = document.getElementById('repair-modal-description')?.value.trim();
+    const comment = document.getElementById('repair-modal-comment')?.value.trim();
+    const vehicleSelect = document.getElementById('repair-modal-vehicle-select');
+    const vehicleId = vehicleSelect ? vehicleSelect.value : 'default';
+    
+    if (!date || !mileage || mileage <= 0 || !category) {
+        safeShowToast('Внимание', 'Заполните дату, пробег и категорию!', 'warning');
+        return;
+    }
+    
+    const parts = [];
+    document.querySelectorAll('#repair-modal-parts-list .dynamic-item').forEach(item => {
+        const name = item.querySelector('.repair-modal-part-name')?.value?.trim();
+        const cost = parseFloat(item.querySelector('.repair-modal-part-cost')?.value) || 0;
+        if (name) parts.push({ name, cost });
+    });
+    
+    const works = [];
+    document.querySelectorAll('#repair-modal-works-list .dynamic-item').forEach(item => {
+        const name = item.querySelector('.repair-modal-work-name')?.value?.trim();
+        const cost = parseFloat(item.querySelector('.repair-modal-work-cost')?.value) || 0;
+        if (name) works.push({ name, cost });
+    });
+    
+    const partsTotal = parts.reduce((sum, p) => sum + p.cost, 0);
+    const worksTotal = works.reduce((sum, w) => sum + w.cost, 0);
+    const total = partsTotal + worksTotal;
+    
+    safeShowLoading('Сохранение...');
+    
+    try {
+        const repairData = {
+            date, mileage, category,
+            description: description || getCategoryLabel(category),
+            comment: comment || '',
+            parts, works, partsTotal, worksTotal, total,
+            vehicleId,
+            updatedAt: new Date().toISOString()
+        };
+
+        if (editingRepairModalId) {
+            const index = repairRecords.findIndex(r => r.id === editingRepairModalId);
+            if (index !== -1) {
+                repairRecords[index] = { ...repairRecords[index], ...repairData };
+                await syncRepairToFirebase(repairRecords[index]);
+            }
+        } else {
+            const newRecord = {
+                id: generateRecordId(),
+                userId: typeof auth !== 'undefined' && auth.currentUser ? auth.currentUser.uid : null,
+                ...repairData,
+                createdAt: new Date().toISOString()
+            };
+            repairRecords.push(newRecord);
+            await syncRepairToFirebase(newRecord);
+        }
+        
+        saveRepairLocal();
+        renderRepairList();
+        updateRepairStats();
+        updateRepairCharts();
+        syncRepairToMainRecords();
+        
+        safeHideLoading();
+        safeShowToast('Успех', editingRepairModalId ? 'Ремонт обновлён!' : 'Ремонт добавлен!', 'success');
+        closeRepairModal();
+        
+    } catch (error) {
+        console.error('❌ Ошибка сохранения:', error);
+        safeHideLoading();
+        safeShowToast('Ошибка', 'Не удалось сохранить ремонт', 'danger');
+    }
+}
+
+// Перенаправляем старую функцию редактирования на модалку
+const _origEditRepairRecord = window.editRepairRecord;
+window.editRepairRecord = function(id) {
+    openRepairModal(id);
+};
+
+// Делегирование для авторасчёта в модалке
+document.addEventListener('input', function(e) {
+    if (e.target.classList.contains('repair-modal-part-cost') || 
+        e.target.classList.contains('repair-modal-work-cost')) {
+        calculateRepairModalTotal();
+    }
+});
+
+// Закрытие по клику на оверлей и Escape
+document.addEventListener('click', function(e) {
+    const overlay = document.getElementById('repair-modal-overlay');
+    if (overlay && e.target === overlay) closeRepairModal();
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const overlay = document.getElementById('repair-modal-overlay');
+        if (overlay && overlay.classList.contains('visible')) closeRepairModal();
+    }
+});
+
+// ===== 6. ДИНАМИЧЕСКИЕ СПИСКИ (для старой формы на вкладке) =====
 function addRepairPart() {
     const container = document.getElementById('repair-parts-list');
     if (!container) return;
@@ -172,7 +471,7 @@ function calculateRepairTotal() {
     if (el3) el3.textContent = safeFormatMoney(total);
 }
 
-// ===== ФУНКЦИИ ДЛЯ РАБОТЫ С ФОТО =====
+// ===== 7. ФУНКЦИИ ДЛЯ РАБОТЫ С ФОТО =====
 function handlePhotoSelect(event, photoType) {
     const file = event.target.files[0];
     if (!file) return;
@@ -391,7 +690,7 @@ async function deletePhotoFromStorage(photoUrl) {
     console.log('ℹ️ Удаление не требуется (base64 в Firestore)');
 }
 
-// ===== 6. ЗАГРУЗКА ДАННЫХ И REAL-TIME СЛУШАТЕЛЬ =====
+// ===== 8. ЗАГРУЗКА ДАННЫХ И REAL-TIME СЛУШАТЕЛЬ =====
 let repairUnsubscribe = null;
 
 async function loadRepairRecords() {
@@ -411,9 +710,7 @@ async function loadRepairRecords() {
                 .collection(COLLECTION_REPAIR)
                 .orderBy('date', 'desc')
                 .onSnapshot((snapshot) => {
-                    // ✅ ИСПРАВЛЕНО: Загружаем ВСЕ ремонты всех авто для корректного бэкапа
                     let fbData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    
                     fbData.sort((a, b) => {
                         const dateA = parseLocalDate(a.date) || 0;
                         const dateB = parseLocalDate(b.date) || 0;
@@ -423,7 +720,6 @@ async function loadRepairRecords() {
                     repairRecords = fbData;
                     saveRepairLocal();
                     
-                    // ✅ Функции отображения сами отфильтруют данные по текущему авто
                     renderRepairList();
                     updateRepairStats();
                     updateRepairCharts();
@@ -449,7 +745,7 @@ async function loadRepairRecords() {
     }
 }
 
-// ===== 7. СОХРАНЕНИЕ =====
+// ===== 9. СОХРАНЕНИЕ =====
 function saveRepairLocal() {
     try {
         localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
@@ -489,7 +785,7 @@ async function deleteRepairFromFirebase(id) {
     }
 }
 
-// ===== 8. ОБРАБОТЧИК ФОРМЫ =====
+// ===== 10. ОБРАБОТЧИК ФОРМЫ (для старой формы на вкладке) =====
 async function handleRepairSubmit(e) {
     e.preventDefault();
     safeShowLoading('Сохранение ремонта...');
@@ -591,8 +887,8 @@ async function handleRepairSubmit(e) {
     }
 }
 
-// ===== 9. РЕДАКТИРОВАНИЕ =====
-function editRepairRecord(id) {
+// ===== 11. РЕДАКТИРОВАНИЕ (для старой формы на вкладке) =====
+function editRepairRecordTab(id) {
     const record = repairRecords.find(r => r.id === id);
     if (!record) return;
     editingRepairId = id;
@@ -657,7 +953,7 @@ function editRepairRecord(id) {
     safeShowToast('✏️', 'Редактирование ремонта', 'info', 2000);
 }
 
-// ===== 10. УДАЛЕНИЕ =====
+// ===== 12. УДАЛЕНИЕ =====
 async function deleteRepairRecord(id) {
     if (!await safeShowConfirm('Удаление ремонта', 'Вы уверены, что хотите удалить эту запись?', 'Удалить', 'Отмена', 'danger')) return;
     safeShowLoading('Удаление...');
@@ -678,7 +974,7 @@ async function deleteRepairRecord(id) {
     }
 }
 
-// ===== 11. ОЧИСТКА ФОРМЫ =====
+// ===== 13. ОЧИСТКА ФОРМЫ =====
 function clearRepairForm() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('repair-date').value = today;
@@ -717,13 +1013,12 @@ function clearRepairForm() {
     }
 }
 
-// ===== 12. ФИЛЬТРАЦИЯ =====
+// ===== 14. ФИЛЬТРАЦИЯ =====
 function getFilteredRepairs() {
     const period = document.getElementById('repair-filter-period')?.value || 'all';
     const category = document.getElementById('repair-filter-category')?.value || 'all';
     const search = document.getElementById('repair-filter-search')?.value.toLowerCase() || '';
     
-    // ✅ ИСПРАВЛЕНО: Получаем текущее авто и фильтруем список для отображения
     const currentVId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
     let filtered = [...repairRecords].filter(r => (r.vehicleId || 'default') === currentVId);
 
@@ -752,7 +1047,7 @@ function getFilteredRepairs() {
     return filtered.sort((a, b) => (parseLocalDate(b.date) || 0) - (parseLocalDate(a.date) || 0));
 }
 
-// ===== 13. РЕНДЕР СПИСКА =====
+// ===== 15. РЕНДЕР СПИСКА =====
 function renderRepairList() {
     const container = document.getElementById('repair-list');
     if (!container) return;
@@ -816,7 +1111,7 @@ function renderRepairList() {
                         </div>
                     </div>
                     <div style="display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end;">
-                        <button class="btn btn-secondary btn-small" onclick="editRepairRecord('${record.id}')"><ion-icon name="create-outline"></ion-icon> Редактировать</button>
+                        <button class="btn btn-secondary btn-small" onclick="openRepairModal('${record.id}')"><ion-icon name="create-outline"></ion-icon> Редактировать</button>
                         <button class="btn btn-danger btn-small" onclick="deleteRepairRecord('${record.id}')"><ion-icon name="trash-outline"></ion-icon> Удалить</button>
                     </div>
                 </div>`;
@@ -824,9 +1119,8 @@ function renderRepairList() {
     `;
 }
 
-// ===== 14. СТАТИСТИКА =====
+// ===== 16. СТАТИСТИКА =====
 function updateRepairStats() {
-    // ✅ ИСПРАВЛЕНО: Считаем статистику только для текущего авто
     const currentVId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
     const recordsForCurrent = repairRecords.filter(r => (r.vehicleId || 'default') === currentVId);
 
@@ -858,7 +1152,7 @@ function updateRepairStats() {
     setEl('repair-cost-per-km', costPerKm > 0 ? costPerKm.toFixed(2) + ' ₽/км' : '—');
 }
 
-// ===== 15. ГРАФИКИ =====
+// ===== 17. ГРАФИКИ =====
 function updateRepairCharts() {
     updateRepairCategoryChart();
     updateRepairTrendChart();
@@ -870,7 +1164,6 @@ function updateRepairCategoryChart() {
     const ctx = canvas.getContext('2d');
     if (repairChart) { repairChart.destroy(); repairChart = null; }
 
-    // ✅ ИСПРАВЛЕНО: Строим график только для текущего авто
     const currentVId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
     const recordsForCurrent = repairRecords.filter(r => (r.vehicleId || 'default') === currentVId);
 
@@ -922,7 +1215,6 @@ function updateRepairTrendChart() {
     const ctx = canvas.getContext('2d');
     if (repairTrendChart) { repairTrendChart.destroy(); repairTrendChart = null; }
 
-    // ✅ ИСПРАВЛЕНО: Строим график только для текущего авто
     const currentVId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
     const recordsForCurrent = repairRecords.filter(r => (r.vehicleId || 'default') === currentVId);
     const sorted = [...recordsForCurrent].sort((a, b) => (parseLocalDate(a.date) || 0) - (parseLocalDate(b.date) || 0));
@@ -955,7 +1247,7 @@ function updateRepairTrendChart() {
     });
 }
 
-// ===== 16. СИНХРОНИЗАЦИЯ С ОСНОВНОЙ ТАБЛИЦЕЙ =====
+// ===== 18. СИНХРОНИЗАЦИЯ С ОСНОВНОЙ ТАБЛИЦЕЙ =====
 async function syncRepairToMainRecords() {
     console.log('🔄 Синхронизация ремонтов с основной таблицей...');
     if (typeof records === 'undefined') return 0;
@@ -1009,8 +1301,8 @@ async function syncRepairToMainRecords() {
                 record.repairCost = newRepairCost;
                 record.repairDetails = repairData.details;
                 record.repairLogCount = repairData.count;
-                record.totalExpenses = calcExpenses(record);
-                record.netProfit = calcIncome(record) - record.totalExpenses;
+                record.totalExpenses = typeof calcExpenses === 'function' ? calcExpenses(record) : 0;
+                record.netProfit = (typeof calcIncome === 'function' ? calcIncome(record) : 0) - record.totalExpenses;
                 updatedCount++;
                 changedDates.push(record.date);
             }
@@ -1019,8 +1311,8 @@ async function syncRepairToMainRecords() {
                 record.repairCost = 0;
                 record.repairDetails = [];
                 record.repairLogCount = 0;
-                record.totalExpenses = calcExpenses(record);
-                record.netProfit = calcIncome(record) - record.totalExpenses;
+                record.totalExpenses = typeof calcExpenses === 'function' ? calcExpenses(record) : 0;
+                record.netProfit = (typeof calcIncome === 'function' ? calcIncome(record) : 0) - record.totalExpenses;
                 updatedCount++;
                 changedDates.push(record.date);
             }
@@ -1041,7 +1333,7 @@ async function syncRepairToMainRecords() {
     return updatedCount;
 }
 
-// ===== 17. ЭКСПОРТ =====
+// ===== 19. ЭКСПОРТ =====
 function exportRepairData() {
     if (repairRecords.length === 0) {
         safeShowToast('Внимание', 'Нет данных о ремонте для экспорта', 'warning');
@@ -1058,14 +1350,9 @@ function exportRepairData() {
     safeShowToast('Успех', 'Данные о ремонте экспортированы!', 'success');
 }
 
-// ===== 18. ОТКРЫТИЕ ВКЛАДКИ =====
-function openRepairTab() {
-    if (typeof switchTab === 'function') switchTab('repair');
-    setTimeout(() => { renderRepairList(); updateRepairStats(); updateRepairCharts(); }, 100);
-}
-
-// ===== 19. ИНИЦИАЛИЗАЦИЯ =====
+// ===== 20. ИНИЦИАЛИЗАЦИЯ =====
 document.addEventListener('DOMContentLoaded', function() {
+    // Привязка для старой формы на вкладке (если она ещё используется)
     const repairForm = document.getElementById('repair-form');
     if (repairForm) repairForm.addEventListener('submit', handleRepairSubmit);
 
@@ -1090,23 +1377,14 @@ document.addEventListener('DOMContentLoaded', function() {
     addRepairWork();
     calculateRepairTotal();
     loadRepairRecords();
-    console.log('✅ Модуль ремонта инициализирован (v4.1 — исправлено хранение всех авто)');
+    console.log('✅ Модуль ремонта инициализирован (v5.0 — с поддержкой модального окна)');
 });
-
-// ===== 20. ИНТЕГРАЦИЯ С ПЕРЕКЛЮЧЕНИЕМ ВКЛАДОК =====
-const _origSwitchTabRepair = window.switchTab || function() {};
-window.switchTab = function(tabName) {
-    if (typeof _origSwitchTabRepair === 'function') _origSwitchTabRepair(tabName);
-    if (tabName === 'repair') {
-        setTimeout(() => { renderRepairList(); updateRepairStats(); updateRepairCharts(); setupDynamicListDelegation(); }, 100);
-    }
-};
 
 // ===== 21. ЭКСПОРТ В ГЛОБАЛЬНУЮ ОБЛАСТЬ =====
 window.repairRecords = repairRecords;
 window.loadRepairRecords = loadRepairRecords;
 window.handleRepairSubmit = handleRepairSubmit;
-window.editRepairRecord = editRepairRecord;
+window.editRepairRecordTab = editRepairRecordTab; // Старая функция для вкладки
 window.deleteRepairRecord = deleteRepairRecord;
 window.clearRepairForm = clearRepairForm;
 window.renderRepairList = renderRepairList;
@@ -1114,7 +1392,6 @@ window.updateRepairStats = updateRepairStats;
 window.updateRepairCharts = updateRepairCharts;
 window.syncRepairToMainRecords = syncRepairToMainRecords;
 window.exportRepairData = exportRepairData;
-window.openRepairTab = openRepairTab;
 window.getCategoryLabel = getCategoryLabel;
 window.getCategoryIcon = getCategoryIcon;
 window.getCategoryColor = getCategoryColor;
@@ -1128,7 +1405,15 @@ window.rotatePhoto = rotatePhoto;
 window.compressImageForUpload = compressImageForUpload;
 window.calculatePhotoBudget = calculatePhotoBudget;
 
-console.log('✅ Модуль ремонта полностью загружен (v4.1)');
+// Экспорт функций модалки
+window.openRepairModal = openRepairModal;
+window.closeRepairModal = closeRepairModal;
+window.submitRepairModal = submitRepairModal;
+window.addRepairModalPart = addRepairModalPart;
+window.addRepairModalWork = addRepairModalWork;
+window.calculateRepairModalTotal = calculateRepairModalTotal;
+
+console.log('✅ Модуль ремонта полностью загружен (v5.0)');
 
 // ============================================
 // ПРОСМОТРЩИК ФОТО РЕМОНТОВ (iOS-СТИЛЬ)

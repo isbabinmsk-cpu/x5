@@ -5657,11 +5657,17 @@ function selectFabAction(action) {
         return;
     }
     
-    // 3. Ремонт
-    if (action === 'repair') {
+// 3. Ремонт — ОТКРЫВАЕМ МОДАЛКУ (как у Записи и Топлива)
+if (action === 'repair') {
+    if (typeof window.openRepairModal === 'function') {
+        window.openRepairModal();
+    } else {
+        // Фолбэк, только если модуль ремонта вдруг не загрузился
         switchTab('repair');
         setTimeout(() => scrollToFirstField('tab-repair', ['repair-form', 'add-repair-form']), 350);
     }
+    return;
+}
 }
 
 // Универсальный скролл к форме и фокус на первом поле
