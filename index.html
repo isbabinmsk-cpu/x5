@@ -99,30 +99,30 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.9.7" defer></script>
+    <script src="script.js?v=2.9.71" defer></script>
     
    
     
     <!-- 1. МОДУЛЬ АВТОМОБИЛЕЙ (ОБЯЗАТЕЛЬНО ПЕРВЫМ) -->
-<script src="vehicle-module.js?v=1.0.4"></script>
+<script src="vehicle-module.js?v=1.0.5"></script>
     
     <!-- Модуль ремонта -->
-<script type="module" src="repair-module.js?v=1.1.1"></script>
+<script type="module" src="repair-module.js?v=1.1.2"></script>
 
     <!-- Модуль топлива -->
-    <script type="module" src="fuel-module.js?v=1.0.5"></script>
+    <script type="module" src="fuel-module.js?v=1.0.6"></script>
     
      <!-- Модуль ввода данных за день (модальное окно) -->
 
-<script src="entry-module.js?v=1.0.3" ></script>
+<script src="entry-module.js?v=1.0.4" ></script>
     
     <!-- Модуль календаря смен -->
-<script src="shift-module.js?v=1.0.5"></script>
+<script src="shift-module.js?v=1.0.6"></script>
     
    <!-- Модуль напоминаний ТО -->
-    <script src="reminders.js?v=1.0.1"></script>
+    <script src="reminders.js?v=1.0.2"></script>
     <!-- Модуль Backup -->
-    <script src="backup-module.js?v=1.0.2"></script>
+    <script src="backup-module.js?v=1.0.3"></script>
 
 
 </head>
@@ -537,10 +537,7 @@
             Быстрые действия
         </h3>
         <div class="action-buttons" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px;">
-   <button class="btn btn-primary glossy ripple magnetic" onclick="openEntryTab()" style="width: 100%;">
-    <ion-icon name="add-circle-outline"></ion-icon>
-    Заполнить день
-</button>
+   
     <button class="btn btn-success glossy ripple magnetic" onclick="switchTab('analytics')" style="width: 100%;">
         <ion-icon name="stats-chart-outline"></ion-icon>
         Аналитика
@@ -977,7 +974,7 @@
             <ion-icon name="fuel-outline"></ion-icon>
             <h3>Добавить заправку</h3>
             <button class="fuel-modal-close" onclick="closeFuelModal()" aria-label="Закрыть">
-                <ion-icon name="close-circle-outline"></ion-icon>
+                <ion-icon name="close-outline"></ion-icon>
             </button>
         </div>
         <div class="fuel-modal-body">
@@ -1019,12 +1016,14 @@
             </form>
         </div>
         <div class="fuel-modal-footer">
-            <button class="btn btn-secondary" onclick="closeFuelModal()">Отмена</button>
-            <button class="btn btn-success" type="submit" form="fuel-form">
-                <ion-icon name="checkmark-circle-outline"></ion-icon>
-                <span id="fuel-submit-text">Сохранить заправку</span>
-            </button>
-        </div>
+    <button type="button" class="btn btn-clear" onclick="clearFuelForm()">
+        <ion-icon name="trash-outline"></ion-icon> Очистить
+    </button>
+    <button type="button" class="btn btn-save" onclick="handleFuelSubmit()">
+        <ion-icon name="save-outline"></ion-icon>
+        <span id="fuel-submit-text">Сохранить</span>
+    </button>
+</div>
     </div>
 </div>
 
@@ -1231,14 +1230,14 @@
             </form>
         </div>
         <div class="fuel-modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeRepairModal()">
-                <ion-icon name="close-outline"></ion-icon> Отмена
-            </button>
-            <button type="button" class="btn btn-success" onclick="submitRepairModal()">
-                <ion-icon name="save-outline"></ion-icon>
-                <span id="repair-modal-submit-text">Сохранить ремонт</span>
-            </button>
-        </div>
+    <button type="button" class="btn btn-clear" onclick="clearRepairModalForm()">
+        <ion-icon name="trash-outline"></ion-icon> Очистить
+    </button>
+    <button type="button" class="btn btn-save" onclick="submitRepairModal()">
+        <ion-icon name="save-outline"></ion-icon>
+        <span id="repair-modal-submit-text">Сохранить</span>
+    </button>
+</div>
     </div>
 </div>
 

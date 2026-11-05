@@ -1657,3 +1657,34 @@ console.log('✅ Tooltip для ремонта инициализирован');
     if (rep) new MutationObserver(() => setup()).observe(rep, { childList: true, subtree: true });
     setup();
 })();
+
+function clearRepairModalForm() {
+    const form = document.getElementById('repair-modal-form');
+    if (form) form.reset();
+    
+    const dateEl = document.getElementById('repair-modal-date');
+    if (dateEl) dateEl.valueAsDate = new Date();
+    
+    const partsList = document.getElementById('repair-modal-parts-list');
+    if (partsList) partsList.innerHTML = '';
+    
+    const worksList = document.getElementById('repair-modal-works-list');
+    if (worksList) worksList.innerHTML = '';
+    
+    // Добавляем по одной пустой строке
+    if (typeof addRepairModalPart === 'function') addRepairModalPart();
+    if (typeof addRepairModalWork === 'function') addRepairModalWork();
+    
+    if (typeof calculateRepairModalTotal === 'function') calculateRepairModalTotal();
+    
+    const submitText = document.getElementById('repair-modal-submit-text');
+    if (submitText) submitText.textContent = 'Сохранить';
+    
+    const titleText = document.getElementById('repair-modal-title-text');
+    if (titleText) titleText.textContent = 'Добавить ремонт';
+    
+    editingRepairModalId = null;
+    
+    if (typeof showToast === 'function') showToast('🗑️ Форма очищена');
+}
+window.clearRepairModalForm = clearRepairModalForm;

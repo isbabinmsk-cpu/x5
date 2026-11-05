@@ -8606,3 +8606,410 @@ body.dark-theme .fuel-modal-body .form-group label ion-icon {
     padding-top: 16px;
     border-top: 1px solid var(--ios-border, rgba(255, 255, 255, 0.1));
 }
+
+/* === УНИФИКАЦИЯ КРЕСТИКА ЗАКРЫТИЯ ВО ВСЕХ МОДАЛКАХ === */
+
+/* Базовый стиль для всех кнопок закрытия */
+.entry-modal-close,
+.fuel-modal-close,
+#repair-modal-overlay .fuel-modal-close {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    border-radius: 50% !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.2) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+    font-size: 20px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    padding: 0 !important;
+    flex-shrink: 0 !important;
+}
+
+/* При наведении/тапе */
+.entry-modal-close:hover,
+.fuel-modal-close:hover,
+#repair-modal-overlay .fuel-modal-close:hover,
+.entry-modal-close:active,
+.fuel-modal-close:active,
+#repair-modal-overlay .fuel-modal-close:active {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+    color: rgba(255, 255, 255, 1) !important;
+}
+
+/* Убираем синий цвет у иконки внутри */
+.entry-modal-close ion-icon,
+.fuel-modal-close ion-icon,
+#repair-modal-overlay .fuel-modal-close ion-icon {
+    color: inherit !important;
+    font-size: 20px !important;
+}
+
+/* Сброс любых специфичных стилей для топлива и ремонта */
+.fuel-modal-close[style*="color"],
+#repair-modal-overlay .fuel-modal-close[style*="color"] {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+/* ============================================
+КНОПКА "СОХРАНИТЬ" В МОДАЛКЕ ЗАПИСИ — ЗЕЛЁНАЯ
+============================================ */
+.entry-modal-footer .btn-success {
+    background: linear-gradient(180deg, #34C759 0%, #28A745 100%) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    box-shadow:
+        0 5px 14px rgba(52, 199, 89, 0.40),
+        0 2px 4px rgba(0, 0, 0, 0.10),
+        inset 0 2px 2px rgba(255, 255, 255, 0.30),
+        inset 0 -3px 6px rgba(0, 60, 20, 0.25) !important;
+}
+
+.entry-modal-footer .btn-success ion-icon {
+    color: #FFFFFF !important;
+}
+
+.entry-modal-footer .btn-success:active {
+    transform: scale(0.97) !important;
+    box-shadow:
+        0 2px 6px rgba(52, 199, 89, 0.30),
+        inset 0 3px 8px rgba(0, 0, 0, 0.20) !important;
+}
+
+/* Тёмная тема — чуть приглушённый зелёный */
+body.dark-theme .entry-modal-footer .btn-success {
+    background: linear-gradient(180deg, #30D158 0%, #28A745 100%) !important;
+    box-shadow:
+        0 5px 14px rgba(48, 209, 88, 0.35),
+        0 2px 4px rgba(0, 0, 0, 0.20),
+        inset 0 2px 2px rgba(255, 255, 255, 0.15),
+        inset 0 -3px 6px rgba(0, 40, 15, 0.35) !important;
+}
+
+body.dark-theme .entry-modal-footer .btn-success ion-icon {
+    color: #FFFFFF !important;
+}
+
+/* ============================================
+МОДАЛКА ТОПЛИВА: КНОПКИ ОЧИСТИТЬ / СОХРАНИТЬ
+============================================ */
+
+/* Общий стиль футера */
+.fuel-modal-footer {
+    display: flex;
+    gap: 12px;
+    padding: 16px 20px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    background: rgba(242, 242, 247, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--ios-border, rgba(0,0,0,0.08));
+    flex-shrink: 0;
+}
+
+.fuel-modal-footer .btn {
+    flex: 1;
+    min-height: 50px;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.15s cubic-bezier(0.32,0.72,0,1),
+                background-color 0.15s ease,
+                box-shadow 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.fuel-modal-footer .btn:active {
+    transform: scale(0.97);
+}
+
+.fuel-modal-footer .btn ion-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+/* === КНОПКА ОЧИСТИТЬ — КРАСНАЯ === */
+.fuel-modal-footer .btn-clear {
+    background: linear-gradient(180deg, #FF6B5C 0%, #FF3B30 100%);
+    color: #FFFFFF;
+    box-shadow:
+        0 4px 14px rgba(255, 59, 48, 0.35),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.30),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.fuel-modal-footer .btn-clear:active {
+    background: linear-gradient(180deg, #FF5247 0%, #E6352A 100%);
+    box-shadow:
+        0 2px 8px rgba(255, 59, 48, 0.30),
+        inset 0 2px 6px rgba(0, 0, 0, 0.20);
+}
+
+.fuel-modal-footer .btn-clear ion-icon {
+    color: #FFFFFF;
+}
+
+/* === КНОПКА СОХРАНИТЬ — ЗЕЛЁНАЯ === */
+.fuel-modal-footer .btn-save {
+    background: linear-gradient(180deg, #63D889 0%, #34C759 100%);
+    color: #FFFFFF;
+    box-shadow:
+        0 4px 14px rgba(52, 199, 89, 0.35),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.30),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.fuel-modal-footer .btn-save:active {
+    background: linear-gradient(180deg, #5AC87F 0%, #2DB84E 100%);
+    box-shadow:
+        0 2px 8px rgba(52, 199, 89, 0.30),
+        inset 0 2px 6px rgba(0, 0, 0, 0.20);
+}
+
+.fuel-modal-footer .btn-save ion-icon {
+    color: #FFFFFF;
+}
+
+/* === ТЁМНАЯ ТЕМА === */
+body.dark-theme .fuel-modal-footer {
+    background: rgba(28, 28, 30, 0.92);
+    border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-theme .fuel-modal-footer .btn-clear {
+    background: linear-gradient(180deg, #FF6961 0%, #FF453A 100%);
+    box-shadow:
+        0 4px 14px rgba(255, 69, 58, 0.40),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.15),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.30);
+}
+
+body.dark-theme .fuel-modal-footer .btn-clear:active {
+    background: linear-gradient(180deg, #FF5A52 0%, #E63E33 100%);
+}
+
+body.dark-theme .fuel-modal-footer .btn-save {
+    background: linear-gradient(180deg, #5DD87D 0%, #30D158 100%);
+    box-shadow:
+        0 4px 14px rgba(48, 209, 88, 0.40),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.15),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.30);
+}
+
+body.dark-theme .fuel-modal-footer .btn-save:active {
+    background: linear-gradient(180deg, #52C872 0%, #28B84E 100%);
+}
+
+/* === МОБИЛЬНАЯ АДАПТАЦИЯ === */
+@media (max-width: 480px) {
+    .fuel-modal-footer {
+        padding: 12px 16px;
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
+    .fuel-modal-footer .btn {
+        min-height: 46px;
+        font-size: 15px;
+    }
+    .fuel-modal-footer .btn ion-icon {
+        font-size: 18px;
+    }
+}
+
+/* ============================================
+МОДАЛКА ТОПЛИВА: ЦВЕТНЫЕ КНОПКИ В ФУТЕРЕ
+(перебивают глобальное "плоское" правило кнопок)
+============================================ */
+
+/* === КНОПКА ОЧИСТИТЬ — КРАСНАЯ === */
+.fuel-modal-footer .btn-clear,
+#fuel-modal-overlay .btn-clear {
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    color: #FF3B30 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 59, 48, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+.fuel-modal-footer .btn-clear ion-icon,
+#fuel-modal-overlay .btn-clear ion-icon {
+    color: #FF3B30 !important;
+}
+
+.fuel-modal-footer .btn-clear:active,
+#fuel-modal-overlay .btn-clear:active {
+    background-color: rgba(255, 59, 48, 0.08) !important;
+    transform: scale(0.97) !important;
+}
+
+/* === КНОПКА СОХРАНИТЬ — ЗЕЛЁНАЯ === */
+.fuel-modal-footer .btn-save,
+#fuel-modal-overlay .btn-save,
+.fuel-modal-footer .btn-success,
+#fuel-modal-overlay .btn-success {
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    color: #34C759 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(52, 199, 89, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+.fuel-modal-footer .btn-save ion-icon,
+#fuel-modal-overlay .btn-save ion-icon,
+.fuel-modal-footer .btn-success ion-icon,
+#fuel-modal-overlay .btn-success ion-icon {
+    color: #34C759 !important;
+}
+
+.fuel-modal-footer .btn-save:active,
+#fuel-modal-overlay .btn-save:active,
+.fuel-modal-footer .btn-success:active,
+#fuel-modal-overlay .btn-success:active {
+    background-color: rgba(52, 199, 89, 0.08) !important;
+    transform: scale(0.97) !important;
+}
+
+/* ============================================
+ТЁМНАЯ ТЕМА — модалка топлива
+============================================ */
+body.dark-theme .fuel-modal-footer .btn-clear,
+body.dark-theme #fuel-modal-overlay .btn-clear {
+    color: #FF453A !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 69, 58, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+body.dark-theme .fuel-modal-footer .btn-clear ion-icon,
+body.dark-theme #fuel-modal-overlay .btn-clear ion-icon {
+    color: #FF453A !important;
+}
+body.dark-theme .fuel-modal-footer .btn-clear:active,
+body.dark-theme #fuel-modal-overlay .btn-clear:active {
+    background-color: rgba(255, 69, 58, 0.12) !important;
+}
+
+body.dark-theme .fuel-modal-footer .btn-save,
+body.dark-theme #fuel-modal-overlay .btn-save,
+body.dark-theme .fuel-modal-footer .btn-success,
+body.dark-theme #fuel-modal-overlay .btn-success {
+    color: #30D158 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(48, 209, 88, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+body.dark-theme .fuel-modal-footer .btn-save ion-icon,
+body.dark-theme #fuel-modal-overlay .btn-save ion-icon,
+body.dark-theme .fuel-modal-footer .btn-success ion-icon,
+body.dark-theme #fuel-modal-overlay .btn-success ion-icon {
+    color: #30D158 !important;
+}
+body.dark-theme .fuel-modal-footer .btn-save:active,
+body.dark-theme #fuel-modal-overlay .btn-save:active,
+body.dark-theme .fuel-modal-footer .btn-success:active,
+body.dark-theme #fuel-modal-overlay .btn-success:active {
+    background-color: rgba(48, 209, 88, 0.12) !important;
+}
+
+/* ============================================
+МОДАЛКА РЕМОНТА: КНОПКИ ОЧИСТИТЬ / СОХРАНИТЬ
+(как в модалке топлива и "Ввод данных за день")
+============================================ */
+
+/* === КНОПКА ОЧИСТИТЬ — КРАСНАЯ === */
+#repair-modal-overlay .fuel-modal-footer .btn-clear,
+.fuel-modal-footer .btn-clear {
+    color: #FF3B30 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 59, 48, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+#repair-modal-overlay .fuel-modal-footer .btn-clear ion-icon,
+.fuel-modal-footer .btn-clear ion-icon {
+    color: #FF3B30 !important;
+}
+
+#repair-modal-overlay .fuel-modal-footer .btn-clear:active,
+.fuel-modal-footer .btn-clear:active {
+    background-color: rgba(255, 59, 48, 0.08) !important;
+    transform: scale(0.97) !important;
+}
+
+/* === КНОПКА СОХРАНИТЬ — ЗЕЛЁНАЯ === */
+#repair-modal-overlay .fuel-modal-footer .btn-save,
+#repair-modal-overlay .fuel-modal-footer .btn-success,
+.fuel-modal-footer .btn-save,
+.fuel-modal-footer .btn-success {
+    color: #34C759 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(52, 199, 89, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+#repair-modal-overlay .fuel-modal-footer .btn-save ion-icon,
+#repair-modal-overlay .fuel-modal-footer .btn-success ion-icon,
+.fuel-modal-footer .btn-save ion-icon,
+.fuel-modal-footer .btn-success ion-icon {
+    color: #34C759 !important;
+}
+
+#repair-modal-overlay .fuel-modal-footer .btn-save:active,
+#repair-modal-overlay .fuel-modal-footer .btn-success:active,
+.fuel-modal-footer .btn-save:active,
+.fuel-modal-footer .btn-success:active {
+    background-color: rgba(52, 199, 89, 0.08) !important;
+    transform: scale(0.97) !important;
+}
+
+/* === 🌙 ТЁМНАЯ ТЕМА === */
+body.dark-theme #repair-modal-overlay .fuel-modal-footer .btn-clear,
+body.dark-theme .fuel-modal-footer .btn-clear {
+    color: #FF453A !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 69, 58, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.14) !important;
+}
+body.dark-theme #repair-modal-overlay .fuel-modal-footer .btn-clear ion-icon,
+body.dark-theme .fuel-modal-footer .btn-clear ion-icon {
+    color: #FF453A !important;
+}
+body.dark-theme #repair-modal-overlay .fuel-modal-footer .btn-clear:active,
+body.dark-theme .fuel-modal-footer .btn-clear:active {
+    background-color: rgba(255, 69, 58, 0.12) !important;
+}
+
+body.dark-theme #repair-modal-overlay .fuel-modal-footer .btn-save,
+body.dark-theme #repair-modal-overlay .fuel-modal-footer .btn-success,
+body.dark-theme .fuel-modal-footer .btn-save,
+body.dark-theme .fuel-modal-footer .btn-success {
+    color: #30D158 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(48, 209, 88, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.14) !important;
+}
+body.dark-theme #repair-modal-overlay .fuel-modal-footer .btn-save ion-icon,
+body.dark-theme #repair-modal-overlay .fuel-modal-footer .btn-success ion-icon,
+body.dark-theme .fuel-modal-footer .btn-save ion-icon,
+body.dark-theme .fuel-modal-footer .btn-success ion-icon {
+    color: #30D158 !important;
+}
+body.dark-theme #repair-modal-overlay .fuel-modal-footer .btn-save:active,
+body.dark-theme #repair-modal-overlay .fuel-modal-footer .btn-success:active,
+body.dark-theme .fuel-modal-footer .btn-save:active,
+body.dark-theme .fuel-modal-footer .btn-success:active {
+    background-color: rgba(48, 209, 88, 0.12) !important;
+}
