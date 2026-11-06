@@ -71,7 +71,7 @@ function parseLocalDate(dateStr) {
 // ===== 4. КАТЕГОРИИ =====
 function getCategoryLabel(category) {
     const labels = {
-        'engine': 'Двигатель', 'transmission': 'Transмиссия',
+        'engine': 'Двигатель', 'transmission': 'Трансмиссия',
         'brakes': 'Тормозная система', 'suspension': 'Подвеска',
         'electrics': 'Электрика', 'body': 'Кузов',
         'tires': 'Шины/Диски', 'oil': 'Масло/Жидкости',
@@ -111,7 +111,7 @@ function openRepairModal(editId) {
     if (!overlay) {
         console.error('❌ Модалка ремонта не найдена в HTML (#repair-modal-overlay)');
         return;
-ا}
+    }
     
     editingRepairModalId = editId || null;
     
@@ -126,7 +126,7 @@ function openRepairModal(editId) {
         const titleText = document.getElementById('repair-modal-title-text');
         if (titleText) titleText.textContent = 'Добавить ремонт';
         const submitText = document.getElementById('repair-modal-submit-text');
-        if (submitText) submitText.textContent = 'Сохранить ремонт';
+        if (submitText) submitText.textContent = 'Сохранить';
     }
     
     populateRepairModalVehicleSelect();
@@ -175,6 +175,16 @@ function resetRepairModalForm() {
     addRepairModalWork();
     calculateRepairModalTotal();
     editingRepairModalId = null;
+    
+    // Сброс фото
+    repairModalPhotos = { receipt: null, document: null };
+    repairModalExistingPhotos = { receipt: null, document: null };
+    updateRepairModalPhotoPreview('receipt');
+    updateRepairModalPhotoPreview('document');
+    const receiptInput = document.getElementById('repair-modal-receipt-upload');
+    const documentInput = document.getElementById('repair-modal-document-upload');
+    if (receiptInput) receiptInput.value = '';
+    if (documentInput) documentInput.value = '';
 }
 
 function fillRepairModalFromRecord(id) {
@@ -224,6 +234,21 @@ function fillRepairModalFromRecord(id) {
             worksList.appendChild(item);
         });
     }
+    
+    // Загружаем существующие фото в модалку
+    repairModalPhotos = { receipt: null, document: null };
+    repairModalExistingPhotos = {
+        receipt: record.receiptPhotoUrl || null,
+        document: record.documentPhotoUrl || null
+    };
+    updateRepairModalPhotoPreview('receipt');
+    updateRepairModalPhotoPreview('document');
+    
+    // Сбрасываем input file
+    const receiptInput = document.getElementById('repair-modal-receipt-upload');
+    const documentInput = document.getElementById('repair-modal-document-upload');
+    if (receiptInput) receiptInput.value = '';
+    if (documentInput) documentInput.value = '';
 }
 
 function populateRepairModalVehicleSelect() {
@@ -296,6 +321,169 @@ function calculateRepairModalTotal() {
     if (el3) el3.textContent = fmt(total);
 }
 
+function clearRepairModalForm() {
+    const form = document.getElementById('repair-modal-form');
+    if (form) form.reset();
+    
+    const dateEl = document.getElementById('repair-modal-date');
+    if (dateEl) dateEl.valueAsDate = new Date();
+    
+    const partsList = document.getElementById('repair-modal-parts-list');
+    if (partsList) partsList.innerHTML = '';
+    
+    const worksList = document.getElementById('repair-modal-works-list');
+    if (worksList) worksList.innerHTML = '';
+    
+    // Добавляем по одной пустой строке
+    if (typeof addRepairModalPart === 'function') addRepairModalPart();
+    if (typeof addRepairModalWork === 'function') addRepairModalWork();
+    
+    if (typeof calculateRepairModalTotal === 'function') calculateRepairModalTotal();
+    
+    const submitText = document.getElementById('repair-modal-submit-text');
+    if (submitText) submitText.textContent = 'Сохранить';
+    
+    const titleText = document.getElementById('repair-modal-title-text');
+    if (titleText) titleText.textContent = 'Добавить ремонт';
+    
+    editingRepairModalId = null;
+    
+    // Сброс фото
+    repairModalPhotos = { receipt: null, document: null };
+    repairModalExistingPhotos = { receipt: null, document: null };
+    updateRepairModalPhotoPreview('receipt');
+    updateRepairModalPhotoPreview('document');
+    const receiptInput = document.getElementById('repair-modal-receipt-upload');
+    const documentInput = document.getElementById('repair-modal-document-upload');
+    if (receiptInput) receiptInput.value = '';
+    if (documentInput) documentInput.value = '';
+    
+    if (typeof showToast === 'function') showToast('🗑️ Форма очищена');
+}
+
+// ============================================
+// ФОТО В МОДАЛКЕ РЕМОНТА
+// ============================================
+let repairModalPhotos = { receipt: null, document: null };
+let repairModalExistingPhotos = { receipt: null, document: null };
+
+function handleRepairModalPhotoSelect(event, photoType) {
+    const file = event.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+        safeShowToast('Ошибка', 'Пожалуйста, выберите изображение', 'danger');
+        return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+        safeShowToast('Ошибка', 'Файл слишком большой. Максимум 5MB.', 'danger');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        repairModalPhotos[photoType] = { file: file, preview: e.target.result };
+        updateRepairModalPhotoPreview(photoType);
+    };
+    reader.readAsDataURL(file);
+}
+
+function updateRepairModalPhotoPreview(photoType) {
+    const previewEl = document.getElementById(`repair-modal-${photoType}-preview`);
+    const rotateControls = document.getElementById(`repair-modal-${photoType}-rotate`);
+    if (!previewEl) return;
+    const photoData = repairModalPhotos[photoType];
+    const existingUrl = repairModalExistingPhotos[photoType];
+    let hasPhoto = false;
+
+    if (photoData && photoData.preview) {
+        previewEl.innerHTML = `<img src="${photoData.preview}" alt="Preview"><button type="button" class="remove-photo-btn" onclick="removeRepairModalPhoto('${photoType}')"><ion-icon name="close-outline"></ion-icon></button>`;
+        previewEl.classList.add('has-image');
+        hasPhoto = true;
+    } else if (existingUrl) {
+        previewEl.innerHTML = `<img src="${existingUrl}" alt="Existing"><button type="button" class="remove-photo-btn" onclick="removeRepairModalPhoto('${photoType}')"><ion-icon name="close-outline"></ion-icon></button>`;
+        previewEl.classList.add('has-image');
+        hasPhoto = true;
+    } else {
+        previewEl.innerHTML = `<ion-icon name="image-outline"></ion-icon><span>Нет фото</span>`;
+        previewEl.classList.remove('has-image');
+        hasPhoto = false;
+    }
+    if (rotateControls) {
+        rotateControls.style.display = hasPhoto ? 'flex' : 'none';
+    }
+}
+
+function removeRepairModalPhoto(photoType) {
+    repairModalPhotos[photoType] = null;
+    repairModalExistingPhotos[photoType] = null;
+    updateRepairModalPhotoPreview(photoType);
+    const inputEl = document.getElementById(`repair-modal-${photoType}-upload`);
+    if (inputEl) inputEl.value = '';
+}
+
+async function rotateRepairModalPhoto(photoType, degrees) {
+    const photoData = repairModalPhotos[photoType];
+    const existingUrl = repairModalExistingPhotos[photoType];
+    let sourceDataUrl = null;
+    let isNewPhoto = false;
+
+    if (photoData && photoData.preview) {
+        sourceDataUrl = photoData.preview;
+        isNewPhoto = true;
+    } else if (existingUrl) {
+        sourceDataUrl = existingUrl;
+        isNewPhoto = false;
+    } else {
+        return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (degrees === 90 || degrees === -90) {
+            canvas.width = img.height;
+            canvas.height = img.width;
+        } else {
+            canvas.width = img.width;
+            canvas.height = img.height;
+        }
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate(degrees * Math.PI / 180);
+        ctx.drawImage(img, -img.width / 2, -img.height / 2);
+        const rotatedDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+
+        if (isNewPhoto) {
+            photoData.preview = rotatedDataUrl;
+            fetch(rotatedDataUrl).then(res => res.blob()).then(blob => {
+                photoData.file = new File([blob], `rotated_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                updateRepairModalPhotoPreview(photoType);
+                safeShowToast('Повёрнуто', 'Фото повёрнуто. Не забудьте сохранить.', 'info', 2000);
+            }).catch(err => { console.error('Ошибка конвертации:', err); updateRepairModalPhotoPreview(photoType); });
+        } else {
+            fetch(rotatedDataUrl).then(res => res.blob()).then(blob => {
+                repairModalPhotos[photoType] = { file: new File([blob], `rotated_${Date.now()}.jpg`, { type: 'image/jpeg' }), preview: rotatedDataUrl };
+                updateRepairModalPhotoPreview(photoType);
+                safeShowToast('Повёрнуто', 'Фото повёрнуто. Не забудьте сохранить.', 'info', 2000);
+            }).catch(err => { console.error('Ошибка конвертации:', err); });
+        }
+    };
+    img.onerror = () => { safeShowToast('Ошибка', 'Не удалось повернуть фото', 'danger'); };
+    img.src = sourceDataUrl;
+}
+
+async function uploadRepairModalPhoto(photoType) {
+    const photoData = repairModalPhotos[photoType];
+    if (!photoData || !photoData.file) return repairModalExistingPhotos[photoType] || null;
+    try {
+        const base64DataUrl = await compressImageForUpload(photoData.file);
+        console.log(`✅ Фото ${photoType} в модалке сжато (base64)`);
+        return base64DataUrl;
+    } catch (error) {
+        console.error(`❌ Ошибка сжатия фото ${photoType} в модалке:`, error);
+        return repairModalExistingPhotos[photoType] || null;
+    }
+}
+
 async function submitRepairModal() {
     const date = document.getElementById('repair-modal-date')?.value;
     const mileage = parseInt(document.getElementById('repair-modal-mileage')?.value);
@@ -305,8 +493,26 @@ async function submitRepairModal() {
     const vehicleSelect = document.getElementById('repair-modal-vehicle-select');
     const vehicleId = vehicleSelect ? vehicleSelect.value : 'default';
     
+    // Загружаем фото (сжимаем перед отправкой)
+    safeShowLoading('Обработка фото...');
+    let receiptPhotoUrl = repairModalExistingPhotos.receipt || null;
+    let documentPhotoUrl = repairModalExistingPhotos.document || null;
+
+    if (repairModalPhotos.receipt) {
+        const newUrl = await uploadRepairModalPhoto('receipt');
+        if (newUrl) receiptPhotoUrl = newUrl;
+        else safeShowToast('Внимание', 'Не удалось обработать фото чека.', 'warning');
+    }
+    if (repairModalPhotos.document) {
+        const newUrl = await uploadRepairModalPhoto('document');
+        if (newUrl) documentPhotoUrl = newUrl;
+        else safeShowToast('Внимание', 'Не удалось обработать фото документа.', 'warning');
+    }
+    safeShowLoading('Сохранение...');
+    
     if (!date || !mileage || mileage <= 0 || !category) {
         safeShowToast('Внимание', 'Заполните дату, пробег и категорию!', 'warning');
+        safeHideLoading();
         return;
     }
     
@@ -328,8 +534,6 @@ async function submitRepairModal() {
     const worksTotal = works.reduce((sum, w) => sum + w.cost, 0);
     const total = partsTotal + worksTotal;
     
-    safeShowLoading('Сохранение...');
-    
     try {
         const repairData = {
             date, mileage, category,
@@ -337,6 +541,8 @@ async function submitRepairModal() {
             comment: comment || '',
             parts, works, partsTotal, worksTotal, total,
             vehicleId,
+            receiptPhotoUrl: receiptPhotoUrl || null,
+            documentPhotoUrl: documentPhotoUrl || null,
             updatedAt: new Date().toISOString()
         };
 
@@ -1007,7 +1213,7 @@ function clearRepairForm() {
     editingRepairId = null;
     const submitBtn = document.querySelector('#repair-form button[type="submit"]');
     if (submitBtn) {
-        submitBtn.innerHTML = '<ion-icon name="checkmark-circle-outline"></ion-icon> Сохранить ремонт';
+        submitBtn.innerHTML = '<ion-icon name="checkmark-circle-outline"></ion-icon> Сохранить';
         submitBtn.classList.remove('btn-primary');
         submitBtn.classList.add('btn-success');
     }
@@ -1412,6 +1618,11 @@ window.submitRepairModal = submitRepairModal;
 window.addRepairModalPart = addRepairModalPart;
 window.addRepairModalWork = addRepairModalWork;
 window.calculateRepairModalTotal = calculateRepairModalTotal;
+window.clearRepairModalForm = clearRepairModalForm;
+window.handleRepairModalPhotoSelect = handleRepairModalPhotoSelect;
+window.removeRepairModalPhoto = removeRepairModalPhoto;
+window.rotateRepairModalPhoto = rotateRepairModalPhoto;
+window.updateRepairModalPhotoPreview = updateRepairModalPhotoPreview;
 
 console.log('✅ Модуль ремонта полностью загружен (v5.0)');
 
@@ -1657,34 +1868,3 @@ console.log('✅ Tooltip для ремонта инициализирован');
     if (rep) new MutationObserver(() => setup()).observe(rep, { childList: true, subtree: true });
     setup();
 })();
-
-function clearRepairModalForm() {
-    const form = document.getElementById('repair-modal-form');
-    if (form) form.reset();
-    
-    const dateEl = document.getElementById('repair-modal-date');
-    if (dateEl) dateEl.valueAsDate = new Date();
-    
-    const partsList = document.getElementById('repair-modal-parts-list');
-    if (partsList) partsList.innerHTML = '';
-    
-    const worksList = document.getElementById('repair-modal-works-list');
-    if (worksList) worksList.innerHTML = '';
-    
-    // Добавляем по одной пустой строке
-    if (typeof addRepairModalPart === 'function') addRepairModalPart();
-    if (typeof addRepairModalWork === 'function') addRepairModalWork();
-    
-    if (typeof calculateRepairModalTotal === 'function') calculateRepairModalTotal();
-    
-    const submitText = document.getElementById('repair-modal-submit-text');
-    if (submitText) submitText.textContent = 'Сохранить';
-    
-    const titleText = document.getElementById('repair-modal-title-text');
-    if (titleText) titleText.textContent = 'Добавить ремонт';
-    
-    editingRepairModalId = null;
-    
-    if (typeof showToast === 'function') showToast('🗑️ Форма очищена');
-}
-window.clearRepairModalForm = clearRepairModalForm;

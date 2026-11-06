@@ -1,19 +1,18 @@
 // ============================================
-// МОДУЛЬ БЭКАПА И ПОЛНОГО СБРОСА (backup-module.js v3.0)
+// МОДУЛЬ БЭКАПА И ПОЛНОГО СБРОСА (backup-module.js v3.1)
 // ============================================
 
-const BACKUP_VERSION = '3.0';
+const BACKUP_VERSION = '3.1';
 const BACKUP_FILENAME_PREFIX = 'driver-journal-backup';
 
-// 🔧 Все ключи localStorage (без connectionMode — это in-memory)
+// 🔧 Все ключи localStorage (нормализованные)
 const BACKUP_KEYS = [
     'driverRecords',
     'driverTariffs',
     'driverFuelLogs',
     'repair_records',
-    'repairRecords', // ← ДОБАВЛЕНО: для совместимости с localStorage
-    'driverShifts',
     'driverVehicles',
+    'driverShifts',
     'currentVehicleId',
     'scheduleSettings',
     'driverGoals',
@@ -28,7 +27,7 @@ const FIRESTORE_COLLECTIONS = [
     'records',
     'tariffs',
     'fuelLogs',
-    'repair_records', // ← ИСПРАВЛЕНО: было 'repairs'
+    'repair_records',
     'vehicles',
     'shifts'
 ];
@@ -37,18 +36,20 @@ const FIRESTORE_COLLECTIONS = [
 const FIRESTORE_USER_FIELDS = ['avatar', 'goals', 'scheduleSettings'];
 
 // ============================================
-// 🔧 РЕЗОЛВИНГ FIREBASE (как в entryModule.js)
+// 🔧 РЕЗОЛВИНГ FIREBASE
 // ============================================
 function getFirebaseDb() {
     if (typeof window.db !== 'undefined' && window.db) return window.db;
     try { if (typeof db !== 'undefined' && db) return db; } catch (e) {}
     return null;
 }
+
 function getCurrentUser() {
     if (window.currentUser) return window.currentUser;
     try { if (typeof currentUser !== 'undefined' && currentUser) return currentUser; } catch (e) {}
     return null;
 }
+
 function getFirebaseFieldValueDelete() {
     if (window.firebase?.firestore?.FieldValue?.delete) return window.firebase.firestore.FieldValue.delete();
     try {
@@ -59,7 +60,6 @@ function getFirebaseFieldValueDelete() {
     return null;
 }
 
-// 🔧 Формат денег без зависимости от глобальной formatMoney
 function fmtMoney(n) {
     const v = Number(n) || 0;
     if (typeof window.formatMoney === 'function') return window.formatMoney(v);
@@ -69,11 +69,6 @@ function fmtMoney(n) {
 // ============================================
 // 📦 СБОР ДАННЫХ ДЛЯ БЭКАПА
 // ============================================
-
-/**
- * 🔧 ГЛАВНОЕ: собирает данные и из localStorage, и из in-memory window.*,
- * и (если авторизован) — из Firestore. Это гарантирует полноту.
- */
 async function collectAllDataForBackup() {
     const data = {};
 
@@ -86,16 +81,17 @@ async function collectAllDataForBackup() {
         }
     });
 
-    // 2. Из in-memory (на случай, если localStorage ещё не обновился)
+    // 2. Из in-memory (приоритетнее, если данные только что изменились)
     const inMemoryMap = {
-    driverRecords: window.records,
-    driverTariffs: window.tariffs,
-    driverFuelLogs: window.fuelLogs,
-    repair_records: window.repairRecords || window.repair_records, // ← ИСПРАВЛЕНО: проверяем оба варианта
-    driverVehicles: window.vehicles,
-    driverShifts: window.shifts,
-    currentVehicleId: window.currentVehicleId,
-};
+        driverRecords: window.records,
+        driverTariffs: window.tariffs,
+        driverFuelLogs: window.fuelLogs,
+        repair_records: window.repairRecords,
+        driverVehicles: window.vehicles,
+        driverShifts: window.shifts,
+        currentVehicleId: window.currentVehicleId,
+    };
+
     Object.entries(inMemoryMap).forEach(([key, val]) => {
         if (val !== undefined && val !== null) {
             if (Array.isArray(val) ? val.length > 0 : true) {
@@ -106,34 +102,33 @@ async function collectAllDataForBackup() {
         }
     });
 
-    // 3. Из Firestore (если авторизован) — догружаем то, чего нет локально
+    // 3. Из Firestore (догружаем, если авторизован, на случай рассинхронизации)
     const fbDb = getFirebaseDb();
     const user = getCurrentUser();
     if (fbDb && user) {
         try {
             const userRef = fbDb.collection('users').doc(user.uid);
             const colMap = {
-    records: 'driverRecords',
-    tariffs: 'driverTariffs',
-    fuelLogs: 'driverFuelLogs',
-    repair_records: 'repair_records', // ← ИСПРАВЛЕНО: было repairs: 'repair_records'
-    vehicles: 'driverVehicles',
-    shifts: 'driverShifts',
-};
+                'records': 'driverRecords',
+                'tariffs': 'driverTariffs',
+                'fuelLogs': 'driverFuelLogs',
+                'repair_records': 'repair_records',
+                'vehicles': 'driverVehicles',
+                'shifts': 'driverShifts',
+            };
+
             for (const [colName, lsKey] of Object.entries(colMap)) {
                 try {
                     const snap = await userRef.collection(colName).get();
                     const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                     if (docs.length > 0 && (!data[lsKey] || docs.length > (data[lsKey]?.length || 0))) {
                         data[lsKey] = docs;
-                        console.log(`  ☁️ ${colName}: догружено из Firestore ${docs.length}`);
                     }
                 } catch (e) {
-                    console.warn(`  ⚠️ ${colName}: ошибка чтения из Firestore`, e.code || e.message);
+                    console.warn(`⚠️ ${colName}: ошибка чтения из Firestore`, e.code || e.message);
                 }
             }
 
-            // Поля пользователя
             const userDoc = await userRef.get();
             if (userDoc.exists) {
                 const ud = userDoc.data();
@@ -149,10 +144,6 @@ async function collectAllDataForBackup() {
     return data;
 }
 
-/**
- * 🔧 Собирает ВСЕ ключи localStorage, похожие на данные приложения
- * (страховка от забытых ключей)
- */
 function collectExtraLocalStorageKeys() {
     const known = new Set(BACKUP_KEYS);
     const extra = {};
@@ -166,9 +157,6 @@ function collectExtraLocalStorageKeys() {
     return extra;
 }
 
-/**
- * 📦 Полная статистика по собранным данным
- */
 function buildBackupStats(data) {
     const repairRecords = Array.isArray(data.repair_records) ? data.repair_records : [];
     const fuelLogs = Array.isArray(data.driverFuelLogs) ? data.driverFuelLogs : [];
@@ -177,9 +165,7 @@ function buildBackupStats(data) {
     const shifts = Array.isArray(data.driverShifts) ? data.driverShifts : [];
     const avatar = data.driverProfileAvatar;
 
-    let photosCount = 0;
-    let receiptsCount = 0;
-    let documentsCount = 0;
+    let photosCount = 0, receiptsCount = 0, documentsCount = 0;
 
     repairRecords.forEach(r => {
         const hasReceipt = r.receiptPhotoUrl && String(r.receiptPhotoUrl).length > 100;
@@ -190,12 +176,7 @@ function buildBackupStats(data) {
 
     const vehicleStats = {};
     vehicles.forEach(v => {
-        vehicleStats[v.id] = {
-            name: v.name || 'Неизвестно',
-            plate: v.plate || '',
-            fuelCount: 0, repairCount: 0,
-            fuelTotal: 0, repairTotal: 0
-        };
+        vehicleStats[v.id] = { name: v.name || 'Неизвестно', plate: v.plate || '', fuelCount: 0, repairCount: 0, fuelTotal: 0, repairTotal: 0 };
     });
 
     const ensure = (vId) => {
@@ -210,6 +191,7 @@ function buildBackupStats(data) {
         v.fuelCount++;
         v.fuelTotal += Number(log.amount) || 0;
     });
+    
     repairRecords.forEach(r => {
         const v = ensure(r.vehicleId || 'default');
         v.repairCount++;
@@ -240,27 +222,23 @@ function buildBackupStats(data) {
 // 📦 СОЗДАНИЕ ПОЛНОГО БЭКАПА
 // ============================================
 async function createFullBackupAsync() {
-    console.log('📦 Создание полного бэкапа (v3.0)...');
+    console.log('📦 Создание полного бэкапа (v3.1)...');
     const data = await collectAllDataForBackup();
-
-    // Страховка — добираем «забытые» ключи
     const extra = collectExtraLocalStorageKeys();
     Object.assign(data, extra);
 
     const backup = {
         version: BACKUP_VERSION,
         createdAt: new Date().toISOString(),
-        appVersion: '3.0',
+        appVersion: '3.1',
         data
     };
 
     const stats = buildBackupStats(data);
     console.log('📊 Статистика бэкапа:', stats);
-
     return { backup, json: JSON.stringify(backup, null, 2), stats };
 }
 
-// Синхронный алиас (для обратной совместимости — возвращает «мгновенный» бэкап из localStorage+memory)
 function createFullBackup() {
     const data = {};
     BACKUP_KEYS.forEach(key => {
@@ -270,6 +248,7 @@ function createFullBackup() {
             catch (e) { data[key] = value; }
         }
     });
+    
     Object.entries({
         driverRecords: window.records,
         driverTariffs: window.tariffs,
@@ -281,21 +260,15 @@ function createFullBackup() {
         if (Array.isArray(val) && val.length > (data[key]?.length || 0)) data[key] = val;
     });
 
-    const backup = {
-        version: BACKUP_VERSION,
-        createdAt: new Date().toISOString(),
-        appVersion: '3.0',
-        data
-    };
+    const backup = { version: BACKUP_VERSION, createdAt: new Date().toISOString(), appVersion: '3.1', data };
     return { backup, json: JSON.stringify(backup, null, 2), stats: buildBackupStats(data) };
 }
 
 // ============================================
-// 💾 ЭКСПОРТ (асинхронный — включает Firestore)
+// 💾 ЭКСПОРТ
 // ============================================
 async function exportFullBackup() {
     try {
-        // Показываем индикатор
         const overlay = showProgressOverlay('Сбор данных для бэкапа...');
         const { json, stats } = await createFullBackupAsync();
         updateProgressOverlay(overlay, 'Сохранение файла...', true);
@@ -373,48 +346,80 @@ function importFullBackup() {
 }
 
 // ============================================
-// 🔄 ВОССТАНОВЛЕНИЕ (с записью в Firestore!)
+// 🔄 ВОССТАНОВЛЕНИЕ (ИСПРАВЛЕННАЯ ВЕРСИЯ)
 // ============================================
 async function restoreFromBackup(backup) {
     console.log('🔄 Восстановление из бэкапа версии', backup.version);
 
-    const data = backup.data || backup;
+    const rawData = backup.data || backup;
     const overlay = showProgressOverlay('Восстановление данных...');
 
     try {
-        // 1. Флаг — чтобы onSnapshot не перезаписал
+        // 1. Флаг — чтобы onSnapshot не перезаписал данные при перезагрузке
         window._isResetting = true;
 
-        // 2. Отписываемся от слушателей
+        // 2. Отписываемся от всех слушателей Firebase
         unsubscribeAllFirebaseListeners();
 
-        // 3. Чистим localStorage
+        // 3. НОРМАЛИЗАЦИЯ КЛЮЧЕЙ (Решает проблему несовпадения версий)
+        const normalizedData = {};
+        const keyMap = {
+            'driverRecords': 'driverRecords', 'records': 'driverRecords',
+            'driverTariffs': 'driverTariffs', 'tariffs': 'driverTariffs',
+            'driverFuelLogs': 'driverFuelLogs', 'fuelLogs': 'driverFuelLogs',
+            'repair_records': 'repair_records', 'repairRecords': 'repair_records',
+            'driverVehicles': 'driverVehicles', 'vehicles': 'driverVehicles',
+            'driverShifts': 'driverShifts', 'shifts': 'driverShifts',
+            'currentVehicleId': 'currentVehicleId',
+            'driverProfileAvatar': 'driverProfileAvatar',
+            'driverGoals': 'driverGoals',
+            'scheduleSettings': 'scheduleSettings',
+            'driverTheme': 'driverTheme',
+            'appState': 'appState',
+            'historyViewMode': 'historyViewMode'
+        };
+
+        for (const [key, value] of Object.entries(rawData)) {
+            const normalizedKey = keyMap[key] || key;
+            if (BACKUP_KEYS.includes(normalizedKey)) {
+                normalizedData[normalizedKey] = value;
+            }
+        }
+
+        // 4. Чистим localStorage
         BACKUP_KEYS.forEach(key => localStorage.removeItem(key));
 
-        // 4. Восстанавливаем в localStorage
+        // 5. Восстанавливаем в localStorage и обновляем in-memory переменные
         let restoredCount = 0;
-        Object.entries(data).forEach(([key, value]) => {
-            if (BACKUP_KEYS.includes(key)) {
-                try {
-                    const str = typeof value === 'string' ? value : JSON.stringify(value);
-                    localStorage.setItem(key, str);
-                    restoredCount++;
-                } catch (e) {
-                    console.error(`❌ ${key}:`, e);
-                }
-            }
-        });
-        console.log(`✅ Восстановлено в localStorage: ${restoredCount}`);
+        for (const [key, value] of Object.entries(normalizedData)) {
+            try {
+                const str = typeof value === 'string' ? value : JSON.stringify(value);
+                localStorage.setItem(key, str);
+                restoredCount++;
 
-        // 5. 🔧 ГЛАВНОЕ: пишем в Firestore, иначе при reload Firebase перезапишет
+                // Обновляем глобальные переменные для мгновенного отклика UI
+                if (key === 'driverRecords') window.records = Array.isArray(value) ? value : JSON.parse(str);
+                if (key === 'driverTariffs') window.tariffs = Array.isArray(value) ? value : JSON.parse(str);
+                if (key === 'driverFuelLogs') window.fuelLogs = Array.isArray(value) ? value : JSON.parse(str);
+                if (key === 'repair_records') window.repairRecords = Array.isArray(value) ? value : JSON.parse(str);
+                if (key === 'driverVehicles') window.vehicles = Array.isArray(value) ? value : JSON.parse(str);
+                if (key === 'driverShifts') window.shifts = Array.isArray(value) ? value : JSON.parse(str);
+                if (key === 'currentVehicleId') window.currentVehicleId = value;
+            } catch (e) {
+                console.error(`❌ Ошибка восстановления ${key}:`, e);
+            }
+        }
+        console.log(`✅ Восстановлено в localStorage: ${restoredCount} ключей`);
+
+        // 6. 🔧 ГЛАВНОЕ: Пишем в Firestore, иначе при reload Firebase вернет старые данные
         const fbDb = getFirebaseDb();
         const user = getCurrentUser();
         let fbRestored = { ok: 0, fail: 0 };
 
         if (fbDb && user) {
             updateProgressOverlay(overlay, 'Синхронизация с Firebase...', false);
-            fbRestored = await pushBackupToFirestore(fbDb, user, data);
-            console.log(`✅ Восстановлено в Firestore: ${fbRestored.ok}, ошибок: ${fbRestored.fail}`);
+            fbRestored = await pushBackupToFirestore(fbDb, user, normalizedData);
+            console.log(`✅ Восстановлено в Firestore: ${fbRestored.ok} записей, ошибок: ${fbRestored.fail}`);
         } else {
             console.warn('⚠️ Firebase недоступен — данные восстановлены только локально');
         }
@@ -424,7 +429,7 @@ async function restoreFromBackup(backup) {
         let msg = `✅ Данные восстановлены!\n\n`;
         msg += `📦 Локально: ${restoredCount} элементов\n`;
         if (fbDb && user) {
-            msg += `☁️ В облако: ${fbRestored.ok} (ошибок: ${fbRestored.fail})\n`;
+            msg += `☁️ В облако: ${fbRestored.ok} записей (ошибок: ${fbRestored.fail})\n`;
         } else {
             msg += `☁️ Firebase: не авторизован (только локально)\n`;
         }
@@ -442,27 +447,28 @@ async function restoreFromBackup(backup) {
 }
 
 /**
- * 🔧 Пишет все данные из бэкапа в Firestore (батчами)
+ * 🔧 Пишет все данные из нормализованного бэкапа в Firestore (батчами)
  */
 async function pushBackupToFirestore(fbDb, user, data) {
     const userRef = fbDb.collection('users').doc(user.uid);
     let ok = 0;
     let fail = 0;
 
+    // Маппинг: Ключ в normalizedData -> Имя коллекции в Firestore
     const colMap = {
-    records: 'driverRecords',
-    tariffs: 'driverTariffs',
-    fuelLogs: 'driverFuelLogs',
-    repair_records: 'repair_records', // ← ИСПРАВЛЕНО: было repairs: 'repair_records'
-    vehicles: 'driverVehicles',
-    shifts: 'driverShifts',
-};
+        'driverRecords': 'records',
+        'driverTariffs': 'tariffs',
+        'driverFuelLogs': 'fuelLogs',
+        'repair_records': 'repair_records',
+        'driverVehicles': 'vehicles',
+        'driverShifts': 'shifts',
+    };
 
     for (const [lsKey, colName] of Object.entries(colMap)) {
         const items = data[lsKey];
         if (!Array.isArray(items) || items.length === 0) continue;
 
-        // 🔧 Сначала чистим коллекцию (иначе останутся «старые» документы)
+        // 1. Чистим коллекцию (чтобы не было дубликатов при восстановлении)
         try {
             const colRef = userRef.collection(colName);
             let safety = 0;
@@ -478,16 +484,16 @@ async function pushBackupToFirestore(fbDb, user, data) {
             console.warn(`⚠️ Очистка ${colName}:`, e.code || e.message);
         }
 
-        // 🔧 Пишем батчами по 400
+        // 2. Пишем батчами по 400
         for (let i = 0; i < items.length; i += 400) {
             const chunk = items.slice(i, i + 400);
             const batch = fbDb.batch();
             chunk.forEach(item => {
                 const payload = { ...item };
                 let docId = payload.id;
-                delete payload.id;
-                const docRef = docId ? userRef.collection(colName).doc(String(docId))
-                                     : userRef.collection(colName).doc();
+                delete payload.id; // ID идет в имя документа, а не в данные
+                
+                const docRef = docId ? userRef.collection(colName).doc(String(docId)) : userRef.collection(colName).doc();
                 batch.set(docRef, payload);
             });
             try {
@@ -500,17 +506,15 @@ async function pushBackupToFirestore(fbDb, user, data) {
         }
     }
 
-    // 🔧 Поля пользователя (аватар, цели, расписание)
+    // 3. Поля пользователя (аватар, цели, расписание)
     try {
         const update = {};
         if (data.driverProfileAvatar) update.avatar = data.driverProfileAvatar;
         if (data.driverGoals) {
-            try { update.goals = typeof data.driverGoals === 'string' ? JSON.parse(data.driverGoals) : data.driverGoals; }
-            catch (e) {}
+            try { update.goals = typeof data.driverGoals === 'string' ? JSON.parse(data.driverGoals) : data.driverGoals; } catch (e) {}
         }
         if (data.scheduleSettings) {
-            try { update.scheduleSettings = typeof data.scheduleSettings === 'string' ? JSON.parse(data.scheduleSettings) : data.scheduleSettings; }
-            catch (e) {}
+            try { update.scheduleSettings = typeof data.scheduleSettings === 'string' ? JSON.parse(data.scheduleSettings) : data.scheduleSettings; } catch (e) {}
         }
         if (Object.keys(update).length > 0) {
             await userRef.set(update, { merge: true });
@@ -598,7 +602,6 @@ async function clearFirebaseUserData() {
         }
     }
 
-    // Поля пользователя
     try {
         const del = getFirebaseFieldValueDelete();
         if (del) {
@@ -621,12 +624,7 @@ async function clearFirebaseUserData() {
 // 🔥 ПОЛНЫЙ СБРОС
 // ============================================
 async function resetAllAppData() {
-    if (!confirm(
-        '⚠️ ПОЛНЫЙ СБРОС!\n\nБудут удалены ВСЕ данные (локальные + облачные):\n' +
-        '• Записи работы\n• Тарифы\n• Топливо\n• Ремонты (фото)\n• Смены\n• Автомобили\n• Настройки, цели, аватар\n\n' +
-        'Отменить нельзя!\n\nПродолжить?'
-    )) return;
-
+    if (!confirm('⚠️ ПОЛНЫЙ СБРОС!\n\nБудут удалены ВСЕ данные (локальные + облачные):\n• Записи работы\n• Тарифы\n• Топливо\n• Ремонты (фото)\n• Смены\n• Автомобили\n• Настройки, цели, аватар\n\nОтменить нельзя!\n\nПродолжить?')) return;
     if (!confirm('🔴 ТОЧНО уверены?\n\nДанные удалятся из браузера И из Firebase навсегда!')) return;
 
     const overlay = showProgressOverlay('Удаление данных...');
@@ -710,7 +708,7 @@ function updateProgressOverlay(overlay, message, hideSpinner = false) {
 }
 
 // ============================================
-// ЭКСПОРТ
+// ЭКСПОРТ В ГЛОБАЛЬНУЮ ОБЛАСТЬ
 // ============================================
 window.exportFullBackup = exportFullBackup;
 window.importFullBackup = importFullBackup;
@@ -721,4 +719,4 @@ window.restoreFromBackup = restoreFromBackup;
 window.clearFirebaseUserData = clearFirebaseUserData;
 window.unsubscribeAllFirebaseListeners = unsubscribeAllFirebaseListeners;
 
-console.log('✅ Модуль бэкапа и полного сброса загружен (v3.0)');
+console.log('✅ Модуль бэкапа и полного сброса загружен (v3.1)');

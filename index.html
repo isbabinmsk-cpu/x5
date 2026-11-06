@@ -99,30 +99,30 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.9.71" defer></script>
+    <script src="script.js?v=2.9.72" defer></script>
     
    
     
     <!-- 1. МОДУЛЬ АВТОМОБИЛЕЙ (ОБЯЗАТЕЛЬНО ПЕРВЫМ) -->
-<script src="vehicle-module.js?v=1.0.5"></script>
+<script src="vehicle-module.js?v=1.0.6"></script>
     
     <!-- Модуль ремонта -->
-<script type="module" src="repair-module.js?v=1.1.2"></script>
+<script type="module" src="repair-module.js?v=1.1.3"></script>
 
     <!-- Модуль топлива -->
-    <script type="module" src="fuel-module.js?v=1.0.6"></script>
+    <script type="module" src="fuel-module.js?v=1.0.7"></script>
     
      <!-- Модуль ввода данных за день (модальное окно) -->
 
-<script src="entry-module.js?v=1.0.4" ></script>
+<script src="entry-module.js?v=1.0.5" ></script>
     
     <!-- Модуль календаря смен -->
-<script src="shift-module.js?v=1.0.6"></script>
+<script src="shift-module.js?v=1.0.7"></script>
     
    <!-- Модуль напоминаний ТО -->
-    <script src="reminders.js?v=1.0.2"></script>
+    <script src="reminders.js?v=1.0.3"></script>
     <!-- Модуль Backup -->
-    <script src="backup-module.js?v=1.0.3"></script>
+    <script src="backup-module.js?v=1.0.4"></script>
 
 
 </head>
@@ -262,7 +262,7 @@
 </div>
     
 <div class="container">
-    <!-- Верхняя шапка только с заголовком -->
+
 <!-- ============================================ -->
 <!-- ШАПКА + ПЕРЕКЛЮЧАТЕЛЬ ТЁМНОЙ ТЕМЫ -->
 <!-- ============================================ -->
@@ -1155,6 +1155,7 @@
         </div>
         <div class="fuel-modal-body">
             <form id="repair-modal-form" onsubmit="return false;">
+                <!-- Ряд 1: Автомобиль + Дата -->
                 <div class="form-row">
                     <div class="form-group">
                         <label><ion-icon name="car-outline" class="form-icon"></ion-icon> Автомобиль</label>
@@ -1165,6 +1166,8 @@
                         <input type="date" id="repair-modal-date" required>
                     </div>
                 </div>
+                
+                <!-- Ряд 2: Пробег + Категория -->
                 <div class="form-row">
                     <div class="form-group">
                         <label><ion-icon name="speedometer-outline" class="form-icon"></ion-icon> Пробег (км) *</label>
@@ -1187,32 +1190,89 @@
                         </select>
                     </div>
                 </div>
+                
+                <!-- Описание -->
                 <div class="form-group">
                     <label><ion-icon name="document-text-outline" class="form-icon"></ion-icon> Описание</label>
                     <input type="text" id="repair-modal-description" placeholder="Что менялось?">
                 </div>
                 
+                <!-- Запчасти и материалы -->
                 <div class="form-section">
                     <h4><ion-icon name="cube-outline"></ion-icon> Запчасти и материалы</h4>
-                    <div id="repair-modal-parts-list"></div>
-                    <button type="button" class="btn btn-secondary btn-small" onclick="addRepairModalPart()">
+                    <div id="repair-modal-parts-list" class="dynamic-list-container"></div>
+                    <button type="button" class="btn-add-dynamic" onclick="addRepairModalPart()">
                         <ion-icon name="add-circle-outline"></ion-icon> Добавить деталь
                     </button>
                 </div>
                 
+                <!-- Работы -->
                 <div class="form-section">
                     <h4><ion-icon name="construct-outline"></ion-icon> Работы</h4>
-                    <div id="repair-modal-works-list"></div>
-                    <button type="button" class="btn btn-secondary btn-small" onclick="addRepairModalWork()">
+                    <div id="repair-modal-works-list" class="dynamic-list-container"></div>
+                    <button type="button" class="btn-add-dynamic" onclick="addRepairModalWork()">
                         <ion-icon name="add-circle-outline"></ion-icon> Добавить работу
                     </button>
                 </div>
                 
+                <!-- ФОТО ЧЕКОВ И ДОКУМЕНТОВ -->
+                <div class="form-section">
+                    <h4><ion-icon name="camera-outline"></ion-icon> Фото чека и документов</h4>
+                    
+                    <div class="photo-upload-grid">
+                        <!-- Загрузка фото чека -->
+                        <div class="photo-upload-item">
+                            <label for="repair-modal-receipt-upload" class="photo-upload-label">
+                                <ion-icon name="receipt-outline"></ion-icon>
+                                <span>Чек</span>
+                            </label>
+                            <input type="file" id="repair-modal-receipt-upload" accept="image/*" 
+                                   class="photo-upload-input" onchange="handleRepairModalPhotoSelect(event, 'receipt')">
+                            <div class="photo-preview" id="repair-modal-receipt-preview">
+                                <ion-icon name="image-outline"></ion-icon>
+                                <span>Нет фото</span>
+                            </div>
+                            <div class="photo-rotate-controls" id="repair-modal-receipt-rotate" style="display: none;">
+                                <button type="button" class="photo-rotate-btn" onclick="rotateRepairModalPhoto('receipt', -90)" title="Повернуть влево">
+                                    <ion-icon name="refresh-outline" style="transform: scaleX(-1);"></ion-icon>
+                                </button>
+                                <button type="button" class="photo-rotate-btn" onclick="rotateRepairModalPhoto('receipt', 90)" title="Повернуть вправо">
+                                    <ion-icon name="refresh-outline"></ion-icon>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Загрузка фото документа -->
+                        <div class="photo-upload-item">
+                            <label for="repair-modal-document-upload" class="photo-upload-label">
+                                <ion-icon name="document-text-outline"></ion-icon>
+                                <span>Документ</span>
+                            </label>
+                            <input type="file" id="repair-modal-document-upload" accept="image/*" 
+                                   class="photo-upload-input" onchange="handleRepairModalPhotoSelect(event, 'document')">
+                            <div class="photo-preview" id="repair-modal-document-preview">
+                                <ion-icon name="image-outline"></ion-icon>
+                                <span>Нет фото</span>
+                            </div>
+                            <div class="photo-rotate-controls" id="repair-modal-document-rotate" style="display: none;">
+                                <button type="button" class="photo-rotate-btn" onclick="rotateRepairModalPhoto('document', -90)" title="Повернуть влево">
+                                    <ion-icon name="refresh-outline" style="transform: scaleX(-1);"></ion-icon>
+                                </button>
+                                <button type="button" class="photo-rotate-btn" onclick="rotateRepairModalPhoto('document', 90)" title="Повернуть вправо">
+                                    <ion-icon name="refresh-outline"></ion-icon>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Комментарий -->
                 <div class="form-group">
                     <label><ion-icon name="chatbox-ellipses-outline" class="form-icon"></ion-icon> Комментарий</label>
                     <textarea id="repair-modal-comment" rows="2" placeholder="Дополнительная информация"></textarea>
                 </div>
                 
+                <!-- Итоги -->
                 <div class="repair-modal-totals">
                     <div class="repair-modal-total-row">
                         <span>Запчасти:</span>
@@ -1229,15 +1289,17 @@
                 </div>
             </form>
         </div>
+        
+        <!-- Футер с кнопками Очистить / Сохранить -->
         <div class="fuel-modal-footer">
-    <button type="button" class="btn btn-clear" onclick="clearRepairModalForm()">
-        <ion-icon name="trash-outline"></ion-icon> Очистить
-    </button>
-    <button type="button" class="btn btn-save" onclick="submitRepairModal()">
-        <ion-icon name="save-outline"></ion-icon>
-        <span id="repair-modal-submit-text">Сохранить</span>
-    </button>
-</div>
+            <button type="button" class="btn btn-clear" onclick="clearRepairModalForm()">
+                <ion-icon name="trash-outline"></ion-icon> Очистить
+            </button>
+            <button type="button" class="btn btn-save" onclick="submitRepairModal()">
+                <ion-icon name="save-outline"></ion-icon>
+                <span id="repair-modal-submit-text">Сохранить</span>
+            </button>
+        </div>
     </div>
 </div>
 

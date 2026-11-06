@@ -9013,3 +9013,248 @@ body.dark-theme .fuel-modal-footer .btn-save:active,
 body.dark-theme .fuel-modal-footer .btn-success:active {
     background-color: rgba(48, 209, 88, 0.12) !important;
 }
+
+/* ============================================
+МОДАЛКА РЕМОНТА: ЗАГРУЗКА ФОТО
+============================================ */
+.repair-modal-photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.repair-modal-photo-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.repair-modal-photo-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    background: var(--ios-bg-secondary, #ffffff);
+    border: 1.5px dashed var(--ios-border, rgba(0,0,0,0.15));
+    border-radius: var(--ios-radius-md, 12px);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--ios-text-secondary, #86868b);
+    transition: all 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.repair-modal-photo-label:hover {
+    border-color: var(--ios-accent, #007AFF);
+    color: var(--ios-accent, #007AFF);
+    background: var(--ios-accent-light, rgba(0,122,255,0.06));
+}
+
+.repair-modal-photo-label ion-icon {
+    font-size: 20px;
+}
+
+.repair-modal-photo-input {
+    display: none;
+}
+
+.repair-modal-photo-preview {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    border-radius: var(--ios-radius-md, 12px);
+    background: var(--ios-bg-tertiary, rgba(0,0,0,0.04));
+    border: 1px solid var(--ios-border, rgba(0,0,0,0.08));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--ios-text-tertiary, #a1a1a6);
+    font-size: 12px;
+    font-weight: 500;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.repair-modal-photo-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.repair-modal-photo-preview.has-image {
+    border: 2px solid var(--ios-success, #34C759);
+}
+
+.repair-modal-photo-preview .remove-photo-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 59, 48, 0.9);
+    color: white;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    transition: transform 0.2s;
+}
+
+.repair-modal-photo-preview .remove-photo-btn:hover {
+    transform: scale(1.1);
+}
+
+.repair-modal-photo-rotate {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.repair-modal-rotate-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(0, 122, 255, 0.4);
+    background: rgba(0, 122, 255, 0.08);
+    color: #007AFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.32, 0.72, 0, 1);
+    padding: 0;
+}
+
+.repair-modal-rotate-btn ion-icon {
+    font-size: 20px;
+}
+
+.repair-modal-rotate-btn:hover {
+    background: #007AFF;
+    color: #FFFFFF;
+    border-color: #007AFF;
+    transform: scale(1.05);
+}
+
+.repair-modal-rotate-btn:active {
+    transform: scale(0.92);
+}
+
+/* Тёмная тема */
+body.dark-theme .repair-modal-photo-label {
+    background: #2C2C2E;
+    border-color: rgba(255,255,255,0.15);
+    color: rgba(235,235,245,0.72);
+}
+
+body.dark-theme .repair-modal-photo-label:hover {
+    border-color: #0A84FF;
+    color: #64B5FF;
+    background: rgba(10,132,255,0.12);
+}
+
+body.dark-theme .repair-modal-photo-preview {
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(255,255,255,0.10);
+    color: rgba(235,235,245,0.50);
+}
+
+body.dark-theme .repair-modal-rotate-btn {
+    border-color: rgba(10, 132, 255, 0.5);
+    background: rgba(10, 132, 255, 0.15);
+    color: #64B5FF;
+}
+
+body.dark-theme .repair-modal-rotate-btn:hover {
+    background: #0A84FF;
+    color: #FFFFFF;
+}
+
+@media (max-width: 480px) {
+    .repair-modal-photo-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    .repair-modal-photo-label {
+        padding: 10px;
+        font-size: 13px;
+    }
+    .repair-modal-rotate-btn {
+        width: 36px;
+        height: 36px;
+    }
+    .repair-modal-rotate-btn ion-icon {
+        font-size: 18px;
+    }
+}
+
+/* ============================================
+КНОПКИ ОЧИСТИТЬ / СОХРАНИТЬ (красная + зелёная)
+============================================ */
+.fuel-modal-footer .btn-clear {
+    color: #FF3B30 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 59, 48, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+.fuel-modal-footer .btn-clear ion-icon {
+    color: #FF3B30 !important;
+}
+
+.fuel-modal-footer .btn-clear:active {
+    background-color: rgba(255, 59, 48, 0.08) !important;
+    transform: scale(0.97) !important;
+}
+
+.fuel-modal-footer .btn-save {
+    color: #34C759 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(52, 199, 89, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+.fuel-modal-footer .btn-save ion-icon {
+    color: #34C759 !important;
+}
+
+.fuel-modal-footer .btn-save:active {
+    background-color: rgba(52, 199, 89, 0.08) !important;
+    transform: scale(0.97) !important;
+}
+
+/* Тёмная тема */
+body.dark-theme .fuel-modal-footer .btn-clear {
+    color: #FF453A !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 69, 58, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+body.dark-theme .fuel-modal-footer .btn-clear ion-icon {
+    color: #FF453A !important;
+}
+body.dark-theme .fuel-modal-footer .btn-clear:active {
+    background-color: rgba(255, 69, 58, 0.12) !important;
+}
+
+body.dark-theme .fuel-modal-footer .btn-save {
+    color: #30D158 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(48, 209, 88, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+body.dark-theme .fuel-modal-footer .btn-save ion-icon {
+    color: #30D158 !important;
+}
+body.dark-theme .fuel-modal-footer .btn-save:active {
+    background-color: rgba(48, 209, 88, 0.12) !important;
+}
