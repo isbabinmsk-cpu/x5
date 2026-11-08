@@ -49,9 +49,11 @@
     
     <link rel="stylesheet" href="entry-module.css">
     
-    <link rel="stylesheet" href="reminders.css">
+   <!-- <link rel="stylesheet" href="reminders.css"> -->
     
     <link rel="stylesheet" href="shift.css">
+    
+    <link rel="stylesheet" href="css/control-center.css">
     
     
 <!-- ⚡ Мгновенная проверка состояния авторизации -->
@@ -99,30 +101,34 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <!-- Основной скрипт приложения -->
-    <script src="script.js?v=2.9.72" defer></script>
+    <script src="script.js?v=2.9.8" defer></script>
     
    
     
     <!-- 1. МОДУЛЬ АВТОМОБИЛЕЙ (ОБЯЗАТЕЛЬНО ПЕРВЫМ) -->
-<script src="vehicle-module.js?v=1.0.6"></script>
+<script src="vehicle-module.js?v=1.0.7"></script>
     
     <!-- Модуль ремонта -->
-<script type="module" src="repair-module.js?v=1.1.3"></script>
+<script type="module" src="repair-module.js?v=1.1.4"></script>
 
     <!-- Модуль топлива -->
-    <script type="module" src="fuel-module.js?v=1.0.7"></script>
+    <script type="module" src="fuel-module.js?v=1.0.8"></script>
     
      <!-- Модуль ввода данных за день (модальное окно) -->
 
-<script src="entry-module.js?v=1.0.5" ></script>
+<script src="entry-module.js?v=1.0.6" ></script>
     
     <!-- Модуль календаря смен -->
-<script src="shift-module.js?v=1.0.7"></script>
+<script src="shift-module.js?v=1.0.8"></script>
     
    <!-- Модуль напоминаний ТО -->
-    <script src="reminders.js?v=1.0.3"></script>
+    <!--<script src="reminders.js?v=1.0.3"></script> -->
     <!-- Модуль Backup -->
-    <script src="backup-module.js?v=1.0.4"></script>
+    <script src="backup-module.js?v=1.0.5"></script>
+    
+    <script src="control-center.js?v=1.0.0"></script>
+    
+    
 
 
 </head>
@@ -285,17 +291,17 @@
             </button>
         </div>
         
-        <div class="header-actions">
+        <!-- <div class="header-actions">
             <button class="header-settings" id="header-settings-btn" onclick="switchTab('settings')" title="Настройки">
                 <ion-icon name="settings-outline"></ion-icon>
-            </button>
+            </button> -->
             
             <!-- НОВАЯ кнопка темы -->
-            <button class="theme-toggle-btn" id="theme-toggle-btn" title="Переключить тему">
+            <!--<button class="theme-toggle-btn" id="theme-toggle-btn" title="Переключить тему">
                 <ion-icon name="sunny" class="tt-icon tt-sun"></ion-icon>
                 <ion-icon name="moon" class="tt-icon tt-moon"></ion-icon>
             </button>
-            
+            -->
             <button id="logout-btn" class="header-logout">
                 <ion-icon name="log-out-outline"></ion-icon>
             </button>
@@ -1643,6 +1649,86 @@
     });
 })();
 </script>
+
+<!-- ============================================ -->
+<!-- CONTROL CENTER (Свайп слева направо)        -->
+<!-- ============================================ -->
+<div id="control-center" class="control-center">
+    <!-- Декоративная ручка сверху -->
+    <div class="cc-handle"></div>
+    
+    <!-- 1. Быстрые настройки (Сетка 2x2) -->
+    <div class="cc-grid">
+        <div class="cc-tile cc-tile-active" id="cc-theme-toggle" role="button" tabindex="0">
+            <ion-icon name="moon-outline"></ion-icon>
+            <span>Тёмная тема</span>
+        </div>
+        <div class="cc-tile" id="cc-sound-toggle" role="button" tabindex="0">
+            <ion-icon name="volume-high-outline"></ion-icon>
+            <span>Звук</span>
+        </div>
+        <div class="cc-tile" id="cc-sync-toggle" role="button" tabindex="0">
+            <ion-icon name="sync-outline"></ion-icon>
+            <span>Автосинхр.</span>
+        </div>
+        <div class="cc-tile" id="cc-notif-toggle" role="button" tabindex="0">
+            <ion-icon name="notifications-outline"></ion-icon>
+            <span>Уведомления</span>
+        </div>
+    </div>
+    
+    <!-- 2. Быстрые действия -->
+    <div class="cc-actions">
+        <button class="cc-action-btn" id="cc-backup-btn" type="button">
+            <ion-icon name="download-outline"></ion-icon>
+            <span>Бэкап</span>
+        </button>
+        <button class="cc-action-btn" id="cc-settings-btn" type="button">
+            <ion-icon name="settings-outline"></ion-icon>
+            <span>Настройки</span>
+        </button>
+        <button class="cc-action-btn" id="cc-reset-btn" type="button">
+            <ion-icon name="trash-outline"></ion-icon>
+            <span>Сброс</span>
+        </button>
+    </div>
+    
+    <!-- 3. Секция уведомлений -->
+    <div class="cc-notifications-section">
+        <div class="cc-notif-header">
+            <span>Уведомления</span>
+            <div class="cc-notif-header-actions">
+                <button id="cc-notif-settings-btn" class="cc-header-settings-btn" type="button" title="Настройки напоминаний">
+                    <ion-icon name="settings-outline"></ion-icon>
+                </button>
+                <button id="cc-clear-all-notifs" class="cc-clear-all-btn" type="button">Очистить все</button>
+            </div>
+        </div>
+        
+        <div id="cc-notification-list" class="cc-notification-list">
+            <div class="cc-no-notifs">
+                <ion-icon name="checkmark-circle-outline" style="font-size:28px;margin-bottom:8px;display:block;color:#34C759;"></ion-icon>
+                Нет новых уведомлений
+            </div>
+        </div>
+    </div>
+    
+    <!-- 4. Информация (Дата и время) -->
+    <div class="cc-info">
+        <div class="cc-info-row">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <span id="cc-date">—</span>
+        </div>
+        <div class="cc-info-row">
+            <ion-icon name="time-outline"></ion-icon>
+            <span id="cc-time">—</span>
+        </div>
+    </div>
+</div>
+
+<!-- Затемнение фона при открытой панели -->
+<div id="cc-overlay" class="cc-overlay"></div>
+
    
 </body>
 </html>
