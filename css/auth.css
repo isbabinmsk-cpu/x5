@@ -1,0 +1,337 @@
+/* ============================================
+1. АВТОРИЗАЦИЯ И ПОКАЗ ИНТЕРФЕЙСА
+============================================ */
+.container,
+.bottom-nav {
+  display: none;
+}
+body.authenticated .container {
+  display: block;
+}
+body.authenticated .bottom-nav {
+  display: flex;
+}
+body.authenticated .auth-screen {
+  display: none;
+}
+
+/* ============================================
+2. ЭКРАН АВТОРИЗАЦИИ (БАЗОВЫЕ СТИЛИ)
+============================================ */
+.auth-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #F2F2F7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 24px;
+  overflow: hidden;
+}
+.auth-screen.hidden {
+  display: none;
+}
+.auth-container {
+  position: relative;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border-radius: 32px;
+  padding: 44px 36px 36px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 16px 64px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  animation: authContainerReveal 0.6s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+@keyframes authContainerReveal {
+  from { opacity: 0; transform: translateY(20px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.auth-header {
+  text-align: center;
+  margin-bottom: 36px;
+}
+.auth-icon-wrapper {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 20px;
+}
+.auth-icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #007AFF 0%, #5856D6 100%);
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  color: white;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 8px 24px rgba(0, 122, 255, 0.25), 0 2px 8px rgba(0, 0, 0, 0.1);
+  animation: authIconFloat 4s ease-in-out infinite;
+}
+.auth-icon ion-icon {
+  font-size: 40px;
+  color: white;
+}
+@keyframes authIconFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.auth-title {
+  font-size: 28px;
+  color: #000000;
+  margin-bottom: 6px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  text-wrap: balance;
+}
+.auth-subtitle {
+  color: #86868B;
+  font-size: 15px;
+  font-weight: 500;
+}
+.auth-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 32px;
+  background: rgba(142, 142, 147, 0.1);
+  border-radius: 14px;
+  padding: 4px;
+}
+.auth-tab {
+  flex: 1;
+  padding: 11px 16px;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: #86868B;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.auth-tab ion-icon { font-size: 18px; }
+.auth-tab:hover { color: #3C3C43; background: rgba(0, 0, 0, 0.04); }
+.auth-tab.active { color: #000000; background: #FFFFFF; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04); }
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.auth-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.auth-form-group label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #86868B;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.auth-form-group label ion-icon {
+  font-size: 16px;
+  color: #86868B;
+}
+.auth-input-wrapper input {
+  width: 100%;
+  padding: 16px 18px;
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  font-size: 17px;
+  font-weight: 500;
+  background: #F5F5FA;
+  color: #000000;
+  transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  outline: none;
+}
+.auth-input-wrapper input:hover { border-color: rgba(0, 0, 0, 0.15); background: #F0F0F5; }
+.auth-input-wrapper input:focus { border-color: #007AFF; background: #FFFFFF; box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1); }
+.auth-input-wrapper input::placeholder { color: #AEAEB2; }
+.auth-btn {
+  width: 100%;
+  padding: 17px 24px;
+  border: none;
+  border-radius: 16px;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+.auth-btn-primary {
+  background: #007AFF;
+  color: white;
+  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3), 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.auth-btn-primary:hover {
+  background: #0066D6;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(0, 122, 255, 0.35), 0 4px 8px rgba(0, 0, 0, 0.12);
+}
+.auth-btn-primary:active { transform: scale(0.97); transition: transform 0.1s; }
+.auth-btn ion-icon { font-size: 20px; transition: transform 0.3s ease; }
+.auth-btn:hover ion-icon { transform: translateX(3px); }
+.auth-btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transform: skewX(-25deg);
+  animation: authBtnShimmer 3s infinite;
+}
+@keyframes authBtnShimmer {
+  0% { left: -100%; }
+  100% { left: 200%; }
+}
+.auth-error {
+  color: #FF3B30;
+  font-size: 13px;
+  text-align: center;
+  min-height: 20px;
+  font-weight: 600;
+  animation: authErrorShake 0.4s ease;
+}
+@keyframes authErrorShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+/* Выпуклая кнопка (глянец) */
+.auth-btn-primary {
+  background:
+  radial-gradient(120% 70% at 50% 0%, rgba(255, 255, 255, 0.45) 0%, rgba(255, 255, 255, 0) 55%),
+  linear-gradient(180deg, #4da2ff 0%, #007AFF 55%, #0063d1 100%);
+  box-shadow:
+  0 5px 14px rgba(0, 122, 255, 0.40),
+  0 2px 4px rgba(0, 0, 0, 0.10),
+  inset 0 2px 2px rgba(255, 255, 255, 0.50),
+  inset 0 -3px 6px rgba(0, 0, 60, 0.25);
+}
+
+/* ============================================
+3. ЭКРАН АВТОРИЗАЦИИ (ТЁМНАЯ ТЕМА)
+============================================ */
+body.dark-theme .auth-screen,
+body.dark-theme #auth-screen {
+  background: linear-gradient(180deg, #000000, #101014) !important;
+}
+body.dark-theme .auth-container,
+body.dark-theme .auth-card,
+body.dark-theme .auth-box,
+body.dark-theme .auth-form-container,
+body.dark-theme #auth-screen > div {
+  background: linear-gradient(180deg, #2A2A2E 0%, #232327 55%, #1D1D21 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.70),
+    0 6px 18px rgba(0, 0, 0, 0.50),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.06),
+    inset 0 -1.5px 0 rgba(0, 0, 0, 0.40) !important;
+}
+body.dark-theme .auth-screen h1,
+body.dark-theme .auth-screen h2,
+body.dark-theme #auth-screen h1 {
+  color: #FFFFFF !important;
+  text-shadow: 0 1.5px 2px rgba(0, 0, 0, 0.85);
+}
+body.dark-theme .auth-screen p,
+body.dark-theme .auth-screen label {
+  color: rgba(235, 235, 245, 0.60) !important;
+}
+body.dark-theme .auth-tabs {
+  background: #1C1C1E !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+}
+body.dark-theme .auth-tab { color: rgba(235, 235, 245, 0.50) !important; }
+body.dark-theme .auth-tab.active {
+  background: linear-gradient(180deg, #3A3A3C, #2C2C2E) !important;
+  color: #FFFFFF !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+/* Углублённые поля ввода (Тёмная тема) */
+body.dark-theme .auth-screen input,
+body.dark-theme #auth-screen input {
+  background: linear-gradient(to bottom, #08080a 0%, #101013 25%, #1a1a1e 100%) !important;
+  border: 1px solid #000000 !important;
+  border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+  border-radius: 10px;
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.90),
+    inset 0 3px 8px rgba(0, 0, 0, 0.55),
+    0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  color: #FFFFFF !important;
+}
+/* Углублённые поля ввода (Светлая тема) */
+body:not(.dark-theme) .auth-screen input,
+body:not(.dark-theme) #auth-screen input {
+  background: linear-gradient(to bottom, #cfcfd7 0%, #e8e8ee 8%, #f8f8fb 50%, #ffffff 100%) !important;
+  border: 1px solid #9d9da6 !important;
+  border-radius: 10px;
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.35),
+    inset 0 3px 8px rgba(0, 0, 0, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.85) !important;
+  color: #1C1C1E !important;
+}
+body:not(.dark-theme) .auth-screen input::placeholder {
+  color: #8E8E93 !important;
+}
+
+/* ============================================
+4. АДАПТИВНОСТЬ ЭКРАНА АВТОРИЗАЦИИ
+============================================ */
+@media (max-width: 480px) {
+  .auth-container { padding: 36px 24px 28px; border-radius: 28px; max-width: 100%; }
+  .auth-icon { width: 68px; height: 68px; border-radius: 20px; font-size: 34px; }
+  .auth-icon ion-icon { font-size: 34px; }
+  .auth-icon-ring { width: 78px; height: 78px; border-radius: 24px; }
+  .auth-title { font-size: 24px; }
+  .auth-tab { font-size: 13px; padding: 10px 12px; }
+  .auth-tab ion-icon { font-size: 16px; }
+}
+
+@media (max-width: 360px) {
+  .auth-container { padding: 28px 20px 24px; }
+  .auth-icon { width: 60px; height: 60px; border-radius: 18px; font-size: 30px; }
+  .auth-icon ion-icon { font-size: 30px; }
+  .auth-tabs { gap: 4px; }
+  .auth-tab { font-size: 12px; padding: 8px 10px; gap: 4px; }
+  .auth-tab ion-icon { font-size: 15px; }
+}
+
+/* ========== 11. ЭКРАН АВТОРИЗАЦИИ ========== */
+body.dark-theme .auth-screen,
+body.dark-theme #auth-screen {
+    background: linear-gradient(180deg, #000000, #101014) !important;
+}
+body.dark-theme .auth-tabs { background: #2C2C2E; }
+body.dark-theme .auth-tab { color: rgba(235, 235, 245, 0.50); }
+body.dark-theme .auth-tab.active { background: #3A3A3C; color: #FFFFFF; }
