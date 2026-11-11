@@ -1,6 +1,14 @@
 // ============================================
 // CONTROL PANEL MODULE (fully rewritten)
 // Firebase-экономная версия
+// + Мгновенный индикатор синхронизации
+// + Полная синхронизация при включении автосинка
+// + Синхронизация lastSyncAt между устройствами
+// + Приятные многослойные звуки уведомлений
+// + Слайдеры громкости и яркости (iOS-style)
+// + Объединенная плашка статуса (Firebase + Время)
+// + Надежная проверка статуса сети (online/offline)
+// + Открытие настроек приложения через модалку
 // ============================================
 (function () {
     'use strict';
@@ -36,20 +44,40 @@
     // Отложенный повтор
     const SAVE_DEFER_MS = 2000;
 
+    // Ключи localStorage для индикатора синхронизации
+    const SYNC_FETCH_KEY = 'driverRemindersLastFetch';
+    const SYNC_WRITE_KEY = 'driverRemindersLastWrite';
+    // Синхронизируемое между устройствами время последней синхронизации аккаунта
+    const SYNC_ACCOUNT_KEY = 'driverRemindersLastSyncAccount';
+    // Слайдеры
+    const BRIGHTNESS_KEY = 'driverBrightness';
+    const VOLUME_KEY = 'driverVolume';
+
     // ---------- СОСТОЯНИЕ ----------
     let settings = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
-    let dismissed = {};                 // { id: true } — «отклонено навсегда»
-    let notified = {};                  // { id: 'YYYY-MM-DD' } — «уже всплывало сегодня» (ЛОКАЛЬНО)
-    let hidden = {};                    // { id: 'YYYY-MM-DD' } — «скрыто пользователем в этот день»
+    let dismissed = {};
+    let notified = {};
+    let hidden = {};
     let activeReminders = [];
     let isDataLoaded = false;
 
     let remindersUnsubscribe = null;
     let saveTimeout = null;
     let lastSaveTime = 0;
-    let lastSavedSnapshot = '';         // JSON-снимок {settings,dismissed,hidden} последней записи
+    let lastSavedSnapshot = '';
+    let pendingSave = false;
     let audioContext = null;
+    let reverbNode = null;
     let initialized = false;
+
+    let uiBrightness = parseInt(localStorage.getItem(BRIGHTNESS_KEY) || '100', 10);
+    let notifVolume   = parseInt(localStorage.getItem(VOLUME_KEY)      || '100', 10);
+    if (!isFinite(uiBrightness)) uiBrightness = 100;
+    if (!isFinite(notifVolume))  notifVolume  = 100;
+    uiBrightness = Math.min(100, Math.max(20, uiBrightness));
+    notifVolume  = Math.min(100, Math.max(0,  notifVolume));
+
+    let lastNotifVolume = notifVolume > 0 ? notifVolume : 100;
 
     const notifSettings = {
         sound: localStorage.getItem('notifSound') !== 'false',
@@ -58,10 +86,7 @@
     };
 
     // ---------- УТИЛИТЫ ----------
-    function num(v) {
-        const n = parseFloat(v);
-        return isFinite(n) ? n : 0;
-    }
+    function num(v) { const n = parseFloat(v); return isFinite(n) ? n : 0; }
     function localISO(d) {
         return d.getFullYear() + '-' +
             String(d.getMonth() + 1).padStart(2, '0') + '-' +
@@ -84,19 +109,13 @@
             return Array.isArray(vehicles) && vehicles.length > 0
                 ? vehicles
                 : [{ id: 'default', name: 'Основной автомобиль', plate: '' }];
-        } catch (e) {
-            return [{ id: 'default', name: 'Основной автомобиль', plate: '' }];
-        }
+        } catch (e) { return [{ id: 'default', name: 'Основной автомобиль', plate: '' }]; }
     }
-    function isAuthenticated() {
-        return document.body.classList.contains('authenticated');
-    }
+    function isAuthenticated() { return document.body.classList.contains('authenticated'); }
     function getRecords() {
         if (typeof records !== 'undefined' && Array.isArray(records)) return records;
-        try {
-            const s = localStorage.getItem('driverRecords');
-            return s ? JSON.parse(s) : [];
-        } catch (e) { return []; }
+        try { const s = localStorage.getItem('driverRecords'); return s ? JSON.parse(s) : []; }
+        catch (e) { return []; }
     }
     function getAllFuelLogs() {
         try {
@@ -109,6 +128,234 @@
             const s = localStorage.getItem('repair_records');
             return s ? JSON.parse(s) : (Array.isArray(window.repairRecords) ? window.repairRecords : []);
         } catch (e) { return []; }
+    }
+
+    // ---------- ИНДИКАТОР СИНХРОНИЗАЦИИ ----------
+    function getLastSyncTs() {
+        const acc = parseInt(localStorage.getItem(SYNC_ACCOUNT_KEY) || '0', 10) || 0;
+        if (acc) return acc;
+        const f = parseInt(localStorage.getItem(SYNC_FETCH_KEY) || '0', 10) || 0;
+        const w = parseInt(localStorage.getItem(SYNC_WRITE_KEY) || '0', 10) || 0;
+        return Math.max(f, w);
+    }
+
+    function markSynced(accountTs) {
+        const now = Date.now();
+        try { localStorage.setItem(SYNC_WRITE_KEY, String(now)); } catch (e) {}
+        if (accountTs) {
+            try { localStorage.setItem(SYNC_ACCOUNT_KEY, String(accountTs)); } catch (e) {}
+        }
+        pendingSave = false;
+        renderUnifiedStatus();
+    }
+
+    function markDirty() {
+        pendingSave = true;
+        renderUnifiedStatus();
+    }
+
+    function formatAgo(ts) {
+        if (!ts) return null;
+        const diff = Date.now() - ts;
+        if (diff < 60 * 1000) return 'Синхронизировано только что';
+        const min = Math.floor(diff / 60000);
+        if (min < 60) return 'Синхронизировано ' + min + ' мин назад';
+        const hrs = Math.floor(min / 60);
+        if (hrs < 24) return 'Синхронизировано ' + hrs + ' ч назад';
+        const days = Math.floor(hrs / 24);
+        return 'Синхронизировано ' + days + ' дн назад';
+    }
+
+    // ---------- ОБЪЕДИНЕННЫЙ СТАТУС ----------
+    function renderUnifiedStatus() {
+        const wrap = document.getElementById('cc-unified-status');
+        const title = document.getElementById('cc-status-title');
+        const time = document.getElementById('cc-status-time');
+        
+        if (!wrap || !title || !time) return;
+
+        wrap.classList.remove('online', 'offline', 'error', 'syncing');
+        
+        // 1. Если идет синхронизация прямо сейчас
+        if (pendingSave) {
+            wrap.classList.add('syncing');
+            title.textContent = 'Синхронизация...';
+            time.textContent = '';
+            return;
+        }
+
+        // 2. Если нет авторизации
+        if (!isAuthenticated()) {
+            wrap.classList.add('error');
+            title.textContent = 'Локальный режим';
+            time.textContent = '';
+            return;
+        }
+
+        // 3. Если нет интернета
+        if (!navigator.onLine || (typeof connectionMode !== 'undefined' && connectionMode === 'offline')) {
+            wrap.classList.add('offline');
+            title.textContent = 'Офлайн';
+            const ts = getLastSyncTs();
+            time.textContent = ts ? formatAgo(ts).replace('Синхронизировано ', '') : 'нет данных';
+            return;
+        }
+
+        // 4. Если ошибка Firebase
+        if (typeof connectionMode !== 'undefined' && connectionMode === 'local') {
+            wrap.classList.add('offline');
+            title.textContent = 'Локальный режим';
+            const ts = getLastSyncTs();
+            time.textContent = ts ? formatAgo(ts).replace('Синхронизировано ', '') : 'нет данных';
+            return;
+        }
+
+        // 5. Все хорошо (Firebase подключен)
+        wrap.classList.add('online');
+        title.textContent = 'Firebase (Подключено)';
+        
+        const ts = getLastSyncTs();
+        if (ts) {
+            time.textContent = formatAgo(ts).replace('Синхронизировано ', '');
+        } else {
+            time.textContent = 'ожидание';
+        }
+    }
+
+    function showConnectionDetails() {
+        let message = '';
+
+        if (!isAuthenticated()) {
+            message = '🔒 Не авторизован\n\n' +
+                'Войдите в аккаунт для синхронизации данных.\n' +
+                'Данные хранятся локально до входа.';
+        } else if (!navigator.onLine) {
+            message = '📴 Нет интернет-соединения\n\n' +
+                '• Проверьте подключение к Wi-Fi или мобильной сети\n' +
+                '• Данные сохраняются локально и будут отправлены позже';
+        } else if (typeof connectionMode !== 'undefined' && connectionMode === 'firebase') {
+            message = '✅ Подключено к Firebase\n\n' +
+                '• Данные синхронизируются с облаком\n' +
+                '• Доступны с любого устройства\n' +
+                '• Пользователь: ' + (typeof currentUser !== 'undefined' && currentUser ? currentUser.email : 'Неизвестно');
+        } else if (typeof connectionMode !== 'undefined' && connectionMode === 'local') {
+            message = '⚠️ Работа в локальном режиме\n\n' +
+                '• Данные сохраняются только в браузере\n' +
+                '• Не синхронизируются с облаком\n' +
+                '• Доступны только на этом устройстве\n\n' +
+                (typeof firebaseErrorReason !== 'undefined' && firebaseErrorReason ? 'Причина: ' + firebaseErrorReason : 'Проверьте подключение к интернету');
+        } else {
+            message = '⏳ Проверка подключения к Firebase...\n\n' +
+                'Пожалуйста, подождите...';
+        }
+
+        if (typeof window.showIOSAlert === 'function') {
+            window.showIOSAlert(message);
+        } else {
+            window.alert(message);
+        }
+    }
+
+    async function checkFirebaseConnection() {
+        if (!navigator.onLine) {
+            if (typeof connectionMode !== 'undefined') connectionMode = 'offline';
+            if (typeof firebaseErrorReason !== 'undefined') firebaseErrorReason = 'Нет интернет-соединения';
+            renderUnifiedStatus();
+            return;
+        }
+
+        try {
+            if (typeof firebase === 'undefined') {
+                if (typeof connectionMode !== 'undefined') connectionMode = 'local';
+                if (typeof firebaseErrorReason !== 'undefined') firebaseErrorReason = 'Firebase SDK не загружен';
+                renderUnifiedStatus();
+                return;
+            }
+
+            if (typeof currentUser === 'undefined' || !currentUser) {
+                if (typeof connectionMode !== 'undefined') connectionMode = 'local';
+                if (typeof firebaseErrorReason !== 'undefined') firebaseErrorReason = 'Войдите в аккаунт для синхронизации';
+                renderUnifiedStatus();
+                return;
+            }
+
+            await db.collection('users')
+                .doc(currentUser.uid)
+                .get({ source: 'server' });
+
+            if (typeof connectionMode !== 'undefined') connectionMode = 'firebase';
+            if (typeof firebaseErrorReason !== 'undefined') firebaseErrorReason = '';
+            renderUnifiedStatus();
+            console.log('✅ Firebase доступен (сеть проверена)');
+
+        } catch (error) {
+            if (typeof connectionMode !== 'undefined') connectionMode = 'local';
+
+            if (typeof firebaseErrorReason !== 'undefined') {
+                if (error.code === 'permission-denied') {
+                    firebaseErrorReason = 'Ошибка доступа (проверьте правила Firestore)';
+                } else if (error.code === 'unavailable' || !navigator.onLine) {
+                    firebaseErrorReason = 'Сервер Firebase недоступен (нет интернета)';
+                    if (typeof connectionMode !== 'undefined') connectionMode = 'offline';
+                } else {
+                    firebaseErrorReason = error.message;
+                }
+            }
+
+            renderUnifiedStatus();
+            console.warn('⚠️ Firebase недоступен:', error.message);
+        }
+    }
+
+    // ---------- ЯРКОСТЬ И ГРОМКОСТЬ ----------
+    function applyBrightness() {
+        const pct = uiBrightness;
+        const opacity = ((100 - pct) / 100) * 0.75;
+
+        let dimmer = document.getElementById('cc-dim-overlay');
+        if (!dimmer) {
+            dimmer = document.createElement('div');
+            dimmer.id = 'cc-dim-overlay';
+            dimmer.className = 'cc-dim-overlay';
+            document.body.appendChild(dimmer);
+        }
+
+        dimmer.style.opacity = opacity.toFixed(2);
+    }
+
+    function updateSliderFill(el) {
+        if (!el) return;
+
+        const min = parseFloat(el.min) || 0;
+        const max = parseFloat(el.max) || 100;
+        const val = parseFloat(el.value) || 0;
+        const pct = (val - min) / (max - min);
+
+        const row = el.closest('.cc-slider-row');
+        if (!row) return;
+
+        const fill = row.querySelector('.cc-slider-fill');
+        if (fill) fill.style.width = (pct * 100) + '%';
+
+        const icon = row.querySelector('.cc-icon-brightness, .cc-icon-volume');
+        if (icon) {
+            if (val <= min) icon.classList.add('cc-icon-muted');
+            else icon.classList.remove('cc-icon-muted');
+        }
+    }
+
+    function updateVolumeSlider() {
+        const el = document.getElementById('cc-volume');
+        const val = document.getElementById('cc-volume-value');
+        if (el) { el.value = String(notifVolume); updateSliderFill(el); }
+        if (val) val.textContent = notifVolume + '%';
+    }
+
+    function updateBrightnessSlider() {
+        const el = document.getElementById('cc-brightness');
+        const val = document.getElementById('cc-brightness-value');
+        if (el) { el.value = String(uiBrightness); updateSliderFill(el); }
+        if (val) val.textContent = uiBrightness + '%';
     }
 
     // ---------- ЛОКАЛЬНОЕ ХРАНЕНИЕ ----------
@@ -125,12 +372,9 @@
         settings.fuel  = { ...DEFAULT_SETTINGS.fuel,  ...(settings.fuel  || {}) };
         settings.goals = { ...DEFAULT_SETTINGS.goals, ...(settings.goals || {}) };
 
-        try { dismissed = JSON.parse(localStorage.getItem('driverRemindersDismissed') || '{}') || {}; }
-        catch (e) { dismissed = {}; }
-        try { notified = JSON.parse(localStorage.getItem('driverRemindersNotified') || '{}') || {}; }
-        catch (e) { notified = {}; }
-        try { hidden = JSON.parse(localStorage.getItem('driverRemindersHidden') || '{}') || {}; }
-        catch (e) { hidden = {}; }
+        try { dismissed = JSON.parse(localStorage.getItem('driverRemindersDismissed') || '{}') || {}; } catch (e) { dismissed = {}; }
+        try { notified = JSON.parse(localStorage.getItem('driverRemindersNotified') || '{}') || {}; } catch (e) { notified = {}; }
+        try { hidden = JSON.parse(localStorage.getItem('driverRemindersHidden') || '{}') || {}; } catch (e) { hidden = {}; }
     }
 
     function persistLocal() {
@@ -151,22 +395,16 @@
         try {
             return db.collection('users').doc(currentUser.uid)
                 .collection('reminders').doc('config');
-        } catch (e) {
-            return null;
-        }
+        } catch (e) { return null; }
     }
 
     function snapshotKey() {
         return JSON.stringify({ settings, dismissed, hidden });
     }
 
-    // Экономное сохранение:
-    //  - throttle SAVE_THROTTLE_MS
-    //  - отложенный повтор через SAVE_DEFER_MS
-    //  - дедупликация по lastSavedSnapshot (в Firestore не идём, если ничего не поменялось)
-    async function saveRemindersData() {
+    async function saveRemindersData(force) {
         const now = Date.now();
-        if (now - lastSaveTime < SAVE_THROTTLE_MS) {
+        if (!force && now - lastSaveTime < SAVE_THROTTLE_MS) {
             if (saveTimeout) clearTimeout(saveTimeout);
             saveTimeout = setTimeout(() => saveRemindersData(), SAVE_DEFER_MS);
             return;
@@ -174,35 +412,57 @@
         lastSaveTime = now;
         if (saveTimeout) { clearTimeout(saveTimeout); saveTimeout = null; }
 
-        // localStorage пишем всегда — это дешёво
         persistLocal();
 
-        // Дедупликация: если с прошлой записи ничего не изменилось — не идём в Firestore
         const snap = snapshotKey();
-        if (snap === lastSavedSnapshot) return;
-
-        const docRef = getRemindersDocRef();
-        if (!docRef) {
-            // Нет Firebase-сессии — зафиксируем снапшот локально, чтобы
-            // при появлении авторизации не писать лишний раз
-            lastSavedSnapshot = snap;
+        if (snap === lastSavedSnapshot) {
+            pendingSave = false;
+            renderUnifiedStatus();
             return;
         }
 
-        // Оптимистично ставим снапшот — если ошибка, сбросим
+        const docRef = getRemindersDocRef();
+        if (!docRef) {
+            lastSavedSnapshot = snap;
+            pendingSave = false;
+            renderUnifiedStatus();
+            return;
+        }
+
         lastSavedSnapshot = snap;
+        renderUnifiedStatus();
         try {
-            // ⚠️ notified НЕ отправляем — он локальный
-            await docRef.set({ settings, dismissed, hidden }, { merge: true });
+            const accountTs = Date.now();
+            await docRef.set({
+                settings, dismissed, hidden, lastSyncAt: accountTs
+            }, { merge: true });
+            markSynced(accountTs);
         } catch (e) {
             console.error('❌ Ошибка сохранения в Firestore:', e);
-            // Сброс, чтобы следующая попытка всё-таки записала
             lastSavedSnapshot = '';
+            pendingSave = true;
+            renderUnifiedStatus();
+        }
+    }
+
+    async function syncAllNow() {
+        markDirty();
+        try {
+            await saveRemindersData(true);
+            if (typeof window.syncToFirebase === 'function') {
+                const res = window.syncToFirebase();
+                if (res && typeof res.then === 'function') await res;
+            }
+            if (!pendingSave) renderUnifiedStatus();
+        } catch (e) {
+            console.error('❌ Ошибка полной синхронизации:', e);
+            pendingSave = true;
+            renderUnifiedStatus();
         }
     }
 
     function attachSnapshot() {
-        if (remindersUnsubscribe) return;          // уже подписаны
+        if (remindersUnsubscribe) return;
         const docRef = getRemindersDocRef();
         if (!docRef) return;
 
@@ -218,11 +478,15 @@
                         settings  = mergeSettings(data.settings);
                         dismissed = data.dismissed || {};
                         hidden    = data.hidden    || {};
-                        // Фиксируем снапшот, чтобы не записать то же самое обратно
                         lastSavedSnapshot = snapshotKey();
+                        pendingSave = false;
                         persistLocal();
-                        refresh();
                     }
+                    if (data.lastSyncAt) {
+                        try { localStorage.setItem(SYNC_ACCOUNT_KEY, String(data.lastSyncAt)); } catch (e) {}
+                    }
+                    renderUnifiedStatus();
+                    if (sChanged || dChanged || hChanged) refresh();
                 }
             }, (error) => {
                 console.warn('⚠️ Ошибка слушателя:', error);
@@ -244,7 +508,6 @@
         loadFromLocal();
         isDataLoaded = true;
 
-        // Ждём авторизации
         let attempts = 0;
         while (!isAuthenticated() && attempts < 50) {
             await new Promise(r => setTimeout(r, 200));
@@ -254,23 +517,24 @@
         if (!isAuthenticated()) {
             console.warn('⚠️ Не авторизован — работаем только с локальными данными');
             refresh();
+            renderUnifiedStatus();
             return;
         }
 
         const docRef = getRemindersDocRef();
         if (!docRef) {
             refresh();
+            renderUnifiedStatus();
             return;
         }
 
-        // Кэш remote-загрузки: не чаще раза в 10 минут
-        const lastFetch = parseInt(localStorage.getItem('driverRemindersLastFetch') || '0', 10);
+        const lastFetch = parseInt(localStorage.getItem(SYNC_FETCH_KEY) || '0', 10);
         const isFresh = (Date.now() - lastFetch) < REMOTE_FETCH_TTL_MS;
 
         if (!isFresh) {
             try {
                 const doc = await docRef.get();
-                try { localStorage.setItem('driverRemindersLastFetch', String(Date.now())); } catch (e) {}
+                try { localStorage.setItem(SYNC_FETCH_KEY, String(Date.now())); } catch (e) {}
                 if (doc.exists) {
                     const data = doc.data() || {};
                     settings  = mergeSettings(data.settings);
@@ -278,36 +542,39 @@
                     hidden    = data.hidden    || {};
                     lastSavedSnapshot = snapshotKey();
                     persistLocal();
+                    if (data.lastSyncAt) {
+                        try { localStorage.setItem(SYNC_ACCOUNT_KEY, String(data.lastSyncAt)); } catch (e) {}
+                    }
+                    markSynced(data.lastSyncAt || Date.now());
                 } else {
-                    // Первый запуск — создаём документ один раз
-                    await docRef.set({ settings, dismissed, hidden }, { merge: true });
+                    const accountTs = Date.now();
+                    await docRef.set({
+                        settings, dismissed, hidden, lastSyncAt: accountTs
+                    }, { merge: true });
                     lastSavedSnapshot = snapshotKey();
+                    markSynced(accountTs);
                 }
             } catch (e) {
                 console.warn('⚠️ Ошибка загрузки из Firebase:', e);
+                renderUnifiedStatus();
             }
         } else {
-            // Свежий кэш — восстановим lastSavedSnapshot, чтобы не писать лишнего
             lastSavedSnapshot = snapshotKey();
+            try { localStorage.setItem(SYNC_WRITE_KEY, String(Date.now())); } catch (e) {}
         }
 
-        // Слушатель подключаем сразу — до первого изменения он не тратит reads
         attachSnapshot();
 
         refresh();
+        renderUnifiedStatus();
     }
 
     function mergeSettings(src) {
         const base = clone(DEFAULT_SETTINGS);
         if (!src || typeof src !== 'object') return base;
         return {
-            ...base,
-            ...src,
-            to: {
-                ...base.to,
-                ...(src.to || {}),
-                services: { ...base.to.services, ...((src.to && src.to.services) || {}) }
-            },
+            ...base, ...src,
+            to: { ...base.to, ...(src.to || {}), services: { ...base.to.services, ...((src.to && src.to.services) || {}) } },
             shift: { ...base.shift, ...(src.shift || {}) },
             fuel:  { ...base.fuel,  ...(src.fuel  || {}) },
             goals: { ...base.goals, ...(src.goals || {}) }
@@ -315,12 +582,8 @@
     }
 
     // ---------- СЕРВИСНЫЕ ФУНКЦИИ ----------
-    function hasService(r, key) {
-        return Array.isArray(r.serviceItems) && r.serviceItems.indexOf(key) !== -1;
-    }
-    function hasAnyService(r) {
-        return Array.isArray(r.serviceItems) && r.serviceItems.length > 0;
-    }
+    function hasService(r, key) { return Array.isArray(r.serviceItems) && r.serviceItems.indexOf(key) !== -1; }
+    function hasAnyService(r) { return Array.isArray(r.serviceItems) && r.serviceItems.length > 0; }
     function repairText(r) {
         const parts = (r.parts || []).map(p => p.name || '').join(' ');
         const works = (r.works || []).map(w => w.name || '').join(' ');
@@ -413,9 +676,7 @@
                     const d = parseISO(lastDate);
                     if (d) {
                         const monthsPassed = (now - d) / (1000 * 60 * 60 * 24 * 30.44);
-                        if (monthsPassed >= svcSettings.months) {
-                            reasons.push('по сроку: ' + Math.floor(monthsPassed) + ' мес.');
-                        }
+                        if (monthsPassed >= svcSettings.months) reasons.push('по сроку: ' + Math.floor(monthsPassed) + ' мес.');
                     }
                 }
 
@@ -458,8 +719,7 @@
                 type: 'shift', icon: 'calendar-outline', priority: 3,
                 vehicleId: null,
                 title: 'Завтра рабочая смена',
-                text: 'Завтра (' + localISO(tomorrow) + ') рабочий день по графику ' +
-                    settings.shift.workDays + '/' + settings.shift.offDays + '.'
+                text: 'Завтра (' + localISO(tomorrow) + ') рабочий день по графику ' + settings.shift.workDays + '/' + settings.shift.offDays + '.'
             };
         }
         if (isWorkDay(now) && now.getHours() < 12) {
@@ -468,8 +728,7 @@
                 type: 'shift', icon: 'calendar-outline', priority: 3,
                 vehicleId: null,
                 title: 'Сегодня рабочая смена',
-                text: 'По графику ' + settings.shift.workDays + '/' + settings.shift.offDays +
-                    ' сегодня рабочий день.'
+                text: 'По графику ' + settings.shift.workDays + '/' + settings.shift.offDays + ' сегодня рабочий день.'
             };
         }
         return null;
@@ -489,15 +748,13 @@
             const logs = allLogs
                 .filter(l => (l.vehicleId || 'default') === vId)
                 .filter(l => num(l.liters) > 0 && num(l.mileage !== undefined ? l.mileage : l.odometer) > 0)
-                .sort((a, b) => num(a.mileage !== undefined ? a.mileage : a.odometer) -
-                                num(b.mileage !== undefined ? b.mileage : b.odometer));
+                .sort((a, b) => num(a.mileage !== undefined ? a.mileage : a.odometer) - num(b.mileage !== undefined ? b.mileage : b.odometer));
 
             if (logs.length < 6) return;
 
             const cons = [];
             for (let i = 1; i < logs.length; i++) {
-                const dm = num(logs[i].mileage !== undefined ? logs[i].mileage : logs[i].odometer) -
-                           num(logs[i - 1].mileage !== undefined ? logs[i - 1].mileage : logs[i - 1].odometer);
+                const dm = num(logs[i].mileage !== undefined ? logs[i].mileage : logs[i].odometer) - num(logs[i - 1].mileage !== undefined ? logs[i - 1].mileage : logs[i - 1].odometer);
                 if (dm > 0) cons.push(num(logs[i].liters) / dm * 100);
             }
             if (cons.length < 6) return;
@@ -514,8 +771,7 @@
                     type: 'fuel', icon: 'fuel-outline', priority: 2,
                     vehicleId: vId, vehicleName: vName, vehiclePlate: vPlate,
                     title: 'Вырос расход топлива',
-                    text: vPrefix + 'Средний расход вырос на ' + rise.toFixed(0) + '% (' +
-                        prev3.toFixed(1) + ' → ' + last3.toFixed(1) + ' л/100км).'
+                    text: vPrefix + 'Средний расход вырос на ' + rise.toFixed(0) + '% (' + prev3.toFixed(1) + ' → ' + last3.toFixed(1) + ' л/100км).'
                 });
             }
         });
@@ -543,8 +799,7 @@
                 id: 'goal-income:' + key, type: 'goal', icon: 'trophy-outline', priority: 3,
                 vehicleId: null,
                 title: 'Цель по доходу достигнута! 🎉',
-                text: 'Заработано ' + Math.round(income).toLocaleString('ru-RU') +
-                    ' ₽ при цели ' + goals.income.toLocaleString('ru-RU') + ' ₽.'
+                text: 'Заработано ' + Math.round(income).toLocaleString('ru-RU') + ' ₽ при цели ' + goals.income.toLocaleString('ru-RU') + ' ₽.'
             };
         }
         if (goals.orders > 0 && orders >= goals.orders) {
@@ -580,35 +835,93 @@
     // ---------- ЗВУК ----------
     function initAudio() {
         if (!audioContext) {
-            try { audioContext = new (window.AudioContext || window.webkitAudioContext)(); }
-            catch (e) { console.warn('⚠️ Audio API недоступен'); }
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                reverbNode = _createReverb(audioContext, 0.6, 1.4);
+                if (reverbNode) reverbNode.connect(audioContext.destination);
+            } catch (e) { console.warn('⚠️ Audio API недоступен'); }
+        }
+        if (audioContext && audioContext.state === 'suspended') {
+            try { audioContext.resume(); } catch (e) {}
         }
     }
+
+    function _createReverb(ctx, decay, duration) {
+        try {
+            const rate = ctx.sampleRate;
+            const length = Math.max(1, Math.floor(rate * duration));
+            const impulse = ctx.createBuffer(2, length, rate);
+            for (let ch = 0; ch < 2; ch++) {
+                const data = impulse.getChannelData(ch);
+                for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay * 3);
+            }
+            const conv = ctx.createConvolver();
+            conv.buffer = impulse;
+            return conv;
+        } catch (e) { return null; }
+    }
+
+    function _voice(freq, startAt, duration, peak, type, detune) {
+        if (!audioContext) return;
+        const ctx = audioContext;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type || 'sine';
+        osc.frequency.setValueAtTime(freq, startAt);
+        if (detune) osc.detune.setValueAtTime(detune, startAt);
+
+        const attack = Math.min(0.02, duration * 0.15);
+        const release = duration * 0.7;
+        gain.gain.setValueAtTime(0.0001, startAt);
+        gain.gain.exponentialRampToValueAtTime(peak, startAt + attack);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startAt + attack + release);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        if (reverbNode) {
+            const wet = ctx.createGain();
+            wet.gain.value = 0.25;
+            gain.connect(wet);
+            wet.connect(reverbNode);
+        }
+        osc.start(startAt);
+        osc.stop(startAt + duration + 0.05);
+    }
+
+    function _chord(freqs, startAt, step, duration, peak, type, detune) {
+        freqs.forEach((f, i) => _voice(f, startAt + i * step, duration, peak, type, detune || 0));
+    }
+
+    const SOUND_PROFILES = {
+        success:  { notes: [523.25, 659.25, 783.99],           step: 0.08, dur: 0.35, peak: 0.20, type: 'triangle' },
+        info:     { notes: [587.33],                            step: 0.00, dur: 0.30, peak: 0.16, type: 'sine' },
+        warning:  { notes: [466.16, 415.30],                    step: 0.12, dur: 0.30, peak: 0.18, type: 'triangle' },
+        error:    { notes: [392.00, 311.13],                    step: 0.14, dur: 0.28, peak: 0.18, type: 'sine' },
+        shift:    { notes: [440.00, 587.33],                    step: 0.16, dur: 0.40, peak: 0.17, type: 'sine' },
+        goal:     { notes: [523.25, 659.25, 783.99, 1046.5],    step: 0.09, dur: 0.45, peak: 0.18, type: 'triangle' },
+        fuel:     { notes: [493.88, 392.00],                    step: 0.13, dur: 0.32, peak: 0.17, type: 'sine' },
+        to:       { notes: [392.00, 523.25],                    step: 0.12, dur: 0.35, peak: 0.18, type: 'triangle' }
+    };
+
     function playSound(type) {
-        if (!notifSettings.sound) return;
+        if (!notifSettings.sound || notifVolume <= 0) return;
         initAudio();
         if (!audioContext) return;
+
+        const vol = notifVolume / 100;
+
         try {
-            const osc = audioContext.createOscillator();
-            const gain = audioContext.createGain();
-            osc.connect(gain);
-            gain.connect(audioContext.destination);
-            const freqs = {
-                success: [523.25, 659.25, 783.99],
-                warning: [440, 440],
-                error:   [220, 196],
-                info:    [440],
-                shift:   [392, 523.25],
-                goal:    [523.25, 659.25, 783.99, 1046.5],
-                fuel:    [440, 349.23],
-                to:      [349.23, 440]
-            }[type] || [440];
-            const now = audioContext.currentTime;
-            freqs.forEach((f, i) => osc.frequency.setValueAtTime(f, now + i * 0.1));
-            gain.gain.setValueAtTime(0.25, now);
-            gain.gain.exponentialRampToValueAtTime(0.01, now + freqs.length * 0.1);
-            osc.start(now);
-            osc.stop(now + freqs.length * 0.1);
+            const profile = SOUND_PROFILES[type] || SOUND_PROFILES.info;
+            const now = audioContext.currentTime + 0.01;
+            const peak = profile.peak * vol;
+            _chord(profile.notes, now, profile.step, profile.dur, peak, profile.type);
+
+            if (type === 'success' || type === 'goal' || type === 'shift') {
+                _voice(profile.notes[0] / 2, now, profile.dur + 0.1, 0.07 * vol, 'sine');
+            }
+            if (type === 'goal') {
+                _voice(profile.notes[profile.notes.length - 1] * 2, now + 0.25, 0.35, 0.05 * vol, 'sine');
+            }
         } catch (e) { /* ignore */ }
     }
 
@@ -632,15 +945,9 @@
         if (reminderId) notif.dataset.reminderId = reminderId;
 
         const icons = {
-            success: 'checkmark-circle-outline',
-            warning: 'warning-outline',
-            error: 'close-circle-outline',
-            info: 'information-circle-outline',
-            force: 'information-circle-outline',
-            shift: 'calendar-outline',
-            goal: 'trophy-outline',
-            fuel: 'fuel-outline',
-            to: 'construct-outline'
+            success: 'checkmark-circle-outline', warning: 'warning-outline', error: 'close-circle-outline',
+            info: 'information-circle-outline', force: 'information-circle-outline',
+            shift: 'calendar-outline', goal: 'trophy-outline', fuel: 'fuel-outline', to: 'construct-outline'
         };
         const timeStr = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
@@ -664,6 +971,7 @@
                 if (rid) {
                     hidden[rid] = todayISO();
                     persistLocal();
+                    markDirty();
                     saveRemindersData();
                 }
                 removeNotification(notif);
@@ -692,8 +1000,7 @@
     function renderEmptyState(list) {
         list.innerHTML =
             '<div class="cc-no-notifs">' +
-                '<ion-icon name="checkmark-circle-outline" ' +
-                    'style="font-size:28px;margin-bottom:8px;display:block;color:#34C759;"></ion-icon>' +
+                '<ion-icon name="checkmark-circle-outline" style="font-size:28px;margin-bottom:8px;display:block;color:#34C759;"></ion-icon>' +
                 'Нет новых уведомлений' +
             '</div>';
     }
@@ -707,6 +1014,9 @@
         if (overlay) overlay.classList.add('visible');
         updateCPInfo();
         updateCPTiles();
+        updateVolumeSlider();
+        updateBrightnessSlider();
+        renderUnifiedStatus();
         showAllActiveReminders();
     }
 
@@ -721,27 +1031,26 @@
         const now = new Date();
         const dateEl = document.getElementById('cc-date');
         const timeEl = document.getElementById('cc-time');
-        if (dateEl) {
-            dateEl.textContent = now.toLocaleDateString('ru-RU', {
-                weekday: 'long', day: 'numeric', month: 'long'
-            });
-        }
-        if (timeEl) {
-            timeEl.textContent = now.toLocaleTimeString('ru-RU', {
-                hour: '2-digit', minute: '2-digit'
-            });
-        }
+        if (dateEl) dateEl.textContent = now.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+        if (timeEl) timeEl.textContent = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     }
 
     function updateCPTiles() {
         const themeTile = document.getElementById('cc-theme-toggle');
         const soundTile = document.getElementById('cc-sound-toggle');
-        const syncTile  = document.getElementById('cc-sync-toggle');
+        const syncTile = document.getElementById('cc-sync-toggle');
         const notifTile = document.getElementById('cc-notif-toggle');
 
-        if (themeTile) themeTile.classList.toggle('cc-tile-active', document.body.classList.contains('dark-theme'));
-        if (soundTile) soundTile.classList.toggle('cc-tile-active', notifSettings.sound);
-        if (syncTile)  syncTile.classList.toggle('cc-tile-active', notifSettings.autoSync);
+        if (themeTile) {
+            const isDark = document.body.classList.contains('dark-theme');
+            themeTile.classList.toggle('cc-tile-active', isDark);
+            const iconEl = themeTile.querySelector('ion-icon');
+            const textEl = themeTile.querySelector('span');
+            if (iconEl) iconEl.setAttribute('name', isDark ? 'sunny-outline' : 'moon-outline');
+            if (textEl) textEl.textContent = isDark ? 'Светлая тема' : 'Тёмная тема';
+        }
+        if (soundTile) soundTile.classList.toggle('cc-tile-active', notifSettings.sound && notifVolume > 0);
+        if (syncTile) syncTile.classList.toggle('cc-tile-active', notifSettings.autoSync);
         if (notifTile) notifTile.classList.toggle('cc-tile-active', notifSettings.enabled);
     }
 
@@ -750,35 +1059,53 @@
         const isDark = document.body.classList.contains('dark-theme');
         try { localStorage.setItem('driverTheme', isDark ? 'dark' : 'light'); } catch (e) {}
         updateCPTiles();
+
+        const themeTile = document.getElementById('cc-theme-toggle');
+        if (themeTile) {
+            const iconEl = themeTile.querySelector('ion-icon');
+            const textEl = themeTile.querySelector('span');
+            if (iconEl) iconEl.setAttribute('name', isDark ? 'sunny-outline' : 'moon-outline');
+            if (textEl) textEl.textContent = isDark ? 'Светлая тема' : 'Тёмная тема';
+        }
         showNotification('info', 'Тема изменена', isDark ? 'Тёмная тема активна' : 'Светлая тема активна');
     }
 
     function toggleCPSound() {
         notifSettings.sound = !notifSettings.sound;
         try { localStorage.setItem('notifSound', notifSettings.sound ? 'true' : 'false'); } catch (e) {}
+
+        if (!notifSettings.sound) {
+            if (notifVolume > 0) lastNotifVolume = notifVolume;
+            notifVolume = 0;
+        } else {
+            notifVolume = lastNotifVolume || 100;
+            showNotification('info', 'Звук включён', 'Уведомления будут со звуком');
+        }
+
+        try { localStorage.setItem(VOLUME_KEY, String(notifVolume)); } catch (e) {}
         updateCPTiles();
-        if (notifSettings.sound) showNotification('info', 'Звук включён', 'Уведомления будут со звуком');
+        updateVolumeSlider();
     }
 
-    function toggleCPSync() {
+    async function toggleCPSync() {
         notifSettings.autoSync = !notifSettings.autoSync;
         try { localStorage.setItem('notifAutoSync', notifSettings.autoSync ? 'true' : 'false'); } catch (e) {}
         updateCPTiles();
-        if (notifSettings.autoSync) {
-            showNotification('info', 'Автосинхронизация', 'Данные будут синхронизироваться автоматически');
-            if (typeof window.syncToFirebase === 'function') {
-                try { window.syncToFirebase(); } catch (e) {}
-            }
+
+        if (!notifSettings.autoSync) {
+            renderUnifiedStatus();
+            showNotification('info', 'Автосинхронизация выключена', 'Данные сохраняются только локально');
+            return;
         }
+        showNotification('info', 'Автосинхронизация', 'Синхронизируем все данные…');
+        await syncAllNow();
     }
 
     function toggleCPNotif() {
         notifSettings.enabled = !notifSettings.enabled;
         try { localStorage.setItem('notifEnabled', notifSettings.enabled ? 'true' : 'false'); } catch (e) {}
         updateCPTiles();
-        if (notifSettings.enabled) {
-            showNotification('success', 'Уведомления включены', 'Теперь они остаются в панели');
-        }
+        if (notifSettings.enabled) showNotification('success', 'Уведомления включены', 'Теперь они остаются в панели');
     }
 
     function showAllActiveReminders() {
@@ -929,6 +1256,7 @@
                     else if (inp.type === 'number') setByPath(settings, path, num(inp.value));
                     else setByPath(settings, path, inp.value);
                 });
+                markDirty();
                 await saveRemindersData();
                 close();
                 refresh();
@@ -946,9 +1274,23 @@
         const isOpen = () => panel.classList.contains('open');
         const THRESHOLD = 80;
 
+        function isSliderTarget(target) {
+            if (!target) return false;
+            let el = target;
+            while (el && el !== panel) {
+                if (el.classList && el.classList.contains('cc-slider')) return true;
+                if (el.tagName === 'INPUT' && el.type === 'range') return true;
+                el = el.parentElement;
+            }
+            return false;
+        }
+
         let startX = 0, startY = 0, opening = false;
+        let activeTouchOnSlider = false;
 
         document.addEventListener('touchstart', (e) => {
+            activeTouchOnSlider = isSliderTarget(e.target);
+            if (activeTouchOnSlider) { opening = false; return; }
             if (isOpen()) { opening = false; return; }
             if (!e.touches || e.touches.length === 0) return;
             startX = e.touches[0].clientX;
@@ -957,6 +1299,7 @@
         }, { passive: true });
 
         document.addEventListener('touchmove', (e) => {
+            if (activeTouchOnSlider) return;
             if (!opening || isOpen()) return;
             if (!e.touches || e.touches.length === 0) return;
             const diffX = e.touches[0].clientX - startX;
@@ -967,27 +1310,28 @@
             }
         }, { passive: true });
 
-        document.addEventListener('touchend', () => { opening = false; });
+        document.addEventListener('touchend', () => { opening = false; activeTouchOnSlider = false; });
 
         let closeStartX = 0, closing = false;
+        let closeActiveTouchOnSlider = false;
 
         panel.addEventListener('touchstart', (e) => {
+            closeActiveTouchOnSlider = isSliderTarget(e.target);
+            if (closeActiveTouchOnSlider) { closing = false; return; }
             if (!e.touches || e.touches.length === 0) return;
             closeStartX = e.touches[0].clientX;
             closing = true;
         }, { passive: true });
 
         panel.addEventListener('touchmove', (e) => {
+            if (closeActiveTouchOnSlider) return;
             if (!closing || !isOpen()) return;
             if (!e.touches || e.touches.length === 0) return;
             const diffX = closeStartX - e.touches[0].clientX;
-            if (diffX > THRESHOLD) {
-                closeControlPanel();
-                closing = false;
-            }
+            if (diffX > THRESHOLD) { closeControlPanel(); closing = false; }
         }, { passive: true });
 
-        panel.addEventListener('touchend', () => { closing = false; });
+        panel.addEventListener('touchend', () => { closing = false; closeActiveTouchOnSlider = false; });
 
         if (overlay) overlay.addEventListener('click', closeControlPanel);
         document.addEventListener('keydown', (e) => {
@@ -995,8 +1339,59 @@
         });
     }
 
+    // ---------- СЛАЙДЕРЫ ----------
+    function initSliders() {
+        const volEl = document.getElementById('cc-volume');
+        const brEl  = document.getElementById('cc-brightness');
+
+        if (volEl) {
+            updateSliderFill(volEl);
+            updateVolumeSlider();
+            volEl.addEventListener('input', () => {
+                notifVolume = Math.min(100, Math.max(0, parseInt(volEl.value, 10) || 0));
+
+                if (notifVolume > 0) {
+                    lastNotifVolume = notifVolume;
+                    if (!notifSettings.sound) {
+                        notifSettings.sound = true;
+                        try { localStorage.setItem('notifSound', 'true'); } catch (e) {}
+                    }
+                } else {
+                    notifSettings.sound = false;
+                    try { localStorage.setItem('notifSound', 'false'); } catch (e) {}
+                }
+
+                updateSliderFill(volEl);
+                updateCPTiles();
+                const val = document.getElementById('cc-volume-value');
+                if (val) val.textContent = notifVolume + '%';
+            });
+            volEl.addEventListener('change', () => {
+                try { localStorage.setItem(VOLUME_KEY, String(notifVolume)); } catch (e) {}
+                updateCPTiles();
+                if (notifVolume > 0) playSound('info');
+            });
+        }
+
+        if (brEl) {
+            updateSliderFill(brEl);
+            updateBrightnessSlider();
+            brEl.addEventListener('input', () => {
+                uiBrightness = Math.min(100, Math.max(20, parseInt(brEl.value, 10) || 100));
+                updateSliderFill(brEl);
+                const val = document.getElementById('cc-brightness-value');
+                if (val) val.textContent = uiBrightness + '%';
+                applyBrightness();
+            });
+            brEl.addEventListener('change', () => {
+                try { localStorage.setItem(BRIGHTNESS_KEY, String(uiBrightness)); } catch (e) {}
+            });
+        }
+
+        applyBrightness();
+    }
+
     // ---------- ОБНОВЛЕНИЕ ----------
-    // ⚠️ Firebase НЕ трогаем. notified пишем только в localStorage.
     function refresh() {
         if (!isDataLoaded) return;
         activeReminders = collectReminders();
@@ -1004,12 +1399,8 @@
         const today = todayISO();
         let notifiedChanged = false;
 
-        // Чистим notified от устаревших записей (не сегодняшних), чтобы не рос бесконечно
         Object.keys(notified).forEach(id => {
-            if (notified[id] !== today) {
-                delete notified[id];
-                notifiedChanged = true;
-            }
+            if (notified[id] !== today) { delete notified[id]; notifiedChanged = true; }
         });
 
         activeReminders.forEach(r => {
@@ -1025,14 +1416,10 @@
             }
         });
 
-        // Только localStorage — БЕЗ Firestore
         if (notifiedChanged) persistNotifiedOnly();
 
-        // Если панель открыта — перерисовываем список
         const cp = document.getElementById('control-center');
-        if (cp && cp.classList.contains('open')) {
-            showAllActiveReminders();
-        }
+        if (cp && cp.classList.contains('open')) showAllActiveReminders();
     }
 
     // ---------- ИНИЦИАЛИЗАЦИЯ ----------
@@ -1068,7 +1455,11 @@
         const appSettingsBtn = document.getElementById('cc-settings-btn');
         if (appSettingsBtn) {
             appSettingsBtn.addEventListener('click', () => {
-                if (typeof window.switchTab === 'function') window.switchTab('settings');
+                if (typeof window.openAppSettings === 'function') {
+                    window.openAppSettings();
+                } else if (typeof window.switchTab === 'function') {
+                    window.switchTab('settings');
+                }
                 closeControlPanel();
             });
         }
@@ -1092,6 +1483,7 @@
                 const today = todayISO();
                 activeReminders.forEach(r => { hidden[r.id] = today; });
                 persistLocal();
+                markDirty();
                 saveRemindersData();
 
                 const items = list.querySelectorAll('.cc-notification-item');
@@ -1114,6 +1506,7 @@
 
         bindHandlers();
         initSwipe();
+        initSliders();
         updateCPTiles();
         updateCPInfo();
         setInterval(updateCPInfo, 30 * 1000);
@@ -1121,16 +1514,51 @@
         await loadRemindersData();
 
         setInterval(refresh, 30 * 60 * 1000);
+
+        setInterval(() => {
+            if (!pendingSave) renderUnifiedStatus();
+            if (typeof connectionMode !== 'undefined' && connectionMode !== 'firebase') {
+                checkFirebaseConnection();
+            }
+        }, 60 * 1000);
+
+        window.addEventListener('online', () => {
+            console.log('🌐 Интернет появился');
+            renderUnifiedStatus();
+            checkFirebaseConnection();
+        });
+
+        window.addEventListener('offline', () => {
+            console.log('📴 Интернет пропал');
+            if (typeof connectionMode !== 'undefined') connectionMode = 'offline';
+            if (typeof firebaseErrorReason !== 'undefined') firebaseErrorReason = 'Нет интернет-соединения';
+            renderUnifiedStatus();
+        });
+
+        renderUnifiedStatus();
+
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
-                // Свернули вкладку — отписываемся, чтобы не тратить reads
                 detachSnapshot();
             } else if (isDataLoaded) {
-                // Вернулись — переподписываемся и обновляем
                 attachSnapshot();
                 refresh();
+                renderUnifiedStatus();
             }
         });
+
+        // Обработчик клика по объединенной плашке (клонируем, чтобы убить старые onclick)
+        const unifiedStatus = document.getElementById('cc-unified-status');
+        if (unifiedStatus) {
+            const newUnifiedStatus = unifiedStatus.cloneNode(true);
+            unifiedStatus.parentNode.replaceChild(newUnifiedStatus, unifiedStatus);
+
+            newUnifiedStatus.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                showConnectionDetails();
+            });
+        }
 
         console.log('✅ Control Panel модуль загружен (Firebase-экономный режим)');
     }
@@ -1141,6 +1569,23 @@
     window.closeControlPanel = closeControlPanel;
     window.remindersRefresh = refresh;
     window.openNotifSettings = openNotifSettings;
+    window.remindersRenderUnifiedStatus = renderUnifiedStatus;
+    window.remindersSyncAllNow = syncAllNow;
+    window.renderUnifiedStatus = renderUnifiedStatus;
+    window.showConnectionDetails = showConnectionDetails;
+    window.checkFirebaseConnection = checkFirebaseConnection;
+    window.remindersSetVolume = function (v) {
+        notifVolume = Math.min(100, Math.max(0, parseInt(v, 10) || 0));
+        try { localStorage.setItem(VOLUME_KEY, String(notifVolume)); } catch (e) {}
+        updateVolumeSlider();
+        updateCPTiles();
+    };
+    window.remindersSetBrightness = function (v) {
+        uiBrightness = Math.min(100, Math.max(20, parseInt(v, 10) || 100));
+        try { localStorage.setItem(BRIGHTNESS_KEY, String(uiBrightness)); } catch (e) {}
+        updateBrightnessSlider();
+        applyBrightness();
+    };
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);

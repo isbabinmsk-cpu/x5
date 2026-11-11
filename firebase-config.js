@@ -8,12 +8,17 @@ const firebaseConfig = {
     appId: "1:858380884983:web:3c109af8e6c81c6910acf2"
 };
 
-// Инициализация Firebase
 firebase.initializeApp(firebaseConfig);
+
 const db = firebase.firestore();
 const auth = firebase.auth();
 
-console.log('✅ Firebase инициализирован');
+// ✅ ВАЖНО: положить в window
+window.db = db;
+window.auth = auth;
 
-// Текущий пользователь
-let currentUser = null;
+// ✅ Начальное значение connectionMode
+window.connectionMode = 'checking';
+window.currentUser = null;
+
+console.log('✅ Firebase инициализирован');

@@ -165,409 +165,7 @@ async function compressImage(file, maxSizeMB = 1) {
     });
 }
 
-// ===== АУТЕНТИФИКАЦИЯ =====
-function switchAuthTab(tab) {
-    const loginForm = document.getElementById('login-form');
-    const registerForm = document.getElementById('register-form');
-    const tabs = document.querySelectorAll('.auth-tab');
-    
-    tabs.forEach(t => t.classList.remove('active'));
-    
-    if (tab === 'login') {
-        loginForm.style.display = 'flex';
-        registerForm.style.display = 'none';
-        tabs[0].classList.add('active');
-    } else {
-        loginForm.style.display = 'none';
-        registerForm.style.display = 'flex';
-        tabs[1].classList.add('active');
-    }
-    
-    // Очищаем ошибки
-    document.getElementById('login-error').textContent = '';
-    document.getElementById('register-error').textContent = '';
-}
 
-// Обработчик входа
-document.getElementById('login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
-    const errorEl = document.getElementById('login-error');
-    
-    try {
-        errorEl.textContent = '';
-        await auth.signInWithEmailAndPassword(email, password);
-    } catch (error) {
-        errorEl.textContent = getAuthErrorMessage(error.code);
-    }
-});
-
-// Обработчик регистрации
-document.getElementById('register-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = document.getElementById('register-name').value;
-    const email = document.getElementById('register-email').value;
-    const password = document.getElementById('register-password').value;
-    const confirm = document.getElementById('register-confirm').value;
-    const errorEl = document.getElementById('register-error');
-    
-    if (password !== confirm) {
-        errorEl.textContent = 'Пароли не совпадают';
-        return;
-    }
-    
-    try {
-        errorEl.textContent = '';
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        
-        // Сохраняем имя пользователя
-        await userCredential.user.updateProfile({
-            displayName: name
-        });
-        
-        // Создаем документ пользователя в Firestore
-        await db.collection('users').doc(userCredential.user.uid).set({
-            name: name,
-            email: email,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-    } catch (error) {
-        errorEl.textContent = getAuthErrorMessage(error.code);
-    }
-});
-
-// ============================================
-// ВЫХОД ИЗ АККАУНТА — КРАСИВАЯ МОДАЛКА + БЕЗОПАСНАЯ ЛОГИКА
-// ============================================
-function showLogoutModal() {
-    if (document.getElementById('logout-modal-overlay')) return;
-    
-    const overlay = document.createElement('div');
-    overlay.id = 'logout-modal-overlay';
-    overlay.className = 'logout-modal-overlay';
-    overlay.innerHTML = `
-        <div class="logout-modal" role="dialog" aria-modal="true">
-            <div class="logout-modal-icon">
-                <ion-icon name="log-out-outline"></ion-icon>
-            </div>
-            <h3 class="logout-modal-title">Выйти из аккаунта?</h3>
-            <p class="logout-modal-subtitle">
-                Ваши данные сохранены в облаке.<br>
-                Вы сможете войти снова с любого устройства.
-            </p>
-            <div class="logout-modal-actions">
-                <button class="logout-btn logout-btn-confirm" id="logout-confirm-btn">
-                    <ion-icon name="log-out-outline"></ion-icon>
-                    <span>Выйти</span>
-                </button>
-                <button class="logout-btn logout-btn-cancel" id="logout-cancel-btn">
-                    Отмена
-                </button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-    
-    requestAnimationFrame(() => overlay.classList.add('visible'));
-    
-    const confirmBtn = overlay.querySelector('#logout-confirm-btn');
-    const cancelBtn = overlay.querySelector('#logout-cancel-btn');
-    
-    const closeModal = () => {
-        overlay.classList.remove('visible');
-        document.removeEventListener('keydown', escHandler);
-        setTimeout(() => overlay.remove(), 250);
-    };
-    
-    cancelBtn.addEventListener('click', closeModal);
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) closeModal();
-    });
-    const escHandler = (e) => {
-        if (e.key === 'Escape') closeModal();
-    };
-    document.addEventListener('keydown', escHandler);
-    
-    confirmBtn.addEventListener('click', async () => {
-        confirmBtn.disabled = true;
-        cancelBtn.disabled = true;
-        confirmBtn.innerHTML = '<span class="logout-spinner"></span><span>Выходим...</span>';
-        try {
-            await performLogout();
-            closeModal();
-        } catch (error) {
-            console.error('❌ Ошибка при выходе:', error);
-            showToast('⚠️ Ошибка при выходе: ' + error.message);
-            confirmBtn.disabled = false;
-            cancelBtn.disabled = false;
-            confirmBtn.innerHTML = '<ion-icon name="log-out-outline"></ion-icon><span>Выйти</span>';
-        }
-    });
-}
-
-// ====== ЛОГИКА ВЫХОДА (с отпиской от Firebase-слушателей) ======
-async function performLogout() {
-    // 🔴 Флаг выхода — чтобы подавлять ложные ошибки permission-denied
-    window._isLoggingOut = true;
-    
-    // 1. Отписываемся от ВСЕХ собранных Firebase-слушателей (через перехватчик)
-    if (window._fbListeners && window._fbListeners.length > 0) {
-        console.log(`🔕 Отписываемся от ${window._fbListeners.length} Firebase-слушателей...`);
-        const toUnsub = [...window._fbListeners]; // копия, чтобы не было проблем при итерации
-        toUnsub.forEach((unsub, i) => {
-            try { unsub(); } catch (e) {}
-        });
-        window._fbListeners = [];
-        console.log('✅ Все слушатели отписаны');
-    }
-    
-    // 2. Страховка: старые глобальные функции отписки (если вдруг остались)
-    ['unsubscribeRepairs', 'unsubscribeVehicles', 'unsubscribeFuel'].forEach(name => {
-        if (typeof window[name] === 'function') {
-            try { window[name](); } catch (e) {}
-            window[name] = null;
-        }
-    });
-    
-    // 3. Закрываем всплывающие меню
-    if (typeof closeAllMenus === 'function') closeAllMenus();
-    if (typeof closeFabMenu === 'function') closeFabMenu();
-    
-    // 4. Скрываем интерфейс
-    const authScreen = document.getElementById('auth-screen');
-    const container = document.querySelector('.container');
-    const bottomNavWrap = document.querySelector('.bottom-nav-wrap');
-    const bottomNav = document.querySelector('.bottom-nav');
-    const logoutBtn = document.getElementById('logout-btn');
-    const statusWrapper = document.getElementById('connection-status-wrapper');
-    
-    if (container) container.style.display = 'none';
-    if (bottomNavWrap) bottomNavWrap.style.display = 'none';
-    if (bottomNav) bottomNav.style.display = 'none';
-    if (logoutBtn) logoutBtn.style.display = 'none';
-    if (statusWrapper) statusWrapper.style.display = 'none';
-    
-    document.body.classList.remove('authenticated');
-    
-    if (authScreen) {
-        authScreen.classList.remove('hidden');
-        authScreen.style.display = 'flex';
-    }
-    
-    // 5. Очищаем localStorage
-    localStorage.removeItem('driverAuthState');
-    localStorage.removeItem('appState');
-    
-    // 6. Очищаем данные в памяти
-    records = [];
-    tariffs = [];
-    if (typeof window.fuelLogs !== 'undefined') window.fuelLogs = [];
-    if (typeof window.repairRecords !== 'undefined') window.repairRecords = [];
-    saveData();
-    
-    // 7. Сбрасываем формы
-    const loginForm = document.getElementById('login-form');
-    const registerForm = document.getElementById('register-form');
-    const loginError = document.getElementById('login-error');
-    const registerError = document.getElementById('register-error');
-    if (loginForm) loginForm.reset();
-    if (registerForm) registerForm.reset();
-    if (loginError) loginError.textContent = '';
-    if (registerError) registerError.textContent = '';
-    
-    // 8. На вкладку входа
-    if (typeof switchAuthTab === 'function') switchAuthTab('login');
-    
-    // 9. Выход из Firebase
-    try {
-        await auth.signOut();
-        console.log('✅ Вы вышли из аккаунта');
-    } catch (error) {
-        console.error('Ошибка выхода:', error);
-    }
-    
-    // 10. Сброс состояния
-    currentUser = null;
-    connectionMode = 'local';
-    firebaseErrorReason = '';
-    if (typeof updateConnectionIndicator === 'function') updateConnectionIndicator();
-    
-    // 11. Через 2 секунды снимаем флаг выхода
-    setTimeout(() => {
-        window._isLoggingOut = false;
-    }, 2000);
-    
-    // 12. Тост
-    if (typeof showToast === 'function') showToast('👋 Вы вышли из аккаунта');
-}
-
-// ====== ПРИВЯЗКА КНОПКИ "ВЫЙТИ" ======
-const _logoutBtn = document.getElementById('logout-btn');
-if (_logoutBtn) {
-    _logoutBtn.replaceWith(_logoutBtn.cloneNode(true));
-    document.getElementById('logout-btn').addEventListener('click', showLogoutModal);
-}
-
-// ============================================
-// СЛУШАТЕЛЬ СОСТОЯНИЯ АУТЕНТИФИКАЦИИ
-// ============================================
-auth.onAuthStateChanged(async (user) => {
-    const logoutBtn = document.getElementById('logout-btn');
-    const authScreen = document.getElementById('auth-screen');
-    const container = document.querySelector('.container');
-    const bottomNav = document.querySelector('.bottom-nav');
-    const statusWrapper = document.getElementById('connection-status-wrapper');
-    
-    if (user) {
-        // ===== ПОЛЬЗОВАТЕЛЬ ВОШЕЛ =====
-        currentUser = user;
-        localStorage.setItem('driverAuthState', 'true');
-        document.body.classList.add('authenticated');
-
-        // Показываем интерфейс
-        if (authScreen) { authScreen.classList.add('hidden'); authScreen.style.display = 'none'; }
-        if (container) container.style.display = 'block';
-        if (bottomNav) bottomNav.style.display = 'flex';
-        if (logoutBtn) logoutBtn.style.display = 'inline-flex';
-        if (statusWrapper) statusWrapper.style.display = 'flex';
-
-        // ⭐⭐⭐ МГНОВЕННО показываем имя и email (не ждём Firebase!)
-        const nameEl = document.getElementById('profile-name');
-        const emailEl = document.getElementById('profile-email');
-        const syncEl = document.getElementById('profile-sync-status');
-        
-        const userName = user.displayName || (user.email ? user.email.split('@')[0] : 'Водитель');
-        if (nameEl) nameEl.textContent = userName;
-        if (emailEl) emailEl.textContent = user.email || '';
-        if (syncEl) {
-            syncEl.innerHTML = '<ion-icon name="sync-outline" style="font-size: 16px;"></ion-icon> Загрузка данных...';
-            syncEl.style.color = 'var(--ios-warning)';
-        }
-        
-        // ⭐⭐⭐ Мгновенно показываем аватар из localStorage (если есть)
-        const homeTab = document.getElementById('tab-home');
-        if (homeTab && homeTab.classList.contains('active')) {
-            loadProfileAvatar(); 
-        }
-
-        console.log('✅ Пользователь вошел:', user.email);
-
-        // Обновляем индикатор статуса
-        connectionMode = 'checking';
-        firebaseErrorReason = '';
-        updateConnectionIndicator();
-
-// ⭐⭐⭐ ТЕПЕРЬ грузим данные (имя и email уже показаны!)
-try {
-    // 1. Загружаем основные данные: записи, тарифы, аватар и цели
-    await loadUserData();
-    
-    // 2. ⭐ КЛЮЧЕВОЕ: Загружаем автомобили ПЕРЕД топливом и ремонтом!
-    // Это гарантирует, что currentVehicleId будет определен, и модули загрузят правильные данные
-    if (typeof loadVehicles === 'function') {
-        await loadVehicles();
-        console.log('✅ Модуль автомобилей инициализирован');
-    }
-
-    // 3. Загружаем топливо (теперь оно автоматически отфильтруется по currentVehicleId)
-    if (typeof loadFuelLogs === 'function') {
-        await loadFuelLogs();
-        console.log('✅ Модуль топлива инициализирован');
-    }
-
-    // 4. Загружаем ремонты (также отфильтруется по currentVehicleId и включит onSnapshot)
-    if (typeof loadRepairRecords === 'function') {
-        await loadRepairRecords();
-        console.log('✅ Модуль ремонта инициализирован');
-    }
-    
-    // 5. Проверяем подключение к Firebase
-    setTimeout(() => checkFirebaseConnection(), 1000);
-    
-} catch (error) {
-    console.error('❌ Ошибка загрузки данных:', error);
-    connectionMode = 'local';
-    firebaseErrorReason = 'Ошибка загрузки данных: ' + error.message;
-    updateConnectionIndicator();
-}
-
-    } else {
-        // ===== ПОЛЬЗОВАТЕЛЬ ВЫШЕЛ (автоматический выход: потеря сессии, и т.п.) =====
-        
-        // ✅ НОВОЕ: Отписываемся от всех Firebase-слушателей, чтобы не было permission-denied
-        if (window._fbListeners && window._fbListeners.length > 0) {
-            window._isLoggingOut = true;
-            const toUnsub = [...window._fbListeners];
-            toUnsub.forEach(unsub => { try { unsub(); } catch(e){} });
-            window._fbListeners = [];
-            setTimeout(() => { window._isLoggingOut = false; }, 2000);
-        }
-        
-        currentUser = null;
-        localStorage.removeItem('driverAuthState');
-    
-        document.body.classList.remove('authenticated');
-        
-        // Скрываем интерфейс
-        if (container) container.style.display = 'none';
-        if (bottomNav) bottomNav.style.display = 'none';
-        if (logoutBtn) logoutBtn.style.display = 'none';
-        
-        // Скрываем индикатор статуса
-        if (statusWrapper) {
-            statusWrapper.style.display = 'none';
-        }
-        
-        // Показываем экран авторизации
-        if (authScreen) {
-            authScreen.classList.remove('hidden');
-            authScreen.style.display = 'flex';
-        }
-        
-        // Очищаем данные
-        records = [];
-        tariffs = [];
-        saveData();
-        
-        // Обновляем статус
-        connectionMode = 'local';
-        firebaseErrorReason = 'Пользователь не авторизован';
-        
-        // Очищаем формы
-        const loginForm = document.getElementById('login-form');
-        const registerForm = document.getElementById('register-form');
-        if (loginForm) loginForm.reset();
-        if (registerForm) registerForm.reset();
-        
-        // Сбрасываем ошибки
-        const loginError = document.getElementById('login-error');
-        const registerError = document.getElementById('register-error');
-        if (loginError) loginError.textContent = '';
-        if (registerError) registerError.textContent = '';
-        
-        // Переключаем на вкладку входа
-        if (typeof switchAuthTab === 'function') {
-            switchAuthTab('login');
-        }
-        
-        console.log('👤 Пользователь вышел, показан экран авторизации');
-    }
-});
-
-// Функция получения сообщений об ошибках
-function getAuthErrorMessage(errorCode) {
-    const messages = {
-        'auth/email-already-in-use': 'Этот email уже используется',
-        'auth/invalid-email': 'Некорректный email',
-        'auth/weak-password': 'Пароль слишком короткий (минимум 6 символов)',
-        'auth/user-not-found': 'Пользователь не найден',
-        'auth/wrong-password': 'Неверный пароль',
-        'auth/invalid-credential': 'Неверный email или пароль',
-        'auth/too-many-requests': 'Слишком много попыток. Попробуйте позже'
-    };
-    return messages[errorCode] || 'Произошла ошибка. Попробуйте еще раз';
-}
 
 // Загрузка данных пользователя из Firebase
 async function loadUserData() {
@@ -650,7 +248,7 @@ async function loadUserData() {
         // Статус
         connectionMode = 'firebase';
         firebaseErrorReason = '';
-        updateConnectionIndicator();
+        if (typeof window.renderUnifiedStatus === 'function') {     window.renderUnifiedStatus(); }
         console.log('✅ Все данные успешно загружены!');
 
     } catch (error) {
@@ -659,7 +257,7 @@ async function loadUserData() {
         await loadData();
         connectionMode = 'local';
         firebaseErrorReason = error.message || 'Ошибка загрузки данных';
-        updateConnectionIndicator();
+        if (typeof window.renderUnifiedStatus === 'function') {     window.renderUnifiedStatus(); }
         
         renderTable();
         renderTariffs();
@@ -1062,8 +660,56 @@ function applySorting(data) {
 
 
 
+// ============================================
+// ОТКРЫТИЕ И ЗАКРЫТИЕ НАСТРОЕК (МОДАЛКА)
+// ============================================
+window.openAppSettings = function() {
+    const modal = document.getElementById('tab-settings');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    // Небольшая задержка, чтобы сработала CSS-анимация opacity
+    requestAnimationFrame(() => {
+        modal.classList.add('visible');
+    });
+};
+
+window.closeAppSettings = function() {
+    const modal = document.getElementById('tab-settings');
+    if (!modal) return;
+    modal.classList.remove('visible');
+    // Ждем окончания анимации (300мс) и скрываем
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 300);
+};
+
+// Закрытие модалки настроек по клику на затемненный фон
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('tab-settings');
+    if (modal && modal.classList.contains('visible') && e.target === modal) {
+        closeAppSettings();
+    }
+});
+
+// Закрытие модалки настроек по клавише Escape
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('tab-settings');
+        if (modal && modal.classList.contains('visible')) {
+            closeAppSettings();
+        }
+    }
+});
+
+
 // ===== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК (ЕДИНАЯ ФУНКЦИЯ) =====
 function switchTab(tabName) {
+    // Если выбрана вкладка "Настройки" — открываем модалку и прерываем переключение
+    if (tabName === 'settings') {
+        openAppSettings();
+        return;
+    }
+    
     // Скрываем все вкладки
     document.querySelectorAll('.tab-content').forEach(tab => {
         tab.classList.remove('active');
@@ -1110,9 +756,8 @@ function switchTab(tabName) {
                 updateHomeTab();
             }, 50);
             break;
-        
-        
-        // ===== ДОБАВЛЕНО: Обработка вкладки "Топливо" =====
+            
+            // ===== Обработка вкладки "Топливо" =====
         case 'fuel':
             setTimeout(function() {
                 // Проверки typeof гарантируют, что ошибки не будет, если модуль еще не загрузился
@@ -1121,11 +766,21 @@ function switchTab(tabName) {
                 if (typeof updateFuelChart === 'function') updateFuelChart();
             }, 50);
             break;
-        // ==================================================
-
-        case 'settings':
-            // Ничего не делаем, просто показываем
+            
+        case 'repair':
+            setTimeout(function() {
+                if (typeof renderRepairList === 'function') renderRepairList();
+                if (typeof updateRepairStats === 'function') updateRepairStats();
+                if (typeof updateRepairCharts === 'function') updateRepairCharts();
+            }, 50);
             break;
+            
+        case 'shifts':
+            setTimeout(function() {
+                if (typeof window.renderShiftCalendar === 'function') window.renderShiftCalendar();
+            }, 50);
+            break;
+            
         default:
             break;
     }
@@ -3933,179 +3588,6 @@ console.log('✅ Модуль фильтрации истории загруже
 let connectionMode = 'checking'; // 'firebase', 'local', 'checking'
 let firebaseErrorReason = '';
 
-// Функция обновления индикатора
-function updateConnectionIndicator() {
-    const dot = document.getElementById('connection-dot');
-    const text = document.getElementById('connection-text');
-    const container = document.getElementById('connection-status');
-    const wrapper = document.getElementById('connection-status-wrapper');
-    
-    if (!dot || !text || !container) {
-        console.warn('⚠️ Элементы индикатора не найдены');
-        return;
-    }
-    
-    // Определяем, авторизован ли пользователь
-    const isAuthenticated = document.body.classList.contains('authenticated');
-    
-    // Показываем/скрываем индикатор в зависимости от авторизации
-    if (wrapper) {
-        wrapper.style.display = isAuthenticated ? 'flex' : 'none';
-    }
-    
-    // Настройки для разных состояний (ПОЛНЫЙ ТЕКСТ)
-    let settings = {
-        text: 'Проверка подключения...',
-        dotColor: '#8E8E93',
-        dotShadow: '0 0 8px rgba(142, 142, 147, 0.3)',
-        bgColor: 'rgba(255,255,255,0.5)',
-        borderColor: 'rgba(0,0,0,0.06)',
-        textColor: '#3C3C43'
-    };
-    
-    if (isAuthenticated) {
-        switch (connectionMode) {
-            case 'firebase':
-                settings = {
-                    text: '☁️ Firebase',
-                    dotColor: '#34C759',
-                    dotShadow: '0 0 12px rgba(52, 199, 89, 0.5)',
-                    bgColor: 'rgba(52, 199, 89, 0.12)',
-                    borderColor: 'rgba(52, 199, 89, 0.25)',
-                    textColor: '#1a7f3a'
-                };
-                break;
-                
-            case 'local':
-                settings = {
-                    text: '💾 Локальный режим',
-                    dotColor: '#FF9500',
-                    dotShadow: '0 0 12px rgba(255, 149, 0, 0.5)',
-                    bgColor: 'rgba(255, 149, 0, 0.12)',
-                    borderColor: 'rgba(255, 149, 0, 0.25)',
-                    textColor: '#8a4f00'
-                };
-                break;
-                
-            default:
-                settings = {
-                    text: '⏳ Проверка подключения к Firebase...',
-                    dotColor: '#8E8E93',
-                    dotShadow: '0 0 8px rgba(142, 142, 147, 0.3)',
-                    bgColor: 'rgba(255,255,255,0.5)',
-                    borderColor: 'rgba(0,0,0,0.06)',
-                    textColor: '#3C3C43'
-                };
-        }
-    } else {
-        settings = {
-            text: '🔒 Войдите в аккаунт для синхронизации с Firebase',
-            dotColor: '#8E8E93',
-            dotShadow: '0 0 8px rgba(142, 142, 147, 0.3)',
-            bgColor: 'rgba(255,255,255,0.5)',
-            borderColor: 'rgba(0,0,0,0.06)',
-            textColor: '#3C3C43'
-        };
-    }
-    
-    // Применяем стили
-    dot.style.background = settings.dotColor;
-    dot.style.boxShadow = settings.dotShadow;
-    text.textContent = settings.text;
-    text.style.color = settings.textColor;
-    container.style.background = settings.bgColor;
-    container.style.borderColor = settings.borderColor;
-    
-    // Добавляем/убираем анимацию пульсации
-    if (connectionMode === 'checking' || !isAuthenticated) {
-        dot.classList.add('pulse');
-    } else {
-        dot.classList.remove('pulse');
-    }
-}
-
-// Функция показа подробностей
-function showConnectionDetails() {
-    const isAuthenticated = document.body.classList.contains('authenticated');
-    let message = '';
-    
-    if (!isAuthenticated) {
-        message = '🔒 Не авторизован\n\n' +
-            'Войдите в аккаунт для синхронизации данных.\n' +
-            'Данные хранятся локально до входа.';
-    } else if (connectionMode === 'firebase') {
-        message = '✅ Подключено к Firebase\n\n' +
-            '• Данные синхронизируются с облаком\n' +
-            '• Доступны с любого устройства\n' +
-            '• Пользователь: ' + (currentUser ? currentUser.email : 'Неизвестно');
-    } else if (connectionMode === 'local') {
-        message = '⚠️ Работа в локальном режиме\n\n' +
-            '• Данные сохраняются только в браузере\n' +
-            '• Не синхронизируются с облаком\n' +
-            '• Доступны только на этом устройстве\n\n' +
-            (firebaseErrorReason ? 'Причина: ' + firebaseErrorReason : 'Проверьте подключение к интернету');
-    } else {
-        message = '⏳ Проверка подключения к Firebase...\n\n' +
-            'Пожалуйста, подождите...';
-    }
-    
-    alert(message);
-}
-
-// Проверка подключения к Firebase
-async function checkFirebaseConnection() {
-    try {
-        // Проверяем, что Firebase загружен
-        if (typeof firebase === 'undefined') {
-            connectionMode = 'local';
-            firebaseErrorReason = 'Firebase SDK не загружен';
-            updateConnectionIndicator();
-            return;
-        }
-        
-        // Проверяем, что пользователь авторизован
-        if (!currentUser) {
-            connectionMode = 'local';
-            firebaseErrorReason = 'Войдите в аккаунт для синхронизации';
-            updateConnectionIndicator();
-            return;
-        }
-        
-        // Проверяем, были ли загружены данные
-        if (records.length > 0 || tariffs.length > 0) {
-            connectionMode = 'firebase';
-            firebaseErrorReason = '';
-            updateConnectionIndicator();
-            console.log('✅ Firebase активен, данные загружены');
-        } else {
-            // Пробуем загрузить хотя бы одну запись
-            const testSnapshot = await db.collection('users')
-                .doc(currentUser.uid)
-                .collection('records')
-                .limit(1)
-                .get();
-            
-            connectionMode = 'firebase';
-            firebaseErrorReason = '';
-            updateConnectionIndicator();
-            console.log('✅ Firebase доступен, записей:', testSnapshot.size);
-        }
-        
-    } catch (error) {
-        connectionMode = 'local';
-        
-        if (error.code === 'permission-denied') {
-            firebaseErrorReason = 'Проверьте правила безопасности Firestore';
-        } else if (!navigator.onLine) {
-            firebaseErrorReason = 'Отсутствует интернет-соединение';
-        } else {
-            firebaseErrorReason = error.message;
-        }
-        
-        updateConnectionIndicator();
-        console.warn('⚠️ Firebase недоступен:', error.message);
-    }
-}
 
 
 // ============================================
@@ -4220,15 +3702,60 @@ async function updateUserName(newName) {
     }
 }
 
-// Функция для показа диалога изменения имени
-function showEditNameDialog() {
-    const currentName = document.getElementById('profile-name')?.textContent || '';
-    const newName = prompt('Введите ваше имя:', currentName);
+// Открытие модалки изменения имени
+window.showEditNameDialog = function() {
+    const modal = document.getElementById('name-modal-overlay');
+    const input = document.getElementById('name-modal-input');
+    const nameEl = document.getElementById('profile-name');
     
-    if (newName !== null && newName.trim() !== '') {
-        updateUserName(newName);
+    if (!modal || !input) return;
+    
+    input.value = nameEl ? nameEl.textContent : '';
+    
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => {
+        modal.classList.add('visible');
+        setTimeout(() => {
+            input.focus();
+            input.select();
+        }, 100);
+    });
+};
+
+// Закрытие модалки
+window.closeNameModal = function() {
+    const modal = document.getElementById('name-modal-overlay');
+    if (!modal) return;
+    modal.classList.remove('visible');
+    setTimeout(() => {
+        modal.style.display = 'none';
+    }, 300);
+};
+
+// Сохранение имени
+window.saveNameModal = async function() {
+    const input = document.getElementById('name-modal-input');
+    if (!input) return;
+    
+    const newName = input.value.trim();
+    if (!newName) {
+        if (typeof window.showToast === 'function') window.showToast('❌ Имя не может быть пустым');
+        return;
     }
-}
+    
+    closeNameModal();
+    if (typeof window.updateUserName === 'function') {
+        await window.updateUserName(newName);
+    }
+};
+
+// Клик по фону закрывает модалку
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('name-modal-overlay');
+    if (modal && modal.classList.contains('visible') && e.target === modal) {
+        closeNameModal();
+    }
+});
 
 
 // Рендер достижений
@@ -5276,7 +4803,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // ========================================
     // 3. ИНИЦИАЛИЗАЦИЯ ИНДИКАТОРА ПОДКЛЮЧЕНИЯ
     // ========================================
-    updateConnectionIndicator();
+    if (typeof window.renderUnifiedStatus === 'function') {     window.renderUnifiedStatus(); }
     
     setTimeout(function() {
         checkFirebaseConnection();
@@ -6188,16 +5715,16 @@ document.addEventListener('change', function(e) {
 })();
 
 // ============================================
-// КРАСИВЫЕ АЛЕРТЫ ВМЕСТО НАТИВНЫХ (iOS-стиль)
+// КРАСИВЫЕ АЛЕРТЫ (iOS-стиль)
 // ============================================
-(function () {
-    window.alert = function (message) {
+(function() {
+    window.showIOSAlert = function(message) {
         const lines = String(message).split('\n').map(s => s.trim()).filter(Boolean);
         const title = lines[0] || '';
         const body = lines.slice(1)
             .map(s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;'))
             .join('<br>');
-
+        
         const overlay = document.createElement('div');
         overlay.className = 'ios-alert-overlay';
         overlay.innerHTML = `
@@ -6207,15 +5734,31 @@ document.addEventListener('change', function(e) {
                 <button class="ios-alert-btn">OK</button>
             </div>`;
         document.body.appendChild(overlay);
+        
+        // Плавное появление
         requestAnimationFrame(() => overlay.classList.add('visible'));
-
-        const close = () => {
+        
+        const close = (e) => {
+            // Останавливаем всплытие, чтобы клик не доходил до других элементов
+            if (e) {
+                e.stopPropagation();
+                e.preventDefault();
+            }
             overlay.classList.remove('visible');
             setTimeout(() => overlay.remove(), 250);
         };
+        
+        // Закрытие по кнопке
         overlay.querySelector('.ios-alert-btn').addEventListener('click', close);
-        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+        
+        // Закрытие по клику на фон
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) close(e);
+        });
     };
+    
+    // Подменяем стандартный alert на наш красивый
+    window.alert = window.showIOSAlert;
 })();
 
 // ============================================
@@ -6383,3 +5926,51 @@ window.addEventListener('scroll', function(e) {
     closeCardTooltip();
 }, true);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCardTooltip(); });
+
+document.addEventListener('keydown', function(e) {
+    const modal = document.getElementById('name-modal-overlay');
+    if (modal && modal.classList.contains('visible')) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveNameModal();
+        }
+        if (e.key === 'Escape') {
+            closeNameModal();
+        }
+    }
+});
+
+// ============================================
+// СИНХРОНИЗАЦИЯ С WINDOW (для auth-module.js и др.)
+// ============================================
+// Просто копируем данные, без get/set — никакой рекурсии.
+// Вызывается вручную после каждого изменения.
+
+function syncGlobalsToWindow() {
+    window.records = records;
+    window.tariffs = tariffs;
+    window.currentUser = currentUser;
+    window.connectionMode = connectionMode;
+    window.firebaseErrorReason = firebaseErrorReason;
+    window.fuelLogs = fuelLogs;
+}
+
+window.syncGlobalsToWindow = syncGlobalsToWindow;
+
+// Экспорт функций для auth-module.js
+window.loadUserData = loadUserData;
+window.loadData = loadData;
+window.saveData = saveData;
+window.normalizeRecord = normalizeRecord;
+window.normalizeTariff = normalizeTariff;
+window.renderTable = renderTable;
+window.renderTariffs = renderTariffs;
+window.populateFilters = populateFilters;
+window.updateAnalytics = updateAnalytics;
+window.updateGoals = updateGoals;
+window.updateHomeTab = updateHomeTab;
+window.loadProfileAvatar = loadProfileAvatar;
+window.saveGoalsToFirebase = saveGoalsToFirebase;
+
+
+window.showToast = showToast;
