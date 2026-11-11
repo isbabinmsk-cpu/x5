@@ -1,6 +1,10 @@
 /* ============================================
    CONTROL CENTER MODULE (Android-style)
    Поддержка светлой и тёмной темы
+   + Слайдеры в стиле Quick Settings
+   + Объединенная плашка статуса
+   + Адаптивные модальные окна (телефон/планшет/ПК)
+   + Универсальные крестики закрытия
    ============================================ */
 
 html, body {
@@ -170,28 +174,228 @@ body.dark-theme {
     transition: background 0.3s;
 }
 
-/* --- Сетка плиток --- */
+/* --- Сетка плиток (4 в ряд) --- */
 .cc-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
     margin-top: 8px;
 }
 
+/* --- Слайдеры как в Quick Settings --- */
+.cc-sliders {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex-shrink: 0;
+    margin-top: 4px;
+}
+
+.cc-slider-row {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 42px;
+    border-radius: 14px;
+    overflow: hidden;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.cc-slider-track {
+    position: absolute;
+    inset: 0;
+    background: var(--cc-tile-bg);
+    border: 1px solid var(--cc-tile-border);
+    border-radius: inherit;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.cc-slider-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
+    background: var(--cc-accent);
+    border-radius: inherit;
+    transition: width 0.1s linear;
+}
+
+.cc-slider-icon-wrap {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 12px;
+    width: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.cc-slider-icon-wrap ion-icon {
+    font-size: 20px;
+    color: #ffffff;
+    pointer-events: none;
+    position: relative;
+    transition: opacity 0.2s;
+}
+
+.light-theme .cc-slider-icon-wrap ion-icon {
+    color: #1c1c1e;
+}
+
+.cc-icon-muted {
+    opacity: 0.7;
+}
+.cc-icon-muted::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 22px;
+    height: 2px;
+    background-color: currentColor;
+    transform: translate(-50%, -50%) rotate(-45deg);
+    border-radius: 1px;
+    pointer-events: none;
+    box-shadow: 0 0 2px rgba(0,0,0,0.3);
+}
+
+.cc-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    z-index: 3;
+    cursor: pointer;
+}
+
+/* ============================================
+   ОБЪЕДИНЕННАЯ ПЛАШКА СТАТУСА
+   ============================================ */
+.cc-unified-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: var(--cc-info-bg);
+    color: var(--cc-info-text);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    flex-shrink: 0;
+    margin-bottom: 4px;
+    user-select: none;
+}
+.cc-unified-status:active {
+    transform: scale(0.98);
+    background: var(--cc-action-active-bg);
+}
+
+.cc-status-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.cc-status-right {
+    font-size: 12px;
+    opacity: 0.7;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.cc-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #8E8E93;
+    flex-shrink: 0;
+    transition: background 0.3s, box-shadow 0.3s;
+}
+
+.cc-unified-status.online {
+    color: #1a7f3a;
+    background: rgba(52, 199, 89, 0.12);
+}
+.cc-unified-status.online .cc-status-dot {
+    background: #34C759;
+    box-shadow: 0 0 8px rgba(52, 199, 89, 0.5);
+}
+
+.cc-unified-status.offline {
+    color: #8a4f00;
+    background: rgba(255, 149, 0, 0.12);
+}
+.cc-unified-status.offline .cc-status-dot {
+    background: #FF9500;
+    box-shadow: 0 0 8px rgba(255, 149, 0, 0.5);
+}
+
+.cc-unified-status.error {
+    color: #c62828;
+    background: rgba(255, 59, 48, 0.12);
+}
+.cc-unified-status.error .cc-status-dot {
+    background: #FF3B30;
+    box-shadow: 0 0 8px rgba(255, 59, 48, 0.5);
+}
+
+.cc-unified-status.syncing .cc-status-dot {
+    animation: pulseSync 1s infinite alternate;
+}
+@keyframes pulseSync {
+    from { opacity: 0.5; transform: scale(0.8); }
+    to   { opacity: 1; transform: scale(1.2); }
+}
+
+body.dark-theme .cc-unified-status {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(235, 235, 245, 0.7);
+}
+body.dark-theme .cc-unified-status.online {
+    color: #30D158;
+    background: rgba(48, 209, 88, 0.15);
+}
+body.dark-theme .cc-unified-status.offline {
+    color: #FF9F0A;
+    background: rgba(255, 159, 10, 0.15);
+}
+body.dark-theme .cc-unified-status.error {
+    color: #FF453A;
+    background: rgba(255, 69, 58, 0.15);
+}
+
+/* --- Плитки --- */
 .cc-tile {
     background: var(--cc-tile-bg);
-    border-radius: 16px;
-    padding: 18px 12px;
+    border-radius: 14px;
+    padding: 12px 6px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     cursor: pointer;
     transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s cubic-bezier(0.32, 0.72, 0, 1);
     border: 1px solid var(--cc-tile-border);
     -webkit-tap-highlight-color: transparent;
     user-select: none;
     color: var(--cc-tile-text);
+    min-width: 0;
 }
 .cc-tile:active { transform: scale(0.93); }
 .cc-tile.cc-tile-active {
@@ -199,12 +403,14 @@ body.dark-theme {
     border-color: var(--cc-tile-active-bg);
     box-shadow: 0 4px 16px rgba(0, 122, 255, 0.4);
 }
-.cc-tile ion-icon { font-size: 26px; color: var(--cc-tile-icon); }
+.cc-tile ion-icon { font-size: 20px; color: var(--cc-tile-icon); }
 .cc-tile span {
-    font-size: 12px;
+    font-size: 10px;
     color: var(--cc-tile-text);
     font-weight: 500;
     text-align: center;
+    line-height: 1.2;
+    word-break: break-word;
 }
 .cc-tile.cc-tile-active ion-icon,
 .cc-tile.cc-tile-active span {
@@ -310,7 +516,6 @@ body.dark-theme {
 }
 .cc-header-settings-btn ion-icon { font-size: 18px; }
 
-/* --- Список уведомлений --- */
 .cc-notification-list {
     flex: 1;
     overflow-y: auto;
@@ -428,7 +633,6 @@ body.dark-theme {
 .cc-notif-close:hover { background: var(--cc-item-close-hover); }
 .cc-notif-close ion-icon { font-size: 14px; }
 
-/* --- Информация (дата/время) --- */
 .cc-info {
     background: var(--cc-info-bg);
     border-radius: 12px;
@@ -447,175 +651,311 @@ body.dark-theme {
 }
 .cc-info-row ion-icon { font-size: 16px; color: var(--cc-info-icon); }
 
-/* --- Адаптив --- */
+.cc-dim-overlay {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    pointer-events: none;
+    z-index: 9997;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+/* ============================================
+   УНИВЕРСАЛЬНЫЕ КРЕСТИКИ ЗАКРЫТИЯ (все модалки)
+   ============================================ */
+.fuel-modal-close {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    border-radius: 50% !important;
+    background: var(--cc-action-bg) !important;
+    border: none !important;
+    color: var(--cc-settings-text) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    transition: background 0.2s, color 0.2s !important;
+    flex-shrink: 0 !important;
+}
+.fuel-modal-close ion-icon {
+    font-size: 22px !important;
+    color: var(--cc-settings-text) !important;
+    fill: var(--cc-settings-text) !important;
+    stroke: var(--cc-settings-text) !important;
+}
+.fuel-modal-close:hover {
+    background: var(--cc-btn-hover) !important;
+}
+
+/* Исключение для светлой темы, где на синем фоне нужен белый крестик */
+body:not(.dark-theme) .control-center .fuel-modal-close,
+body:not(.dark-theme) #tab-settings .fuel-modal-close {
+    color: var(--cc-settings-text) !important;
+}
+body:not(.dark-theme) .control-center .fuel-modal-close ion-icon,
+body:not(.dark-theme) #tab-settings .fuel-modal-close ion-icon {
+    color: var(--cc-settings-text) !important;
+    fill: var(--cc-settings-text) !important;
+    stroke: var(--cc-settings-text) !important;
+}
+
+/* ============================================
+   АДАПТИВ ПАНЕЛИ CONTROL CENTER
+   ============================================ */
+
+/* Маленькие телефоны (до 360px) */
+@media (max-width: 360px) {
+    .control-center {
+        width: 95%;
+        border-radius: 0 16px 16px 0;
+        padding: 14px 10px;
+        gap: 12px;
+    }
+    .cc-grid { gap: 5px; }
+    .cc-tile { padding: 8px 3px; border-radius: 12px; }
+    .cc-tile ion-icon { font-size: 16px; }
+    .cc-tile span { font-size: 8px; }
+
+    .cc-slider-row { height: 36px; border-radius: 12px; }
+    .cc-slider-icon-wrap { right: 10px; width: 24px; }
+    .cc-slider-icon-wrap ion-icon { font-size: 17px; }
+
+    .cc-action-btn { padding: 10px 4px; border-radius: 12px; }
+    .cc-action-btn ion-icon { font-size: 18px; }
+    .cc-action-btn span { font-size: 9px; }
+
+    .cc-unified-status { padding: 10px 12px; font-size: 12px; border-radius: 10px; }
+    .cc-status-right { font-size: 11px; }
+
+    .cc-notif-header { font-size: 12px; }
+    .cc-clear-all-btn { padding: 5px 10px; font-size: 11px; }
+    .cc-header-settings-btn { width: 24px; height: 24px; }
+    .cc-header-settings-btn ion-icon { font-size: 16px; }
+
+    .cc-notification-item { padding: 12px 10px; border-radius: 10px; }
+    .cc-notif-icon-wrap { width: 28px; height: 28px; min-width: 28px; }
+    .cc-notif-icon-wrap ion-icon { font-size: 16px; }
+    .cc-notif-title { font-size: 13px; }
+    .cc-notif-body { font-size: 12px; }
+    .cc-notif-time { font-size: 10px; }
+    .cc-notif-close { width: 22px; height: 22px; min-width: 22px; }
+}
+
+/* Обычные телефоны (361px - 480px) */
 @media (max-width: 480px) {
     .control-center {
         width: 90%;
         border-radius: 0 20px 20px 0;
         padding: 16px 12px;
     }
-    .cc-tile { padding: 16px 10px; }
+    .cc-grid { gap: 6px; }
+    .cc-tile { padding: 10px 4px; }
+    .cc-tile ion-icon { font-size: 18px; }
+    .cc-tile span { font-size: 9px; }
+}
+
+/* Планшеты (481px - 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
+    .control-center {
+        width: 70%;
+        max-width: 480px;
+        border-radius: 0 24px 24px 0;
+        padding: 24px 20px;
+        gap: 20px;
+    }
+    .cc-grid { gap: 10px; }
+    .cc-tile { padding: 16px 10px; border-radius: 16px; }
     .cc-tile ion-icon { font-size: 24px; }
+    .cc-tile span { font-size: 12px; }
+
+    .cc-slider-row { height: 52px; border-radius: 16px; }
+    .cc-slider-icon-wrap { right: 16px; width: 32px; }
+    .cc-slider-icon-wrap ion-icon { font-size: 24px; }
+
+    .cc-unified-status { padding: 16px 18px; font-size: 15px; border-radius: 14px; }
+    .cc-status-dot { width: 10px; height: 10px; }
+    .cc-status-right { font-size: 14px; }
+
+    .cc-action-btn { padding: 18px 10px; }
+    .cc-action-btn ion-icon { font-size: 28px; }
+    .cc-action-btn span { font-size: 13px; }
+
+    .cc-notif-header { font-size: 15px; }
+    .cc-notif-title { font-size: 16px; }
+    .cc-notif-body { font-size: 15px; }
+    .cc-notification-item { padding: 16px 14px; }
+    .cc-notif-icon-wrap { width: 36px; height: 36px; min-width: 36px; }
+    .cc-notif-icon-wrap ion-icon { font-size: 20px; }
+
+    .cc-info { padding: 16px 18px; }
+    .cc-info-row { font-size: 15px; }
+    .cc-info-row ion-icon { font-size: 18px; }
+}
+
+/* Десктопы (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .control-center {
+        width: 50%;
+        max-width: 500px;
+        padding: 28px 24px;
+    }
+    .cc-grid { gap: 12px; }
+    .cc-tile { padding: 18px 12px; }
+    .cc-tile ion-icon { font-size: 26px; }
+    .cc-tile span { font-size: 13px; }
+
+    .cc-slider-row { height: 56px; border-radius: 18px; }
+    .cc-slider-icon-wrap ion-icon { font-size: 26px; }
+
+    .cc-unified-status { padding: 18px 20px; font-size: 16px; }
+    .cc-status-right { font-size: 14px; }
+
+    .cc-notif-title { font-size: 17px; }
+    .cc-notif-body { font-size: 15px; }
+}
+
+/* Большие десктопы (1025px+) */
+@media (min-width: 1025px) {
+    .control-center {
+        width: 40%;
+        max-width: 560px;
+        padding: 32px 28px;
+        gap: 22px;
+    }
+    .cc-grid { gap: 14px; }
+    .cc-tile { padding: 20px 14px; border-radius: 18px; }
+    .cc-tile ion-icon { font-size: 28px; }
+    .cc-tile span { font-size: 14px; }
+
+    .cc-slider-row { height: 60px; border-radius: 20px; }
+    .cc-slider-fill { border-radius: 20px; }
+    .cc-slider-icon-wrap { right: 20px; width: 40px; }
+    .cc-slider-icon-wrap ion-icon { font-size: 28px; }
+
+    .cc-unified-status { padding: 20px 22px; font-size: 17px; border-radius: 16px; }
+    .cc-status-dot { width: 12px; height: 12px; }
+    .cc-status-right { font-size: 15px; }
+
+    .cc-action-btn { padding: 20px 12px; border-radius: 18px; }
+    .cc-action-btn ion-icon { font-size: 32px; }
+    .cc-action-btn span { font-size: 14px; }
+
+    .cc-notif-header { font-size: 16px; padding-bottom: 12px; }
+    .cc-notif-title { font-size: 17px; }
+    .cc-notif-body { font-size: 15px; }
+    .cc-notification-item { padding: 18px 16px; border-radius: 14px; }
+    .cc-notif-icon-wrap { width: 40px; height: 40px; min-width: 40px; }
+    .cc-notif-icon-wrap ion-icon { font-size: 22px; }
+    .cc-notif-close { width: 28px; height: 28px; min-width: 28px; }
+    .cc-notif-close ion-icon { font-size: 16px; }
+
+    .cc-info { padding: 18px 20px; border-radius: 14px; }
+    .cc-info-row { font-size: 16px; }
+    .cc-info-row ion-icon { font-size: 20px; }
 }
 
 /* ============================================
-   МОДАЛКА НАСТРОЕК НАПОМИНАНИЙ
+   МОДАЛКА «ИЗМЕНИТЬ ИМЯ» (по центру экрана)
    ============================================ */
-.cp-settings-overlay {
+#name-modal-overlay {
     position: fixed;
     inset: 0;
     background: var(--cc-overlay-bg);
-    z-index: 10000;
-    display: flex;
+    z-index: 10002;
+    display: none;
     align-items: center;
     justify-content: center;
     opacity: 0;
     transition: opacity 0.3s;
     padding: 16px;
 }
-.cp-settings-overlay.visible { opacity: 1; }
+#name-modal-overlay.visible { opacity: 1; }
 
-.cp-settings-modal {
+#name-modal-overlay .cp-settings-modal {
     background: var(--cc-settings-bg);
     border-radius: 20px;
     width: 100%;
-    max-width: 420px;
-    max-height: 85vh;
+    max-width: 380px;
+    max-height: 90vh;
     display: flex;
     flex-direction: column;
     color: var(--cc-settings-text);
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     transform: translateY(20px) scale(0.98);
-    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1),
-                background 0.3s, color 0.3s;
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    overflow: hidden;
 }
-.cp-settings-overlay.visible .cp-settings-modal {
+#name-modal-overlay.visible .cp-settings-modal {
     transform: translateY(0) scale(1);
 }
 
-.cp-settings-header {
+#name-modal-overlay .cp-settings-header {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 16px 20px;
     border-bottom: 1px solid var(--cc-settings-border);
+    flex-shrink: 0;
+    background: var(--cc-settings-bg);
 }
-.cp-settings-header ion-icon { font-size: 20px; color: var(--cc-accent); }
-.cp-settings-header h3 { margin: 0; font-size: 17px; font-weight: 600; }
-
-.cp-settings-body {
-    overflow-y: auto;
-    padding: 12px 20px;
+#name-modal-overlay .cp-settings-header ion-icon {
+    font-size: 22px;
+    color: var(--cc-accent);
+    flex-shrink: 0;
+}
+#name-modal-overlay .cp-settings-header h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
     flex: 1;
-    -webkit-overflow-scrolling: touch;
 }
 
-.cp-section {
-    margin: 16px 0 8px;
-    font-size: 12px;
-    text-transform: uppercase;
-    color: var(--cc-header-text);
-    font-weight: 600;
-    letter-spacing: 0.5px;
+#name-modal-overlay .cp-settings-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+    background: var(--cc-settings-bg);
 }
-
-.cp-row {
+#name-modal-overlay .form-group {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 0;
-    font-size: 14px;
-    gap: 12px;
-    color: var(--cc-settings-text);
+    flex-direction: column;
+    gap: 8px;
 }
-.cp-row > span:first-child { flex: 1; }
-
-.cp-row input[type="number"],
-.cp-row input[type="date"] {
-    width: 120px;
-    padding: 6px 10px;
-    border-radius: 8px;
+#name-modal-overlay .form-group label {
+    font-size: 13px;
+    color: var(--cc-header-text);
+    font-weight: 500;
+}
+#name-modal-overlay .form-group input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 14px;
+    font-size: 16px;
+    border-radius: 12px;
     border: 1px solid var(--cc-settings-input-border);
     background: var(--cc-settings-input-bg);
     color: var(--cc-settings-text);
-    font-size: 14px;
     outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
-.cp-row input[type="number"]:focus,
-.cp-row input[type="date"]:focus {
+#name-modal-overlay .form-group input:focus {
     border-color: var(--cc-accent);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15);
 }
 
-/* --- Switch --- */
-.cp-switch {
-    position: relative;
-    display: inline-block;
-    flex-shrink: 0;
-}
-.cp-switch input { display: none; }
-.cp-switch-track {
-    display: inline-block;
-    width: 44px;
-    height: 26px;
-    border-radius: 13px;
-    background: var(--cc-switch-bg);
-    transition: background 0.2s;
-    position: relative;
-}
-.cp-switch-thumb {
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: #fff;
-    transition: transform 0.2s;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-.cp-switch input:checked + .cp-switch-track { background: var(--cc-accent); }
-.cp-switch input:checked + .cp-switch-track .cp-switch-thumb {
-    transform: translateX(18px);
-}
-
-/* --- Список сервисов --- */
-.cp-svc-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 8px;
-}
-.cp-svc-item {
-    padding: 10px 12px;
-    background: var(--cc-svc-bg);
-    border-radius: 12px;
-    border-left: 3px solid var(--cc-accent);
-}
-.cp-svc-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-    margin-top: 8px;
-}
-.cp-svc-grid .cp-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    padding: 0;
-    font-size: 12px;
-}
-.cp-svc-grid .cp-row input[type="number"] {
-    width: 100%;
-}
-
-/* --- Footer --- */
-.cp-settings-footer {
+#name-modal-overlay .cp-settings-footer {
     display: flex;
     gap: 10px;
     padding: 16px 20px;
     border-top: 1px solid var(--cc-settings-border);
+    flex-shrink: 0;
+    background: var(--cc-settings-bg);
 }
-.cp-btn {
+#name-modal-overlay .cp-btn {
     flex: 1;
     padding: 12px;
     border-radius: 12px;
@@ -631,7 +971,166 @@ body.dark-theme {
     gap: 6px;
     transition: background 0.2s;
 }
-.cp-btn:hover { background: var(--cc-btn-hover); }
-.cp-btn.primary { background: var(--cc-accent); color: #fff; }
-.cp-btn.primary:hover { background: var(--cc-accent-hover); }
-.cp-btn ion-icon { font-size: 18px; }
+#name-modal-overlay .cp-btn:hover { background: var(--cc-btn-hover); }
+#name-modal-overlay .cp-btn.primary { background: var(--cc-accent); color: #fff; }
+#name-modal-overlay .cp-btn.primary:hover { background: var(--cc-accent-hover); }
+#name-modal-overlay .cp-btn ion-icon { font-size: 18px; }
+
+/* ============================================
+   МОДАЛКА НАСТРОЕК ПРИЛОЖЕНИЯ (полноэкранная снизу)
+   ============================================ */
+#tab-settings.fuel-modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+}
+#tab-settings .fuel-modal {
+    max-width: 100%;
+    width: 100%;
+    height: 90vh;
+    max-height: 90vh;
+    background: var(--ios-bg-primary, #f2f2f7);
+    border-radius: 24px 24px 0 0;
+}
+body.dark-theme #tab-settings .fuel-modal {
+    background: #000000;
+}
+#tab-settings .fuel-modal-header {
+    background: var(--cc-settings-bg);
+    border-bottom: 1px solid var(--cc-settings-border);
+    color: var(--cc-settings-text);
+}
+#tab-settings .fuel-modal-header h3 {
+    color: var(--cc-settings-text);
+}
+#tab-settings .fuel-modal-header ion-icon:first-child {
+    color: var(--cc-accent);
+}
+#tab-settings .fuel-modal-body {
+    background: var(--ios-bg-primary, #f2f2f7);
+    padding: 16px;
+}
+body.dark-theme #tab-settings .fuel-modal-body {
+    background: #000000;
+}
+#tab-settings .fuel-modal-footer {
+    background: var(--cc-settings-bg);
+    border-top: 1px solid var(--cc-settings-border);
+}
+
+#tab-settings .card {
+    background: var(--cc-settings-bg);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: none;
+    border: 1px solid var(--cc-settings-border);
+    box-sizing: border-box;
+    width: 100%;
+}
+#tab-settings .card h2 {
+    font-size: 18px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--cc-settings-text);
+}
+#tab-settings .card h2 ion-icon {
+    font-size: 22px !important;
+    margin-right: 4px;
+}
+
+/* Сетка для полей: 1 колонка на мобильных */
+#tab-settings .form-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+    width: 100%;
+}
+@media (min-width: 480px) {
+    #tab-settings .form-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (min-width: 768px) {
+    #tab-settings .form-row {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+#tab-settings .form-group {
+    width: 100%;
+    min-width: 0;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+}
+#tab-settings .form-group label {
+    font-size: 12px;
+    margin-bottom: 6px;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--cc-header-text);
+}
+#tab-settings .form-group input,
+#tab-settings .form-group select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    font-size: 14px;
+    border-radius: 10px;
+    max-width: 100%;
+    background: var(--cc-settings-input-bg);
+    border: 1px solid var(--cc-settings-input-border);
+    color: var(--cc-settings-text);
+}
+#tab-settings #vehicle-selector {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    font-size: 15px;
+    border-radius: 12px;
+}
+#tab-settings .btn {
+    padding: 12px;
+    font-size: 14px;
+    border-radius: 12px;
+    white-space: normal;
+    text-align: center;
+    justify-content: center;
+    width: 100%;
+}
+#tab-settings #vehicle-form > div:last-child {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+@media (min-width: 480px) {
+    #tab-settings #vehicle-form > div:last-child {
+        flex-direction: row;
+    }
+}
+#tab-settings .tariff-info {
+    width: 100%;
+    box-sizing: border-box;
+    word-wrap: break-word;
+    white-space: normal;
+}
+
+/* Адаптив для ПК (по центру) */
+@media (min-width: 769px) {
+    #tab-settings.fuel-modal-overlay {
+        align-items: center;
+        padding: 20px;
+    }
+    #tab-settings .fuel-modal {
+        max-width: 600px;
+        height: 85vh;
+        max-height: 85vh;
+        border-radius: 24px;
+    }
+}
