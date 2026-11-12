@@ -970,8 +970,9 @@ async function syncRepairToFirebase(record) {
             userId: auth.currentUser.uid,
             updatedAt: new Date().toISOString()
         });
-        return true;
-    } catch (error) {
+            if (typeof window.remindersMarkAsSynced === 'function') window.remindersMarkAsSynced();
+            return true;
+        } catch (error) {
         console.error('❌ Ошибка сохранения в Firebase:', error);
         if (error.message && error.message.includes('maximum size')) {
             safeShowToast('Ошибка', 'Документ слишком большой. Попробуйте фото меньшего размера.', 'danger');
@@ -984,6 +985,7 @@ async function deleteRepairFromFirebase(id) {
     if (typeof connectionMode === 'undefined' || connectionMode !== 'firebase' || typeof auth === 'undefined' || !auth.currentUser) return false;
     try {
         await db.collection('users').doc(auth.currentUser.uid).collection(COLLECTION_REPAIR).doc(id).delete();
+        if (typeof window.remindersMarkAsSynced === 'function') window.remindersMarkAsSynced();
         return true;
     } catch (error) {
         console.error('❌ Ошибка удаления из Firebase:', error);
@@ -1531,6 +1533,7 @@ async function syncRepairToMainRecords() {
             try {
                 const recordsToUpdate = records.filter(r => changedDates.includes(r.date));
                 await saveRecordsBatchToFirebase(recordsToUpdate);
+                if (typeof window.remindersMarkAsSynced === 'function') window.remindersMarkAsSynced();
             } catch (error) { console.error('❌ Ошибка синхронизации с Firebase:', error); }
         }
         if (typeof renderTable === 'function') renderTable();

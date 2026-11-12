@@ -137,11 +137,17 @@ async function saveFuelLogToFirebase(log) {
         delete logToSave.id;
         await db.collection('users').doc(currentUser.uid).collection('fuelLogs').doc(log.id).set(logToSave);
         console.log('✅ Сохранено в Firebase:', log.id);
+        
+        if (typeof window.remindersMarkAsSynced === 'function') {
+    window.remindersMarkAsSynced();
+}
         return true;
     } catch (error) {
         console.error('❌ Ошибка сохранения в Firebase:', error);
         return false;
     }
+    
+    
 }
 
 // ============================================
@@ -278,17 +284,31 @@ function editFuelLog(id) {
 async function deleteFuelLog(id) {
     if (!confirm('Удалить эту заправку?')) return;
     
+    // Сначала удаляем из Firebase (если пользователь авторизован)
+    if (typeof currentUser !== 'undefined' && currentUser && typeof db !== 'undefined') {
+        try {
+            await db.collection('users').doc(currentUser.uid).collection('fuelLogs').doc(id).delete();
+            console.log('✅ Заправка удалена из Firebase');
+            
+            // ⭐ Обновляем время синхронизации
+            if (typeof window.remindersMarkAsSynced === 'function') {
+                window.remindersMarkAsSynced();
+            }
+        } catch (error) {
+            console.error('❌ Ошибка удаления из Firebase:', error);
+        }
+    }
+    
+    // Обновляем локальные данные
     fuelLogs = fuelLogs.filter(l => l.id !== id);
     localStorage.setItem(FUEL_STORAGE_KEY, JSON.stringify(fuelLogs));
     
-    if (typeof currentUser !== 'undefined' && currentUser && typeof db !== 'undefined') {
-        await db.collection('users').doc(currentUser.uid).collection('fuelLogs').doc(id).delete().catch(console.error);
-    }
-    
+    // Обновляем интерфейс
     if (typeof renderFuelLogs === 'function') renderFuelLogs();
     if (typeof updateFuelStats === 'function') updateFuelStats();
     if (typeof updateFuelChart === 'function') updateFuelChart();
     if (typeof syncFuelToRecords === 'function') await syncFuelToRecords();
+    
     if (typeof showToast === 'function') showToast('🗑️ Заправка удалена');
 }
 
@@ -594,7 +614,19 @@ async function syncFuelToRecords() {
         fuelByDate[log.date].totalAmount += log.amount || 0;
         fuelByDate[log.date].totalLiters += log.liters || 0;
         fuelByDate[log.date].count += 1;
-        fuelByDate[log.date].details.push({ amount: log.amount, liters: log.liters, mileage: log.mileage, comment: log.comment || '', vehicleId: log.vehicleId || 'default' });
+        const vehiclesList = typeof getVehicles === 'function' ? getVehicles() : [];
+        const vId = log.vehicleId || 'default';
+        const vObj = vehiclesList.find(v => v.id === vId) || { name: 'Автомобиль', plate: '' };
+        
+        fuelByDate[log.date].details.push({
+            amount: log.amount,
+            liters: log.liters,
+            mileage: log.mileage,
+            comment: log.comment || '',
+            vehicleId: vId,
+            vehicleName: vObj.name,
+            plate: vObj.plate
+        });
     });
     
     let updatedCount = 0;

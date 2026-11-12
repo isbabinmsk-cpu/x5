@@ -135,8 +135,9 @@ async function addVehicle(e) {
       
       // Обновляем в Firebase
       if (typeof auth !== 'undefined' && auth.currentUser && typeof db !== 'undefined') {
-        await db.collection('users').doc(auth.currentUser.uid).collection('vehicles').doc(editingVehicleId).set(vehicles[index]);
-      }
+          await db.collection('users').doc(auth.currentUser.uid).collection('vehicles').doc(editingVehicleId).set(vehicles[index]);
+          if (typeof window.remindersMarkAsSynced === 'function') window.remindersMarkAsSynced();
+          }
       
       console.log('✅ Автомобиль отредактирован:', name);
     }
@@ -172,8 +173,9 @@ async function addVehicle(e) {
     
     // Сохраняем в Firebase
     if (typeof auth !== 'undefined' && auth.currentUser && typeof db !== 'undefined') {
-      await db.collection('users').doc(auth.currentUser.uid).collection('vehicles').doc(newVehicle.id).set(newVehicle);
-    }
+          await db.collection('users').doc(auth.currentUser.uid).collection('vehicles').doc(newVehicle.id).set(newVehicle);
+          if (typeof window.remindersMarkAsSynced === 'function') window.remindersMarkAsSynced();
+      }
     
     console.log('✅ Автомобиль добавлен:', name);
     if (typeof safeShowToast === 'function') safeShowToast('Успех', 'Автомобиль добавлен!', 'success');
@@ -247,8 +249,9 @@ async function deleteVehicle(id) {
   saveVehiclesLocal();
   
   if (typeof auth !== 'undefined' && auth.currentUser && typeof db !== 'undefined') {
-    await db.collection('users').doc(auth.currentUser.uid).collection('vehicles').doc(id).delete();
-  }
+      await db.collection('users').doc(auth.currentUser.uid).collection('vehicles').doc(id).delete();
+        if (typeof window.remindersMarkAsSynced === 'function') window.remindersMarkAsSynced();
+      }
   
   // Если редактировали этот автомобиль, отменяем редактирование
   if (editingVehicleId === id) {

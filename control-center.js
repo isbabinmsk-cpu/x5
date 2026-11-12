@@ -140,14 +140,16 @@
     }
 
     function markSynced(accountTs) {
-        const now = Date.now();
-        try { localStorage.setItem(SYNC_WRITE_KEY, String(now)); } catch (e) {}
-        if (accountTs) {
-            try { localStorage.setItem(SYNC_ACCOUNT_KEY, String(accountTs)); } catch (e) {}
-        }
-        pendingSave = false;
-        renderUnifiedStatus();
-    }
+    const now = Date.now();
+    try { localStorage.setItem(SYNC_WRITE_KEY, String(now)); } catch (e) {}
+    
+    // ⭐ Всегда обновляем время аккаунта на текущее, если не передано большее
+    const finalTs = (accountTs && accountTs > now) ? accountTs : now;
+    try { localStorage.setItem(SYNC_ACCOUNT_KEY, String(finalTs)); } catch (e) {}
+    
+    pendingSave = false;
+    renderUnifiedStatus();
+}
 
     function markDirty() {
         pendingSave = true;
@@ -432,12 +434,15 @@
         lastSavedSnapshot = snap;
         renderUnifiedStatus();
         try {
-            const accountTs = Date.now();
-            await docRef.set({
-                settings, dismissed, hidden, lastSyncAt: accountTs
-            }, { merge: true });
-            markSynced(accountTs);
-        } catch (e) {
+    const accountTs = Date.now();
+    // ⭐ Пишем текущее время в localStorage перед отправкой в Firebase
+    try { localStorage.setItem(SYNC_ACCOUNT_KEY, String(accountTs)); } catch (e) {}
+    
+    await docRef.set({
+        settings, dismissed, hidden, lastSyncAt: accountTs
+    }, { merge: true });
+    markSynced(accountTs);
+} catch (e) {
             console.error('❌ Ошибка сохранения в Firestore:', e);
             lastSavedSnapshot = '';
             pendingSave = true;
@@ -483,8 +488,12 @@
                         persistLocal();
                     }
                     if (data.lastSyncAt) {
-                        try { localStorage.setItem(SYNC_ACCOUNT_KEY, String(data.lastSyncAt)); } catch (e) {}
-                    }
+    // ⭐ Не перезаписываем время, если локальное время свежее, чем из Firebase
+    const currentLocal = parseInt(localStorage.getItem(SYNC_ACCOUNT_KEY) || '0', 10);
+    if (data.lastSyncAt > currentLocal) {
+        try { localStorage.setItem(SYNC_ACCOUNT_KEY, String(data.lastSyncAt)); } catch (e) {}
+    }
+}
                     renderUnifiedStatus();
                     if (sChanged || dChanged || hChanged) refresh();
                 }
@@ -1571,6 +1580,9 @@
     window.openNotifSettings = openNotifSettings;
     window.remindersRenderUnifiedStatus = renderUnifiedStatus;
     window.remindersSyncAllNow = syncAllNow;
+    window.remindersMarkAsSynced = function() {
+    markSynced(Date.now());
+};
     window.renderUnifiedStatus = renderUnifiedStatus;
     window.showConnectionDetails = showConnectionDetails;
     window.checkFirebaseConnection = checkFirebaseConnection;
@@ -1593,3 +1605,4 @@
         init();
     }
 })();
+

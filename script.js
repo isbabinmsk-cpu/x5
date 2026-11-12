@@ -57,10 +57,9 @@ let currentFilterColumn = null;
 
 // ============================================
 // УНИВЕРСАЛЬНЫЙ ПЕРЕХВАТЧИК FIREBASE LISTENERS
-// Автоматически собирает все onSnapshot, чтобы их можно было отписать при выходе
 // ============================================
 window._fbListeners = [];
-window._isLoggingOut = false;  // флаг выхода, чтобы подавлять ложные ошибки
+window._isLoggingOut = false;
 
 (function patchOnSnapshot() {
     if (typeof db === 'undefined') return;
@@ -69,10 +68,8 @@ window._isLoggingOut = false;  // флаг выхода, чтобы подавл
 
     firebase.firestore.Query.prototype.onSnapshot = function (...args) {
         const unsub = originalOnSnapshot.apply(this, args);
-        // Сохраняем функцию отписки в глобальный массив
         window._fbListeners.push(unsub);
         return function (...uargs) {
-            // При вызове отписки — удаляем из массива
             const idx = window._fbListeners.indexOf(unsub);
             if (idx !== -1) window._fbListeners.splice(idx, 1);
             return unsub.apply(this, uargs);
@@ -84,13 +81,12 @@ window._isLoggingOut = false;  // флаг выхода, чтобы подавл
 // Перехватчик console.error для подавления permission-denied при выходе
 const _origConsoleError = console.error;
 console.error = function (...args) {
-    // Если идёт выход и ошибка permission-denied — тихо пропускаем
     if (window._isLoggingOut) {
         const msg = (args[0] && args[0].code) || (args.join && args.join(' ')) || '';
-        if (msg === 'permission-denied' || 
+        if (msg === 'permission-denied' ||
             (typeof msg === 'string' && msg.includes('permission-denied')) ||
             (args[1] && args[1] && args[1].code === 'permission-denied')) {
-            return; // подавляем
+            return;
         }
     }
     _origConsoleError.apply(console, args);
@@ -102,7 +98,7 @@ function parseLocalDate(dateStr) {
     const parts = dateStr.split('-');
     if (parts.length !== 3) return new Date(dateStr);
     const year = parseInt(parts[0]);
-    const month = parseInt(parts[1]) - 1; // Месяцы в JS 0-11
+    const month = parseInt(parts[1]) - 1;
     const day = parseInt(parts[2]);
     return new Date(year, month, day);
 }
@@ -119,10 +115,9 @@ async function compressImage(file, maxSizeMB = 1) {
                 let canvas = document.createElement('canvas');
                 let ctx = canvas.getContext('2d');
 
-                // 1. Ограничиваем максимальные размеры (чтобы не сжимать гигантские фото до микроскопических)
                 let width = img.width;
                 let height = img.height;
-                const MAX_DIMENSION = 1200; // Максимум 1200px по длинной стороне (достаточно для аватара/чека)
+                const MAX_DIMENSION = 1200;
 
                 if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
                     if (width > height) {
@@ -138,17 +133,14 @@ async function compressImage(file, maxSizeMB = 1) {
                 canvas.height = height;
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // 2. Итеративное сжатие качества JPEG
-                let quality = 0.85; // Начинаем с 85% качества
+                let quality = 0.85;
                 let dataUrl = canvas.toDataURL('image/jpeg', quality);
 
-                // Длина base64 строки * 0.75 ≈ размер в байтах
                 while ((dataUrl.length * 0.75) > (maxSizeMB * 1024 * 1024) && quality > 0.1) {
                     quality -= 0.1;
                     dataUrl = canvas.toDataURL('image/jpeg', quality);
                 }
 
-                // 3. Если всё ещё слишком большое, уменьшаем размер холста в 2 раза
                 if ((dataUrl.length * 0.75) > (maxSizeMB * 1024 * 1024)) {
                     canvas.width = Math.round(width / 2);
                     canvas.height = Math.round(height / 2);
@@ -165,9 +157,9 @@ async function compressImage(file, maxSizeMB = 1) {
     });
 }
 
-
-
-// Загрузка данных пользователя из Firebase
+// ============================================
+// ЗАГРУЗКА ДАННЫХ ПОЛЬЗОВАТЕЛЯ ИЗ FIREBASE
+// ============================================
 async function loadUserData() {
     if (!currentUser) return;
 
@@ -183,22 +175,18 @@ async function loadUserData() {
     try {
         console.log('🔄 Параллельная загрузка данных пользователя...');
 
-        // ⭐⭐⭐ ГЛАВНОЕ ИЗМЕНЕНИЕ: Все запросы идут ОДНОВРЕМЕННО
         const [recordsSnap, tariffsSnap, userDoc] = await Promise.all([
             db.collection('users').doc(currentUser.uid).collection('records').orderBy('date', 'desc').get(),
             db.collection('users').doc(currentUser.uid).collection('tariffs').orderBy('date', 'desc').get(),
             db.collection('users').doc(currentUser.uid).get()
         ]);
 
-        // Обрабатываем записи
         records = recordsSnap.docs.map(doc => normalizeRecord({ id: doc.id, ...doc.data() }));
         console.log('✅ Загружено записей:', records.length);
 
-        // Обрабатываем тарифы
         tariffs = tariffsSnap.docs.map(doc => normalizeTariff({ id: doc.id, ...doc.data() }));
         console.log('✅ Загружено тарифов:', tariffs.length);
 
-        // Если нет тарифов — создаём стандартный
         if (tariffs.length === 0) {
             const defaultTariff = {
                 date: new Date().toISOString().split('T')[0],
@@ -209,9 +197,8 @@ async function loadUserData() {
             tariffs.push(normalizeTariff({ id: docRef.id, ...defaultTariff }));
         }
 
-        // ⭐⭐⭐ Обрабатываем аватар и цели ИЗ УЖЕ ЗАГРУЖЕННОГО userDoc (без доп. запроса!)
         const userData = userDoc.exists ? userDoc.data() : {};
-        
+
         if (userData.avatar) {
             try {
                 localStorage.setItem(AVATAR_STORAGE_KEY, userData.avatar);
@@ -222,33 +209,23 @@ async function loadUserData() {
             }
         }
 
-        // Цели — тоже из userDoc, без отдельного запроса
-        if (userData.goals && typeof userData.goals === 'object') {
-            localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(userData.goals));
-            console.log('✅ Цели загружены из кэша Firestore');
-        } else {
-            const defaultGoals = { income: 100000, orders: 500, hours: 200 };
-            localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(defaultGoals));
-            await saveGoalsToFirebase(defaultGoals);
-        }
-
-        // Сохраняем в localStorage
         saveData();
 
-        // ⭐⭐⭐ Обновляем интерфейс параллельно (не ждём друг друга)
         renderTable();
         renderTariffs();
         populateFilters();
         updateAnalytics();
-        
-        // Цели и главная — асинхронно, не блокируя
-        updateGoals();
-        updateHomeTab();
 
-        // Статус
+        if (typeof window.updateHomeTab === 'function') {
+            window.updateHomeTab();
+        }
+        if (typeof window.updateGoals === 'function') {
+            window.updateGoals();
+        }
+
         connectionMode = 'firebase';
         firebaseErrorReason = '';
-        if (typeof window.renderUnifiedStatus === 'function') {     window.renderUnifiedStatus(); }
+        if (typeof window.renderUnifiedStatus === 'function') { window.renderUnifiedStatus(); }
         console.log('✅ Все данные успешно загружены!');
 
     } catch (error) {
@@ -257,116 +234,27 @@ async function loadUserData() {
         await loadData();
         connectionMode = 'local';
         firebaseErrorReason = error.message || 'Ошибка загрузки данных';
-        if (typeof window.renderUnifiedStatus === 'function') {     window.renderUnifiedStatus(); }
-        
+        if (typeof window.renderUnifiedStatus === 'function') { window.renderUnifiedStatus(); }
+
         renderTable();
         renderTariffs();
         populateFilters();
         updateAnalytics();
-        updateGoals();
-        updateHomeTab();
+
+        if (typeof window.updateHomeTab === 'function') {
+            window.updateHomeTab();
+        }
+        if (typeof window.updateGoals === 'function') {
+            window.updateGoals();
+        }
+
         alert('⚠️ Ошибка загрузки: ' + error.message + '\nДанные взяты из локального кэша.');
-    }
-}
-
-// ============================================
-// ЗАГРУЗКА ЦЕЛЕЙ ИЗ FIREBASE
-// ============================================
-
-async function loadGoalsFromFirebase() {
-    if (!currentUser || typeof db === 'undefined') {
-        console.log('⚠️ Firebase не доступен, загружаем из localStorage');
-        // Пробуем загрузить из localStorage
-        const localGoals = localStorage.getItem(GOALS_STORAGE_KEY);
-        if (localGoals) {
-            try {
-                const goals = JSON.parse(localGoals);
-                if (goals && typeof goals === 'object') {
-                    console.log('📊 Цели загружены из localStorage:', goals);
-                    return goals;
-                }
-            } catch (e) {
-                console.warn('⚠️ Ошибка парсинга целей из localStorage:', e);
-            }
-        }
-        // Создаем дефолтные цели
-        const defaultGoals = { income: 100000, orders: 500, hours: 200 };
-        localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(defaultGoals));
-        console.log('📊 Созданы дефолтные цели в localStorage');
-        return defaultGoals;
-    }
-    
-    try {
-        console.log('🔄 Загрузка целей из Firebase...');
-        
-        const doc = await db.collection('users')
-            .doc(currentUser.uid)
-            .get();
-        
-        // Проверяем, есть ли цели в Firebase
-        if (doc.exists && doc.data().goals) {
-            const goals = doc.data().goals;
-            
-            // Проверяем, что цели имеют правильную структуру
-            if (goals && typeof goals === 'object' && 
-                typeof goals.income === 'number' && 
-                typeof goals.orders === 'number' && 
-                typeof goals.hours === 'number') {
-                
-                // Сохраняем в localStorage для кэша
-                localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(goals));
-                console.log('✅ Цели загружены из Firebase:', goals);
-                return goals;
-            } else {
-                console.warn('⚠️ Структура целей в Firebase повреждена, создаем новые');
-                // Создаем правильную структуру
-                const defaultGoals = { income: 100000, orders: 500, hours: 200 };
-                localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(defaultGoals));
-                await saveGoalsToFirebase(defaultGoals);
-                console.log('📊 Созданы и сохранены дефолтные цели в Firebase');
-                return defaultGoals;
-            }
-        } else {
-            // Если в Firebase нет целей, создаем дефолтные и сохраняем
-            console.log('📊 В Firebase нет целей, создаем дефолтные...');
-            const defaultGoals = { income: 100000, orders: 500, hours: 200 };
-            localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(defaultGoals));
-            await saveGoalsToFirebase(defaultGoals);
-            console.log('✅ Созданы и сохранены дефолтные цели в Firebase');
-            return defaultGoals;
-        }
-    } catch (error) {
-        console.error('❌ Ошибка загрузки целей из Firebase:', error);
-        
-        // Пробуем загрузить из localStorage
-        console.log('🔄 Пытаемся загрузить цели из localStorage...');
-        const localGoals = localStorage.getItem(GOALS_STORAGE_KEY);
-        if (localGoals) {
-            try {
-                const goals = JSON.parse(localGoals);
-                if (goals && typeof goals === 'object' && 
-                    typeof goals.income === 'number' && 
-                    typeof goals.orders === 'number' && 
-                    typeof goals.hours === 'number') {
-                    console.log('📊 Цели загружены из localStorage:', goals);
-                    return goals;
-                }
-            } catch (e) {
-                console.warn('⚠️ Ошибка парсинга целей из localStorage:', e);
-            }
-        }
-        
-        // Если ничего не получилось, создаем дефолтные
-        const defaultGoals = { income: 100000, orders: 500, hours: 200 };
-        localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(defaultGoals));
-        console.log('📊 Созданы дефолтные цели (после ошибки)');
-        return defaultGoals;
     }
 }
 
 // ===== СОХРАНЕНИЕ СОСТОЯНИЯ =====
 const STATE_KEY = 'appState';
-let isRestoringState = false; // Флаг восстановления состояния
+let isRestoringState = false;
 
 function saveState() {
     try {
@@ -391,17 +279,15 @@ function restoreState() {
     try {
         const saved = localStorage.getItem(STATE_KEY);
         if (!saved) return;
-        
+
         const state = JSON.parse(saved);
         console.log('🔄 Восстановление состояния:', state);
-        
-        // Восстанавливаем фильтры аналитики
+
         const filterMonth = document.getElementById('filter-month');
         const filterYear = document.getElementById('filter-year');
         if (filterMonth && state.filterMonth) filterMonth.value = state.filterMonth;
         if (filterYear && state.filterYear) filterYear.value = state.filterYear;
-        
-        // Восстанавливаем периоды сравнения
+
         const c1m = document.getElementById('compare1-month');
         const c1y = document.getElementById('compare1-year');
         const c2m = document.getElementById('compare2-month');
@@ -410,24 +296,20 @@ function restoreState() {
         if (c1y && state.compare1Year) c1y.value = state.compare1Year;
         if (c2m && state.compare2Month) c2m.value = state.compare2Month;
         if (c2y && state.compare2Year) c2y.value = state.compare2Year;
-        
-        // ✅ ИСПРАВЛЕНИЕ: Используем switchTab() вместо ручной манипуляции
+
         if (state.activeTab && state.activeTab !== 'home' && state.activeTab !== 'entry') {
-    setTimeout(() => {
-        switchTab(state.activeTab);
-    }, 100);
-}
+            setTimeout(() => {
+                switchTab(state.activeTab);
+            }, 100);
+        }
     } catch (e) {
         console.error('❌ Ошибка восстановления:', e);
     }
 }
 
 // ==========================================
-// НАДЕЖНАЯ СИСТЕМА ФИЛЬТРАЦИИ (ВЕРСИЯ 3.0)
+// НАДЕЖНАЯ СИСТЕМА ФИЛЬТРАЦИИ
 // ==========================================
-
-
-
 function toggleFilter(column) {
     const filterRow = document.getElementById('filter-row');
     if (!filterRow) { console.error('❌ Нет #filter-row'); return; }
@@ -446,7 +328,6 @@ function toggleFilter(column) {
 }
 
 function renderFilterUI(column) {
-    // Скрываем все ячейки фильтров, показываем только нужную
     Object.keys(filterState).forEach(col => {
         const cell = document.getElementById('filter-' + col);
         if (cell) {
@@ -463,42 +344,40 @@ function renderFilterUI(column) {
 
 function buildFilterControls(column, container) {
     container.innerHTML = '';
-    
-    // 1. ФИЛЬТР ПО МЕСЯЦАМ
+
     if (column === 'date') {
         const select = document.createElement('select');
         select.style.cssText = 'width:100%; padding:6px; font-size:12px; border:1px solid #ccc; border-radius:6px;';
         select.innerHTML = '<option value="">Все месяцы</option>';
-        
+
         const monthsMap = new Map();
         records.forEach(r => {
             if (!r.date) return;
             const d = parseLocalDate(r.date);
             if (!d) return;
-            const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-            const label = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'][d.getMonth()] + ' ' + d.getFullYear();
+            const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+            const label = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'][d.getMonth()] + ' ' + d.getFullYear();
             if (!monthsMap.has(key)) monthsMap.set(key, label);
         });
-        
-        Array.from(monthsMap.entries()).sort((a,b) => b[0].localeCompare(a[0])).forEach(([key, label]) => {
+
+        Array.from(monthsMap.entries()).sort((a, b) => b[0].localeCompare(a[0])).forEach(([key, label]) => {
             const opt = document.createElement('option');
             opt.value = key;
             opt.textContent = label;
             if (filterState.date.values.includes(key)) opt.selected = true;
             select.appendChild(opt);
         });
-        
+
         select.addEventListener('change', (e) => {
             filterState.date.values = e.target.value ? [e.target.value] : [];
             renderTable();
         });
         container.appendChild(select);
     }
-    // 2. ФИЛЬТР ПО ДНЯМ НЕДЕЛИ
     else if (column === 'weekday') {
         const wrapper = document.createElement('div');
         wrapper.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px;';
-        ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'].forEach(day => {
+        ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'].forEach(day => {
             const label = document.createElement('label');
             label.style.cssText = 'display:flex; align-items:center; font-size:11px; cursor:pointer;';
             const cb = document.createElement('input');
@@ -511,66 +390,61 @@ function buildFilterControls(column, container) {
                 renderTable();
             });
             label.appendChild(cb);
-            label.appendChild(document.createTextNode(' ' + day.slice(0,3)));
+            label.appendChild(document.createTextNode(' ' + day.slice(0, 3)));
             wrapper.appendChild(label);
         });
         container.appendChild(wrapper);
     }
-// 3. ФИЛЬТР ПО ТИПУ
-else if (column === 'type') {
-    const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
-    
-    // Добавлены свойства icon и color для каждого типа
-    [
-        { v: 'work', l: 'Работа', icon: 'calendar-outline', color: 'var(--ios-accent, #007AFF)' },
-        { v: 'bonus', l: 'Бонус', icon: 'gift-outline', color: 'var(--ios-purple, #AF52DE)' },
-        { v: 'expense', l: 'Расход', icon: 'remove-circle-outline', color: 'var(--ios-danger, #FF3B30)' }
-    ].forEach(t => {
-        const label = document.createElement('label');
-        label.style.cssText = 'display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px;';
-        
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.value = t.v;
-        cb.checked = filterState.type.values.includes(t.v);
-        cb.addEventListener('change', () => {
-            if (cb.checked) { if (!filterState.type.values.includes(t.v)) filterState.type.values.push(t.v); }
-            else { filterState.type.values = filterState.type.values.filter(v => v !== t.v); }
-            renderTable();
+    else if (column === 'type') {
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
+
+        [
+            { v: 'work', l: 'Работа', icon: 'calendar-outline', color: 'var(--ios-accent, #007AFF)' },
+            { v: 'bonus', l: 'Бонус', icon: 'gift-outline', color: 'var(--ios-purple, #AF52DE)' },
+            { v: 'expense', l: 'Расход', icon: 'remove-circle-outline', color: 'var(--ios-danger, #FF3B30)' }
+        ].forEach(t => {
+            const label = document.createElement('label');
+            label.style.cssText = 'display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px;';
+
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = t.v;
+            cb.checked = filterState.type.values.includes(t.v);
+            cb.addEventListener('change', () => {
+                if (cb.checked) { if (!filterState.type.values.includes(t.v)) filterState.type.values.push(t.v); }
+                else { filterState.type.values = filterState.type.values.filter(v => v !== t.v); }
+                renderTable();
+            });
+
+            label.appendChild(cb);
+
+            const textWrapper = document.createElement('span');
+            textWrapper.style.cssText = 'display:flex; align-items:center; gap:4px;';
+            textWrapper.innerHTML = `<ion-icon name="${t.icon}" style="color: ${t.color}; font-size: 16px;"></ion-icon> ${t.l}`;
+
+            label.appendChild(textWrapper);
+            wrapper.appendChild(label);
         });
-        
-        label.appendChild(cb);
-        
-        // Создаем обертку для иконки и текста для идеального выравнивания
-        const textWrapper = document.createElement('span');
-        textWrapper.style.cssText = 'display:flex; align-items:center; gap:4px;';
-        textWrapper.innerHTML = `<ion-icon name="${t.icon}" style="color: ${t.color}; font-size: 16px;"></ion-icon> ${t.l}`;
-        
-        label.appendChild(textWrapper);
-        wrapper.appendChild(label);
-    });
-    container.appendChild(wrapper);
-}
-    // 4. ДИАПАЗОННЫЕ ФИЛЬТРЫ (ЧИСЛА)
+        container.appendChild(wrapper);
+    }
     else if (filterState[column] && filterState[column].type === 'range') {
         const wrapper = document.createElement('div');
         wrapper.style.cssText = 'display:flex; flex-direction:column; gap:6px;';
-        
+
         const inputsDiv = document.createElement('div');
         inputsDiv.style.cssText = 'display:flex; gap:4px; align-items:center;';
-        
+
         const minInp = document.createElement('input');
         minInp.type = 'number'; minInp.placeholder = 'От';
         minInp.style.cssText = 'width:50%; padding:6px; font-size:12px; border:1px solid #ccc; border-radius:6px;';
         minInp.value = filterState[column].min;
-        
+
         const maxInp = document.createElement('input');
         maxInp.type = 'number'; maxInp.placeholder = 'До';
         maxInp.style.cssText = 'width:50%; padding:6px; font-size:12px; border:1px solid #ccc; border-radius:6px;';
         maxInp.value = filterState[column].max;
 
-        // 🌟 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: используем addEventListener 'input'
         minInp.addEventListener('input', (e) => {
             filterState[column].min = e.target.value;
             renderTable();
@@ -600,36 +474,30 @@ function clearAllFilters() {
     const filterRow = document.getElementById('filter-row');
     if (filterRow) {
         filterRow.style.display = 'none';
-        filterRow.querySelectorAll('td').forEach(td => { if(td.id.startsWith('filter-')) td.innerHTML = ''; });
+        filterRow.querySelectorAll('td').forEach(td => { if (td.id.startsWith('filter-')) td.innerHTML = ''; });
     }
     currentFilterColumn = null;
     renderTable();
 }
 
-// ===== ПРИМЕНЕНИЕ ФИЛЬТРОВ (МАКСИМАЛЬНО ЗАЩИЩЕННОЕ) =====
 function applyFilters(data) {
     return data.filter(r => {
-        // 1. Дата
         if (filterState.date.values.length > 0) {
             const recMonth = r.date ? r.date.substring(0, 7) : '';
             if (!filterState.date.values.includes(recMonth)) return false;
         }
-        // 2. День недели
         if (filterState.weekday.values.length > 0) {
             const recDay = r.weekday ? r.weekday.trim().charAt(0).toUpperCase() + r.weekday.trim().slice(1).toLowerCase() : '';
             if (!filterState.weekday.values.includes(recDay)) return false;
         }
-        // 3. Тип
         if (filterState.type.values.length > 0) {
             if (!filterState.type.values.includes(r.recordType)) return false;
         }
-        // 4. Числовые диапазоны
         for (const key of Object.keys(filterState)) {
             const f = filterState[key];
             if (f.type !== 'range') continue;
-            if (f.min === '' && f.max === '') continue; // Пропускаем, если фильтр пуст
+            if (f.min === '' && f.max === '') continue;
 
-            // Безопасное получение числа
             let val = 0;
             const raw = r[key];
             if (raw !== undefined && raw !== null && raw !== '' && raw !== '-') {
@@ -648,7 +516,7 @@ function applySorting(data) {
     if (!sortState.column || !sortState.direction) return data;
     const field = sortState.column;
     if (data.length === 0 || !(field in data[0])) return data;
-    
+
     return [...data].sort((a, b) => {
         const rawA = a[field];
         const valA = (rawA === undefined || rawA === null || rawA === '' || rawA === '-') ? 0 : parseFloat(rawA);
@@ -658,41 +526,35 @@ function applySorting(data) {
     });
 }
 
-
-
 // ============================================
 // ОТКРЫТИЕ И ЗАКРЫТИЕ НАСТРОЕК (МОДАЛКА)
 // ============================================
-window.openAppSettings = function() {
+window.openAppSettings = function () {
     const modal = document.getElementById('tab-settings');
     if (!modal) return;
     modal.style.display = 'flex';
-    // Небольшая задержка, чтобы сработала CSS-анимация opacity
     requestAnimationFrame(() => {
         modal.classList.add('visible');
     });
 };
 
-window.closeAppSettings = function() {
+window.closeAppSettings = function () {
     const modal = document.getElementById('tab-settings');
     if (!modal) return;
     modal.classList.remove('visible');
-    // Ждем окончания анимации (300мс) и скрываем
     setTimeout(() => {
         modal.style.display = 'none';
     }, 300);
 };
 
-// Закрытие модалки настроек по клику на затемненный фон
-document.addEventListener('click', function(e) {
+document.addEventListener('click', function (e) {
     const modal = document.getElementById('tab-settings');
     if (modal && modal.classList.contains('visible') && e.target === modal) {
         closeAppSettings();
     }
 });
 
-// Закрытие модалки настроек по клавише Escape
-document.addEventListener('keydown', function(e) {
+document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
         const modal = document.getElementById('tab-settings');
         if (modal && modal.classList.contains('visible')) {
@@ -701,38 +563,31 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-
-// ===== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК (ЕДИНАЯ ФУНКЦИЯ) =====
+// ===== ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК =====
 function switchTab(tabName) {
-    // Если выбрана вкладка "Настройки" — открываем модалку и прерываем переключение
     if (tabName === 'settings') {
         openAppSettings();
         return;
     }
-    
-    // Скрываем все вкладки
+
     document.querySelectorAll('.tab-content').forEach(tab => {
         tab.classList.remove('active');
     });
-    
-    // Убираем активный класс со всех кнопок навигации
+
     document.querySelectorAll('.nav-item').forEach(btn => {
         btn.classList.remove('active');
     });
-    
-    // Показываем нужную вкладку
+
     const targetTab = document.getElementById('tab-' + tabName);
     if (targetTab) {
         targetTab.classList.add('active');
     }
-    
-    // Активируем кнопку в навигации
+
     const activeBtn = document.querySelector('.nav-item[data-tab="' + tabName + '"]');
     if (activeBtn) {
         activeBtn.classList.add('active');
     }
-    
-    // Выполняем действия в зависимости от вкладки
+
     switch (tabName) {
         case 'analytics':
             updateAnalytics();
@@ -740,7 +595,6 @@ function switchTab(tabName) {
             updateComparison();
             break;
         case 'history':
-            // Инициализация фильтров при первом открытии
             if (!window._historyInitialized) {
                 initHistoryFilters();
                 window._historyInitialized = true;
@@ -751,74 +605,65 @@ function switchTab(tabName) {
             renderTariffs();
             break;
         case 'home':
-            // Вызываем updateHomeTab с задержкой, чтобы DOM успел обновиться
-            setTimeout(function() {
-                updateHomeTab();
+            setTimeout(function () {
+                if (typeof window.updateHomeTab === 'function') {
+                    window.updateHomeTab();
+                }
             }, 50);
             break;
-            
-            // ===== Обработка вкладки "Топливо" =====
         case 'fuel':
-            setTimeout(function() {
-                // Проверки typeof гарантируют, что ошибки не будет, если модуль еще не загрузился
+            setTimeout(function () {
                 if (typeof renderFuelLogs === 'function') renderFuelLogs();
                 if (typeof updateFuelStats === 'function') updateFuelStats();
                 if (typeof updateFuelChart === 'function') updateFuelChart();
             }, 50);
             break;
-            
         case 'repair':
-            setTimeout(function() {
+            setTimeout(function () {
                 if (typeof renderRepairList === 'function') renderRepairList();
                 if (typeof updateRepairStats === 'function') updateRepairStats();
                 if (typeof updateRepairCharts === 'function') updateRepairCharts();
             }, 50);
             break;
-            
         case 'shifts':
-            setTimeout(function() {
+            setTimeout(function () {
                 if (typeof window.renderShiftCalendar === 'function') window.renderShiftCalendar();
             }, 50);
             break;
-            
         default:
             break;
     }
-    
-    // Сохраняем состояние
+
     saveState();
 }
 
-// Гарантируем, что функция доступна глобально
 window.switchTab = switchTab;
 
 // ===== СБРОС ДАННЫХ (только localStorage, Firebase не трогаем!) =====
 async function resetAllData() {
     if (!confirm('⚠️ Вы уверены? Локальные данные будут очищены.\n\nДанные в Firebase будут сохранены.')) return;
-    
-    // Очищаем ТОЛЬКО localStorage
+
     localStorage.removeItem('driverRecords');
     localStorage.removeItem('driverTariffs');
-    
+
     records = [];
     tariffs = [];
-    
+
     alert('✅ Локальные данные очищены! Данные в Firebase сохранены.\nПриложение перезагрузится и загрузит данные из Firebase.');
     location.reload();
 }
+
 // ===== НОРМАЛИЗАЦИЯ ДАННЫХ =====
 function normalizeRecord(r) {
-    // Исправляем recordType если он некорректный
     let recordType = r.recordType;
     if (!recordType || recordType === '' || recordType === 'undefined') {
-        // Если есть bonusPay или bonusPeriod - это бонус, иначе работа
         recordType = (r.bonusPay || r.bonusPeriod) ? 'bonus' : 'work';
     }
-    
+
     return {
         ...r,
         date: typeof r.date === 'string' ? r.date.trim() : r.date,
-        weekday: typeof r.weekday === 'string' ? 
+        weekday: typeof r.weekday === 'string' ?
             (r.weekday.trim().charAt(0).toUpperCase() + r.weekday.trim().slice(1).toLowerCase()) : r.weekday,
         recordType: recordType,
         totalIncome: calcIncome(r),
@@ -838,8 +683,6 @@ function normalizeTariff(t) {
     };
 }
 
-
-
 // ===== ВАЛИДАЦИЯ ФОРМЫ =====
 function addFormValidation() {
     const numericFields = ['hours', 'orders-pickup', 'orders-delivery', 'distance', 'weight',
@@ -848,31 +691,30 @@ function addFormValidation() {
     numericFields.forEach(fieldId => {
         const field = document.getElementById(fieldId);
         if (field) {
-            field.addEventListener('input', function() {
+            field.addEventListener('input', function () {
                 if (this.value && parseFloat(this.value) < 0) {
                     this.value = 0;
-                }            });
+                }
+            });
         }
     });
 }
 
-// ===== ЗАГРУЗКА ДАННЫХ =====
 // ===== ЗАГРУЗКА ДАННЫХ (ТОЛЬКО LOCALSTORAGE) =====
-// Данные из Firebase загружаются отдельно через loadUserData() после авторизации
 async function loadData() {
     try {
         console.log('🔄 Загрузка данных из localStorage...');
         const savedRecords = localStorage.getItem('driverRecords');
         const savedTariffs = localStorage.getItem('driverTariffs');
-        
+
         if (savedRecords) {
             records = JSON.parse(savedRecords).map(normalizeRecord);
         }
-        
+
         if (savedTariffs) {
             tariffs = JSON.parse(savedTariffs).map(normalizeTariff);
         }
-        
+
         console.log('✅ Локальные данные загружены');
     } catch (error) {
         console.error('❌ Ошибка загрузки из localStorage:', error);
@@ -891,49 +733,58 @@ function saveData() {
 
 async function saveRecordToFirebase(record) {
     if (!currentUser) return;
-    
+
     try {
         const recordToSave = { ...record };
         delete recordToSave.id;
-        
+
         const userRecordsRef = db.collection('users')
             .doc(currentUser.uid)
             .collection('records');
-        
+
         if (!record.id || !records.find(r => r.id === record.id)) {
             const docRef = await userRecordsRef.add(recordToSave);
             record.id = docRef.id;
         } else {
             await userRecordsRef.doc(record.id).set(recordToSave);
         }
-        
+
         console.log('✅ Запись сохранена в Firebase');
+
+        // ⭐ Обновляем время синхронизации
+        if (typeof window.remindersMarkAsSynced === 'function') {
+            window.remindersMarkAsSynced();
+        }
     } catch (error) {
         console.error('❌ Ошибка сохранения:', error);
     }
 }
 
-// Пакетное обновление записей в Firebase
 async function saveRecordsBatchToFirebase(recordsToUpdate) {
     if (!currentUser || !recordsToUpdate.length) return;
     try {
         const recordsRef = db.collection('users').doc(currentUser.uid).collection('records');
         const BATCH_SIZE = 400;
-        
+
         for (let i = 0; i < recordsToUpdate.length; i += BATCH_SIZE) {
             const batch = db.batch();
             const chunk = recordsToUpdate.slice(i, i + BATCH_SIZE);
-            
+
             for (const r of chunk) {
                 const recordToSave = { ...r };
                 delete recordToSave.id;
                 batch.set(recordsRef.doc(r.id), recordToSave);
             }
-            
+
             await batch.commit();
         }
-        
+
         console.log(`✅ Пакетно сохранено ${recordsToUpdate.length} записей в Firebase`);
+
+        // ⭐ Обновляем время синхронизации
+        if (typeof window.remindersMarkAsSynced === 'function') {
+            window.remindersMarkAsSynced();
+        }
     } catch (error) {
         console.error('❌ Ошибка пакетного сохранения:', error);
     }
@@ -941,19 +792,27 @@ async function saveRecordsBatchToFirebase(recordsToUpdate) {
 
 async function deleteRecordFromFirebase(id) {
     if (!currentUser) return;
-    
+
     try {
         await db.collection('users')
             .doc(currentUser.uid)
             .collection('records')
             .doc(id)
             .delete();
-        
+
         console.log('✅ Запись удалена из Firebase');
+
+        // ⭐ Обновляем время синхронизации
+        if (typeof window.remindersMarkAsSynced === 'function') {
+            window.remindersMarkAsSynced();
+        }
     } catch (error) {
         console.error('❌ Ошибка удаления:', error);
     }
 }
+
+// ===== ТАРИФЫ =====
+const DEFAULT_TARIFF = { pickup: 60, delivery: 81, km: 11, weight: 2 };
 
 function getTariffForDate(dateStr) {
     if (!tariffs || tariffs.length === 0) {
@@ -988,18 +847,17 @@ function updateTariffDisplay() {
 }
 
 function autoCalc(type) {
-    // Для km и weight проверяем, включен ли авто-расчет
     if (type === 'km' && autoCalcState && autoCalcState.km === false) {
         return;
     }
     if (type === 'weight' && autoCalcState && autoCalcState.weight === false) {
         return;
     }
-    
+
     const tariff = getTariffForDate(document.getElementById('date').value);
     if (!tariff) return;
     let qtyField, priceField, rate;
-    switch(type) {
+    switch (type) {
         case 'pickup':
             qtyField = 'orders-pickup';
             priceField = 'pay-pickup';
@@ -1036,62 +894,52 @@ function autoCalc(type) {
 }
 
 function recalcCurrentByTariff() {
-    // Проверяем, что мы в режиме редактирования
     if (!editingId) {
         alert('⚠️ Эта функция работает только при редактировании существующей записи.');
         return;
     }
-    
+
     const tariff = getTariffForDate(document.getElementById('date').value);
     if (!tariff) {
         alert('❌ Тариф для этой даты не найден');
         return;
     }
-    
+
     const pickup = parseFloat(document.getElementById('orders-pickup').value) || 0;
     const delivery = parseFloat(document.getElementById('orders-delivery').value) || 0;
     const km = parseFloat(document.getElementById('distance').value) || 0;
     const weight = parseFloat(document.getElementById('weight').value) || 0;
-    
-    // Считаем новые значения
+
     const newPayPickup = pickup > 0 ? Math.round(pickup * tariff.pickup * 100) / 100 : 0;
     const newPayDelivery = delivery > 0 ? Math.round(delivery * tariff.delivery * 100) / 100 : 0;
     const newPayDistance = km > 0 ? Math.round(km * tariff.km * 100) / 100 : 0;
     const newPayWeight = weight > 0 ? Math.round(weight * tariff.weight * 100) / 100 : 0;
-    
-    // Обновляем поля формы
+
     document.getElementById('pay-pickup').value = newPayPickup;
     document.getElementById('pay-delivery').value = newPayDelivery;
     document.getElementById('pay-distance').value = newPayDistance;
     document.getElementById('pay-weight').value = newPayWeight;
-    
-    // Сохраняем изменения в массив записей
+
     const recordIndex = records.findIndex(r => r.id === editingId);
     if (recordIndex !== -1) {
         records[recordIndex].payPickup = newPayPickup;
         records[recordIndex].payDelivery = newPayDelivery;
         records[recordIndex].payDistance = newPayDistance;
         records[recordIndex].payWeight = newPayWeight;
-        
-        // Пересчитываем итоги
+
         records[recordIndex] = normalizeRecord(records[recordIndex]);
-        
-        // Сохраняем в localStorage и Firebase
+
         saveData();
         if (typeof db !== 'undefined' && currentUser) {
             saveRecordToFirebase(records[recordIndex]);
         }
-        
-        // Обновляем таблицу
+
         renderTable();
     }
-    
+
     alert('✅ Пересчитано и сохранено по тарифу на ' + document.getElementById('date').value);
 }
 
-
-
-// Тиховая отмена редактирования (без confirm) — для модуля
 function cancelEditSilent() {
     editingId = null;
     const editingNotice = document.getElementById('editing-notice');
@@ -1107,14 +955,14 @@ function onDateChange() {
 function updateWeekday() {
     const val = document.getElementById('date').value;
     if (val) {
-        const days = ['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+        const days = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
         document.getElementById('weekday').value = days[new Date(val).getDay()];
     }
 }
 
 function calcIncome(r) {
     return (r.payPickup || 0) + (r.payDelivery || 0) + (r.payDistance || 0) +
-        (r.payWeight || 0) + (r.loadPay || 0) + (r.bonusPay || 0) +  // ДОБАВИТЬ bonusPay
+        (r.payWeight || 0) + (r.loadPay || 0) + (r.bonusPay || 0) +
         (r.rating || 0) + (r.tips || 0);
 }
 
@@ -1124,10 +972,9 @@ function calcExpenses(r) {
 
 async function saveRecord(e) {
     if (e) e.preventDefault();
-    
+
     const recordType = document.getElementById('record-type').value;
-    
-    // Собираем данные
+
     const record = {
         id: editingId || Date.now().toString(),
         date: document.getElementById('date').value,
@@ -1152,26 +999,19 @@ async function saveRecord(e) {
         recordType: recordType,
         bonusPeriod: document.getElementById('bonus-period').value || ''
     };
-    
+
     const normalizedRecord = normalizeRecord(record);
-    
-    // ⚠️ ГЛАВНОЕ ИСПРАВЛЕНИЕ: Всегда ищем дубликат по дате
-    // Даже если это режим редактирования, мы ищем запись на эту дату (кроме самой себя)
+
     const existingIdx = records.findIndex(r => r.date === record.date && r.id !== editingId);
-    
+
     if (existingIdx >= 0) {
-        // Нашли дубликат на эту дату! Спрашиваем.
         if (!confirm('Запись за ' + formatDate(record.date) + ' уже существует. Перезаписать её?')) {
             return false;
         }
-        
-        // Забираем ID старой записи, чтобы обновить её, а не создавать новую в Firebase
+
         normalizedRecord.id = records[existingIdx].id;
-        
-        // Обновляем старую запись новой
         records[existingIdx] = normalizedRecord;
-        
-        // Если мы редактировали другую запись, её нужно удалить
+
         if (editingId) {
             const oldIdx = records.findIndex(r => r.id === editingId);
             if (oldIdx >= 0 && oldIdx !== existingIdx) {
@@ -1182,35 +1022,29 @@ async function saveRecord(e) {
             }
         }
     } else {
-        // Дубликата нет
         if (editingId) {
-            // Обновляем текущую
             const idx = records.findIndex(r => r.id === editingId);
             if (idx >= 0) {
-                normalizedRecord.id = editingId; // сохраняем старый ID
+                normalizedRecord.id = editingId;
                 records[idx] = normalizedRecord;
             }
         } else {
-            // Создаем новую
             records.push(normalizedRecord);
         }
     }
-    
-    // Сбрасываем флаг редактирования
+
     editingId = null;
     const en = document.getElementById('editing-notice');
     if (en) en.style.display = 'none';
-    
-    // Сортируем, сохраняем
+
     records.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
+
     if (typeof db !== 'undefined' && typeof saveRecordToFirebase === 'function') {
         await saveRecordToFirebase(normalizedRecord);
     }
-    
+
     saveData();
-    
-    // Уведомление
+
     let saveMsg = '✅ Сохранено!';
     if (normalizedRecord.recordType === 'expense') {
         saveMsg += '\nРасход: ' + formatMoney(normalizedRecord.totalExpenses);
@@ -1224,11 +1058,16 @@ async function saveRecord(e) {
         saveMsg += '\nПрибыль: ' + formatMoney(normalizedRecord.netProfit);
     }
     alert(saveMsg);
-    
+
     if (typeof clearForm === 'function') clearForm();
     if (typeof renderTable === 'function') renderTable();
     if (typeof populateFilters === 'function') populateFilters();
-    
+
+    if (typeof window.updateHomeTab === 'function' &&
+        document.getElementById('tab-home')?.classList.contains('active')) {
+        window.updateHomeTab();
+    }
+
     return true;
 }
 window.saveRecord = saveRecord;
@@ -1253,7 +1092,7 @@ async function saveTariff(e) {
         km: parseFloat(document.getElementById('tariff-km').value) || 0,
         weight: parseFloat(document.getElementById('tariff-weight').value) || 0
     });
-    
+
     const idx = tariffs.findIndex(t => t.date === tariff.date);
     if (idx >= 0) {
         if (confirm('Тариф на эту дату уже существует. Заменить?')) {
@@ -1262,28 +1101,33 @@ async function saveTariff(e) {
     } else {
         tariffs.push(tariff);
     }
-    
+
     tariffs.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
+
     if (currentUser) {
         try {
             const tariffToSave = { ...tariff };
             delete tariffToSave.id;
-            
+
             const docRef = await db.collection('users')
                 .doc(currentUser.uid)
                 .collection('tariffs')
                 .add(tariffToSave);
-            
+
             const idx = tariffs.findIndex(t => t.date === tariff.date);
             if (idx >= 0) tariffs[idx].id = docRef.id;
-            
+
             console.log('✅ Тариф сохранён в Firebase');
+
+            // ⭐ Обновляем время синхронизации
+            if (typeof window.remindersMarkAsSynced === 'function') {
+                window.remindersMarkAsSynced();
+            }
         } catch (error) {
             console.error('❌ Ошибка сохранения тарифа:', error);
         }
     }
-    
+
     saveData();
     alert('✅ Тариф сохранен!');
     document.getElementById('tariff-form').reset();
@@ -1296,9 +1140,9 @@ async function deleteTariff(id) {
         alert('Нельзя удалить последний тариф!');
         return;
     }
-    
+
     if (!confirm('Удалить этот тариф?')) return;
-    
+
     if (currentUser) {
         try {
             await db.collection('users')
@@ -1306,53 +1150,53 @@ async function deleteTariff(id) {
                 .collection('tariffs')
                 .doc(id)
                 .delete();
-            
+
             console.log('✅ Тариф удалён из Firebase');
+
+            // ⭐ Обновляем время синхронизации
+            if (typeof window.remindersMarkAsSynced === 'function') {
+                window.remindersMarkAsSynced();
+            }
         } catch (error) {
             console.error('❌ Ошибка удаления тарифа:', error);
         }
     }
-    
+
     tariffs = tariffs.filter(t => t.id !== id);
     saveData();
     renderTariffs();
     updateTariffDisplay();
 }
 
-
-
 function recalculateAllTariffs() {
     if (records.length === 0) {
         alert('Нет записей для пересчёта');
         return;
     }
-    if (!confirm('️ Пересчитать ВСЕ записи по актуальным тарифам на их даты?\n\nПоля, изменённые вручную, будут пропущены.')) {
+    if (!confirm('⚠️ Пересчитать ВСЕ записи по актуальным тарифам на их даты?\n\nПоля, изменённые вручную, будут пропущены.')) {
         return;
     }
-    
+
     let changedCount = 0;
     let skippedCount = 0;
     const recordsToUpdate = [];
-    
+
     records = records.map(r => {
         const tariff = getTariffForDate(r.date);
         if (!tariff) return r;
-        
-        // Получаем список полей, изменённых вручную
+
         const manualEdits = r.manualEdits || [];
-        
-        // Рассчитываем новые значения только для полей, не изменённых вручную
+
         const newPayPickup = manualEdits.includes('payPickup') ? r.payPickup : Math.round((r.ordersPickup || 0) * tariff.pickup * 100) / 100;
         const newPayDelivery = manualEdits.includes('payDelivery') ? r.payDelivery : Math.round((r.ordersDelivery || 0) * tariff.delivery * 100) / 100;
         const newPayDistance = manualEdits.includes('payDistance') ? r.payDistance : Math.round((r.distance || 0) * tariff.km * 100) / 100;
         const newPayWeight = manualEdits.includes('payWeight') ? r.payWeight : Math.round((r.weight || 0) * tariff.weight * 100) / 100;
-        
-        // Проверяем, изменилось ли что-то
+
         const hasChanges = newPayPickup !== r.payPickup ||
             newPayDelivery !== r.payDelivery ||
             newPayDistance !== r.payDistance ||
             newPayWeight !== r.payWeight;
-        
+
         if (hasChanges) {
             changedCount++;
             const updatedRecord = normalizeRecord({
@@ -1369,24 +1213,23 @@ function recalculateAllTariffs() {
             return r;
         }
     });
-    
-    // Сохраняем в localStorage
+
     saveData();
-    
-    // Сохраняем в Firebase (пакетно)
+
     if (currentUser && recordsToUpdate.length > 0) {
         saveRecordsBatchToFirebase(recordsToUpdate);
     }
-    
+
     renderTable();
     updateAnalytics();
-    
+
     const manualSkipped = records.filter(r => (r.manualEdits || []).length > 0).length;
-    alert(`✅ Пересчитано: ${changedCount}\n️ Пропущено (без изменений): ${skippedCount}\n️ Пропущено (ручные правки): ${manualSkipped}`);
+    alert(`✅ Пересчитано: ${changedCount}\n⚠️ Пропущено (без изменений): ${skippedCount}\n⚠️ Пропущено (ручные правки): ${manualSkipped}`);
 }
 
 function renderTariffs() {
     const list = document.getElementById('tariffs-list');
+    if (!list) return;
     list.innerHTML = '';
     const sorted = [...tariffs].sort((a, b) => new Date(b.date) - new Date(a.date));
     const currentTariff = getCurrentTariff();
@@ -1401,22 +1244,10 @@ function renderTariffs() {
                 ${isCurrent ? '<span style="color:#10b981;font-weight:bold"> (действует)</span>' : ''}
             </div>
             <div class="tariff-values">
-                <span>
-                    <ion-icon name="arrow-down-circle-outline" class="tariff-icon pickup-icon"></ion-icon>
-                    ${t.pickup} ₽/шт
-                </span>
-                <span>
-                    <ion-icon name="arrow-up-circle-outline" class="tariff-icon delivery-icon"></ion-icon>
-                    ${t.delivery} ₽/шт
-                </span>
-                <span>
-                    <ion-icon name="navigate-outline" class="tariff-icon km-icon"></ion-icon>
-                    ${t.km} ₽/км
-                </span>
-                <span>
-                    <ion-icon name="scale-outline" class="tariff-icon weight-icon"></ion-icon>
-                    ${t.weight} ₽/кг
-                </span>
+                <span><ion-icon name="arrow-down-circle-outline" class="tariff-icon pickup-icon"></ion-icon> ${t.pickup} ₽/шт</span>
+                <span><ion-icon name="arrow-up-circle-outline" class="tariff-icon delivery-icon"></ion-icon> ${t.delivery} ₽/шт</span>
+                <span><ion-icon name="navigate-outline" class="tariff-icon km-icon"></ion-icon> ${t.km} ₽/км</span>
+                <span><ion-icon name="scale-outline" class="tariff-icon weight-icon"></ion-icon> ${t.weight} ₽/кг</span>
             </div>
             <div class="tariff-actions">
                 <button class="btn btn-danger" onclick="deleteTariff('${t.id}')">
@@ -1433,30 +1264,28 @@ function updateAnalytics() {
     const month = document.getElementById('filter-month').value;
     const year = document.getElementById('filter-year').value;
     let filtered = [...records];
-    
-    // Фильтрация по месяцу с использованием parseLocalDate
+
     if (month) {
         filtered = filtered.filter(r => {
             const d = parseLocalDate(r.date);
             return d && (d.getMonth() + 1).toString().padStart(2, '0') === month;
         });
     }
-    
-    // Фильтрация по году с использованием parseLocalDate
+
     if (year) {
         filtered = filtered.filter(r => {
             const d = parseLocalDate(r.date);
             return d && d.getFullYear().toString() === year;
         });
     }
-    
+
     const uniqueDates = new Set();
     filtered.forEach(r => {
         if (r.hours > 0 || r.recordType === 'work') {
             uniqueDates.add(r.date);
         }
     });
-    
+
     const s = {
         totalIncome: filtered.reduce((sum, r) => sum + (r.totalIncome || 0), 0),
         totalFuel: filtered.reduce((sum, r) => sum + (r.fuelCost || 0), 0),
@@ -1469,19 +1298,19 @@ function updateAnalytics() {
         totalDistance: filtered.reduce((sum, r) => sum + (r.distance || 0), 0),
         workingDays: uniqueDates.size
     };
-    
+
     const avgIncomePerDay = s.workingDays > 0 ? s.totalIncome / s.workingDays : 0;
     const avgNetProfitPerDay = s.workingDays > 0 ? s.netProfit / s.workingDays : 0;
     const avgPerHour = s.totalHours > 0 ? s.netProfit / s.totalHours : 0;
     const avgCheck = s.totalOrders > 0 ? s.totalIncome / s.totalOrders : 0;
     const ordersPerHour = s.totalHours > 0 ? s.totalOrders / s.totalHours : 0;
     const efficiencyPercent = s.totalIncome > 0 ? (s.netProfit / s.totalIncome) * 100 : 0;
-    
+
     const setEl = (id, value) => {
         const el = document.getElementById(id);
         if (el) el.textContent = value;
     };
-    
+
     setEl('total-income', formatMoney(s.totalIncome));
     setEl('avg-income-per-day', formatMoney(avgIncomePerDay));
     setEl('total-fuel', formatMoney(s.totalFuel));
@@ -1498,10 +1327,9 @@ function updateAnalytics() {
     setEl('avg-check', formatMoney(avgCheck));
     setEl('orders-per-hour', ordersPerHour.toFixed(2));
     setEl('efficiency-percent', efficiencyPercent.toFixed(2) + '%');
-    
+
     updateCharts(filtered);
-    
-    // Сохраняем состояние
+
     saveState();
 }
 
@@ -1511,24 +1339,22 @@ function updateCharts(filteredRecords) {
         if (expensesChart) { expensesChart.destroy(); expensesChart = null; }
         return;
     }
-    
-    // Сортировка с использованием parseLocalDate
+
     const sorted = [...filteredRecords].sort((a, b) => {
         const da = parseLocalDate(a.date);
         const db = parseLocalDate(b.date);
         return (da || 0) - (db || 0);
     });
-    
-    // Формирование меток с использованием parseLocalDate
-    const labels = sorted.map(r => { 
+
+    const labels = sorted.map(r => {
         const d = parseLocalDate(r.date);
         if (!d) return '??';
-        return d.getDate() + '.' + (d.getMonth() + 1); 
+        return d.getDate() + '.' + (d.getMonth() + 1);
     });
-    
+
     const canvas1 = document.getElementById('income-chart');
     const canvas2 = document.getElementById('expenses-chart');
-    
+
     if (canvas1) {
         const ctx1 = canvas1.getContext('2d');
         if (incomeChart) incomeChart.destroy();
@@ -1544,7 +1370,7 @@ function updateCharts(filteredRecords) {
             options: { responsive: true, scales: { y: { beginAtZero: true } } }
         });
     }
-    
+
     if (canvas2) {
         const ctx2 = canvas2.getContext('2d');
         if (expensesChart) expensesChart.destroy();
@@ -1556,7 +1382,7 @@ function updateCharts(filteredRecords) {
             type: 'doughnut',
             data: {
                 labels: ['Бензин', 'Ремонт', 'Налог'],
-                datasets: [{ data: [fuel, repair, tax], backgroundColor: ['#ef4444','#f59e0b','#8b5cf6'] }]
+                datasets: [{ data: [fuel, repair, tax], backgroundColor: ['#ef4444', '#f59e0b', '#8b5cf6'] }]
             },
             options: { responsive: true }
         });
@@ -1571,18 +1397,17 @@ function initComparisonSelectors() {
         months.add((d.getMonth() + 1).toString().padStart(2, '0'));
         years.add(d.getFullYear());
     });
-    
+
     const names = ['', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-                   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-    
+        'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
     const c1m = document.getElementById('compare1-month');
     const c1y = document.getElementById('compare1-year');
     const c2m = document.getElementById('compare2-month');
     const c2y = document.getElementById('compare2-year');
-    
+
     if (!c1m || !c1y || !c2m || !c2y) return;
-    
-    // Заполняем селекторы месяцев
+
     [c1m, c2m].forEach(select => {
         select.innerHTML = '<option value="">Весь год</option>';
         const sortedMonths = [...months].sort((a, b) => a - b);
@@ -1593,11 +1418,10 @@ function initComparisonSelectors() {
             select.appendChild(o);
         });
     });
-    
-    // Заполняем селекторы годов
+
     [c1y, c2y].forEach(select => {
         select.innerHTML = '';
-        const sortedYears = [...years].sort((a, b) => b - a); // Сортировка по убыванию (сначала новые)
+        const sortedYears = [...years].sort((a, b) => b - a);
         sortedYears.forEach(y => {
             const o = document.createElement('option');
             o.value = y;
@@ -1605,8 +1429,7 @@ function initComparisonSelectors() {
             select.appendChild(o);
         });
     });
-    
-    // Устанавливаем значения по умолчанию (последний год)
+
     if (years.size > 0) {
         const sortedYears = [...years].sort((a, b) => b - a);
         c1y.value = sortedYears[0];
@@ -1616,30 +1439,28 @@ function initComparisonSelectors() {
 
 function getPeriodStats(month, year) {
     let filtered = [...records];
-    
-    // Фильтрация по году
+
     if (year) {
         filtered = filtered.filter(r => {
             const d = parseLocalDate(r.date);
             return d && d.getFullYear().toString() === year;
         });
     }
-    
-    // Фильтрация по месяцу
+
     if (month) {
         filtered = filtered.filter(r => {
             const d = parseLocalDate(r.date);
             return d && (d.getMonth() + 1).toString().padStart(2, '0') === month;
         });
     }
-    
+
     const uniqueDates = new Set();
     filtered.forEach(r => {
         if (r.hours > 0 || r.recordType === 'work') {
             uniqueDates.add(r.date);
         }
     });
-    
+
     return {
         totalIncome: filtered.reduce((sum, r) => sum + (r.totalIncome || 0), 0),
         totalExpenses: filtered.reduce((sum, r) => sum + (r.totalExpenses || 0), 0),
@@ -1653,8 +1474,8 @@ function getPeriodStats(month, year) {
 }
 
 function formatPeriodName(month, year) {
-    const names = ['','Январь','Февраль','Март','Апрель','Май','Июнь',
-        'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+    const names = ['', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+        'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
     if (month && year) {
         return `${names[+month]} ${year}`;
     } else if (year) {
@@ -1678,7 +1499,8 @@ function formatDiff(val1, val2, isMoney = true) {
     const diffStr = isMoney ? formatMoney(Math.abs(diff)) : Math.abs(diff).toFixed(1);
     const percentStr = isFinite(percent) ? ` (${Math.abs(percent).toFixed(1)}%)` : '';
     if (diff > 0) {
-        return `<span class="diff-positive">↑ +${diffStr}${percentStr}</span>`;    } else if (diff < 0) {
+        return `<span class="diff-positive">↑ +${diffStr}${percentStr}</span>`;
+    } else if (diff < 0) {
         return `<span class="diff-negative">↓ ${diffStr}${percentStr}</span>`;
     } else {
         return `<span class="diff-neutral">→ ${diffStr}${percentStr}</span>`;
@@ -1717,6 +1539,7 @@ function updateComparison() {
     const incomePerDay2 = s2.workingDays > 0 ? s2.totalIncome / s2.workingDays : 0;
     const profitPerDay1 = s1.workingDays > 0 ? s1.netProfit / s1.workingDays : 0;
     const profitPerDay2 = s2.workingDays > 0 ? s2.netProfit / s2.workingDays : 0;
+
     let html = `
         <table class="comparison-table">
             <thead>
@@ -1734,7 +1557,8 @@ function updateComparison() {
                     <td>${formatMoney(s2.totalIncome)}</td>
                     <td>${formatDiff(s1.totalIncome, s2.totalIncome)}</td>
                 </tr>
-                <tr>                    <td class="metric-name"><ion-icon name="trending-up-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Доход в день</td>
+                <tr>
+                    <td class="metric-name"><ion-icon name="trending-up-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Доход в день</td>
                     <td>${formatMoney(incomePerDay1)}</td>
                     <td>${formatMoney(incomePerDay2)}</td>
                     <td>${formatDiff(incomePerDay1, incomePerDay2)}</td>
@@ -1783,7 +1607,8 @@ function updateComparison() {
                 </tr>
                 <tr>
                     <td class="metric-name"><ion-icon name="wallet-outline" style="vertical-align: middle; margin-right: 6px;"></ion-icon>Средний ₽/час</td>
-                    <td>${formatMoney(avgPerHour1)}</td>                    <td>${formatMoney(avgPerHour2)}</td>
+                    <td>${formatMoney(avgPerHour1)}</td>
+                    <td>${formatMoney(avgPerHour2)}</td>
                     <td>${formatDiff(avgPerHour1, avgPerHour2)}</td>
                 </tr>
                 <tr>
@@ -1807,12 +1632,14 @@ function updateComparison() {
             </tbody>
         </table>
     `;
+
     const profitDiff = calcDiff(s1.netProfit, s2.netProfit);
     const incomeDiff = calcDiff(s1.totalIncome, s2.totalIncome);
     const hoursDiff = calcDiff(s1.totalHours, s2.totalHours);
     const profitClass = profitDiff.diff > 0 ? 'positive' : (profitDiff.diff < 0 ? 'negative' : 'neutral');
     const incomeClass = incomeDiff.diff > 0 ? 'positive' : (incomeDiff.diff < 0 ? 'negative' : 'neutral');
     const hoursClass = hoursDiff.diff > 0 ? 'positive' : (hoursDiff.diff < 0 ? 'negative' : 'neutral');
+
     html += `
         <div class="comparison-summary">
             <div class="summary-card ${profitClass}">
@@ -1825,33 +1652,30 @@ function updateComparison() {
                 <div class="big-number">${incomeDiff.diff > 0 ? '+' : ''}${formatMoney(incomeDiff.diff)}</div>
                 <div class="small-text">${isFinite(incomeDiff.percent) ? (incomeDiff.percent > 0 ? '+' : '') + incomeDiff.percent.toFixed(1) + '%' : '—'}</div>
             </div>
-            <div class="summary-card ${hoursClass}">                <h4>Отработано часов</h4>
+            <div class="summary-card ${hoursClass}">
+                <h4>Отработано часов</h4>
                 <div class="big-number">${hoursDiff.diff > 0 ? '+' : ''}${hoursDiff.diff.toFixed(1)} ч</div>
                 <div class="small-text">${name1}: ${s1.totalHours.toFixed(1)} ч vs ${name2}: ${s2.totalHours.toFixed(1)} ч</div>
             </div>
         </div>
     `;
-    // Разделяем таблицу и карточки
-const tableMatch = html.match(/<table[\s\S]*?<\/table>/);
-const summaryMatch = html.match(/<div class="comparison-summary"[\s\S]*$/);
 
-if (tableMatch) {
-    // Оборачиваем таблицу в прокручиваемый контейнер
-    let newHtml = '<div class="table-scroll-container">' + tableMatch[0] + '</div>';
-    if (summaryMatch) {
-        newHtml += summaryMatch[0];
+    const tableMatch = html.match(/<table[\s\S]*?<\/table>/);
+    const summaryMatch = html.match(/<div class="comparison-summary"[\s\S]*$/);
+
+    if (tableMatch) {
+        let newHtml = '<div class="table-scroll-container">' + tableMatch[0] + '</div>';
+        if (summaryMatch) {
+            newHtml += summaryMatch[0];
+        }
+        results.innerHTML = newHtml;
+    } else {
+        results.innerHTML = html;
     }
-    results.innerHTML = newHtml;
-} else {
-    results.innerHTML = html;
-}
+
     updateComparisonChart(name1, name2, s1, s2);
-    
-    // Сохраняем состояние
     saveState();
 }
-
-
 
 function updateComparisonChart(name1, name2, s1, s2) {
     const canvas = document.getElementById('comparison-chart');
@@ -1865,26 +1689,14 @@ function updateComparisonChart(name1, name2, s1, s2) {
             datasets: [
                 {
                     label: name1,
-                    data: [
-                        s1.totalIncome,
-                        s1.totalExpenses,
-                        s1.netProfit,
-                        s1.totalHours * 100,
-                        s1.totalOrders * 10
-                    ],
+                    data: [s1.totalIncome, s1.totalExpenses, s1.netProfit, s1.totalHours * 100, s1.totalOrders * 10],
                     backgroundColor: 'rgba(102, 126, 234, 0.7)',
                     borderColor: '#667eea',
                     borderWidth: 2
                 },
                 {
                     label: name2,
-                    data: [
-                        s2.totalIncome,
-                        s2.totalExpenses,
-                        s2.netProfit,
-                        s2.totalHours * 100,
-                        s2.totalOrders * 10
-                    ],
+                    data: [s2.totalIncome, s2.totalExpenses, s2.netProfit, s2.totalHours * 100, s2.totalOrders * 10],
                     backgroundColor: 'rgba(16, 185, 129, 0.7)',
                     borderColor: '#10b981',
                     borderWidth: 2
@@ -1892,11 +1704,12 @@ function updateComparisonChart(name1, name2, s1, s2) {
             ]
         },
         options: {
-            responsive: true,            plugins: {
+            responsive: true,
+            plugins: {
                 legend: { display: true, position: 'top' },
                 tooltip: {
                     callbacks: {
-                        label: function(context) {
+                        label: function (context) {
                             let val = context.raw;
                             const label = context.dataset.label;
                             if (context.dataIndex === 3) val = (val / 100).toFixed(1) + ' ч';
@@ -1907,9 +1720,7 @@ function updateComparisonChart(name1, name2, s1, s2) {
                     }
                 }
             },
-            scales: {
-                y: { beginAtZero: true }
-            }
+            scales: { y: { beginAtZero: true } }
         }
     });
 }
@@ -1943,7 +1754,7 @@ function quickCompare(type) {
 
 function populateFilters() {
     const months = new Set(), years = new Set();
-    
+
     records.forEach(r => {
         const d = parseLocalDate(r.date);
         if (d) {
@@ -1951,20 +1762,19 @@ function populateFilters() {
             years.add(d.getFullYear());
         }
     });
-    
+
     const ms = document.getElementById('filter-month');
     const ys = document.getElementById('filter-year');
-    
+
     if (!ms || !ys) return;
-    
+
     const cm = ms.value;
     const cy = ys.value;
-    
-    // Заполняем селектор месяцев
+
     ms.innerHTML = '<option value="">Все месяцы</option>';
-    const names = ['', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 
-                   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-    
+    const names = ['', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+        'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
     const sortedMonths = [...months].sort((a, b) => a - b);
     sortedMonths.forEach(m => {
         const o = document.createElement('option');
@@ -1972,35 +1782,31 @@ function populateFilters() {
         o.textContent = names[parseInt(m)];
         ms.appendChild(o);
     });
-    
-    // Заполняем селектор годов
+
     ys.innerHTML = '<option value="">Все годы</option>';
-    const sortedYears = [...years].sort((a, b) => b - a); // Сортировка по убыванию (сначала новые)
+    const sortedYears = [...years].sort((a, b) => b - a);
     sortedYears.forEach(y => {
         const o = document.createElement('option');
         o.value = y;
         o.textContent = y;
         ys.appendChild(o);
     });
-    
-    // Восстанавливаем выбранные значения
+
     ms.value = cm;
     ys.value = cy;
 }
 
-// ===== РЕНДЕР СТРОКИ ТАБЛИЦЫ С ИНТЕГРАЦИЕЙ ТОПЛИВА И TOOLTIP =====
+// ===== РЕНДЕР СТРОКИ ТАБЛИЦЫ =====
 function getRecordRowHTML(r) {
     const typeLabel = r.recordType === 'bonus' ?
-        ' <ion-icon name= "gift-outline " style= "vertical-align: middle; margin-right: 4px; color: #AF52DE; " > </ion-icon >Бонус' :
+        ' <ion-icon name="gift-outline" style="vertical-align: middle; margin-right: 4px; color: #AF52DE;"></ion-icon>Бонус' :
         r.recordType === 'expense' ?
-        ' <ion-icon name= "remove-circle-outline " style= "vertical-align: middle; margin-right: 4px; color: #FF3B30; " > </ion-icon >Расход' :
-        ' <ion-icon name= "calendar-outline " style= "vertical-align: middle; margin-right: 4px; color: #007AFF; " > </ion-icon >Работа';
-    
-    // Проверяем, есть ли детали заправок для tooltip
+            ' <ion-icon name="remove-circle-outline" style="vertical-align: middle; margin-right: 4px; color: #FF3B30;"></ion-icon>Расход' :
+            ' <ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 4px; color: #007AFF;"></ion-icon>Работа';
+
     const hasFuelDetails = r.fuelDetails && Array.isArray(r.fuelDetails) && r.fuelDetails.length > 0;
     const fuelCellClass = hasFuelDetails ? 'fuel-cell-with-details' : '';
-    
-    // Формируем data-атрибуты для tooltip топлива (только если есть детали)
+
     let fuelTooltipAttr = '';
     if (hasFuelDetails) {
         const fuelDetailsJSON = JSON.stringify(r.fuelDetails).replace(/'/g, "&apos;");
@@ -2008,12 +1814,10 @@ function getRecordRowHTML(r) {
         const fuelCount = r.fuelLogCount || r.fuelDetails.length;
         fuelTooltipAttr = `data-fuel-details='${fuelDetailsJSON}' data-fuel-liters='${fuelLiters}' data-fuel-count='${fuelCount}'`;
     }
-    
-    // Проверяем, есть ли детали ремонта для tooltip
+
     const hasRepairDetails = r.repairDetails && Array.isArray(r.repairDetails) && r.repairDetails.length > 0;
     const repairCellClass = hasRepairDetails ? 'repair-cell-with-details' : '';
-    
-    // Формируем data-атрибуты для tooltip ремонта
+
     let repairTooltipAttr = '';
     if (hasRepairDetails) {
         const repairDetailsJSON = JSON.stringify(r.repairDetails).replace(/'/g, "&apos;");
@@ -2021,7 +1825,7 @@ function getRecordRowHTML(r) {
         const repairCount = r.repairLogCount || r.repairDetails.length;
         repairTooltipAttr = `data-repair-details='${repairDetailsJSON}' data-repair-total='${repairTotal}' data-repair-count='${repairCount}'`;
     }
-    
+
     return `
      <td>${formatDate(r.date)}</td>
      <td>${r.weekday || '-'}</td>
@@ -2053,14 +1857,13 @@ function getRecordRowHTML(r) {
 }
 
 // ============================================
-// КАРТОЧНЫЙ РЕЖИМ ТАБЛИЦЫ (пункт 12)
+// КАРТОЧНЫЙ РЕЖИМ ТАБЛИЦЫ
 // ============================================
 let currentViewMode = localStorage.getItem('historyViewMode') || 'auto';
 
 function setViewMode(mode) {
     currentViewMode = mode;
     localStorage.setItem('historyViewMode', mode);
-    // Обновляем кнопки
     const btnTable = document.getElementById('vmt-table');
     const btnCards = document.getElementById('vmt-cards');
     if (btnTable) btnTable.classList.toggle('active', mode === 'table');
@@ -2071,7 +1874,6 @@ function setViewMode(mode) {
 function isCardsMode() {
     if (currentViewMode === 'cards') return true;
     if (currentViewMode === 'table') return false;
-    // auto: карточки на мобильных
     return window.innerWidth < 768;
 }
 
@@ -2085,8 +1887,7 @@ function getRecordCardHTML(r) {
     const profitColor = r.netProfit >= 0 ? 'var(--ios-success)' : 'var(--ios-danger)';
     const totalOrders = r.ordersDelivery || 0;
     const cardId = 'card-details-' + r.id;
-    
-    // Детали — объекты {label, value, cls, attrs}
+
     const details = [];
     if (r.ordersPickup) details.push({ label: 'Забор', value: r.ordersPickup + ' шт · ' + formatMoney(r.payPickup) });
     if (r.ordersDelivery) details.push({ label: 'Выдача', value: r.ordersDelivery + ' шт · ' + formatMoney(r.payDelivery) });
@@ -2096,8 +1897,7 @@ function getRecordCardHTML(r) {
     if (r.bonusPay) details.push({ label: 'Бонус', value: formatMoney(r.bonusPay) });
     if (r.rating) details.push({ label: 'Рейтинг', value: formatMoney(r.rating) });
     if (r.tips) details.push({ label: 'Чаевые', value: formatMoney(r.tips) });
-    
-    // ⛽ БЕНЗИН — кликабельная строка с data-атрибутами (как ячейка таблицы)
+
     if (r.fuelCost) {
         const hasFuel = r.fuelDetails && Array.isArray(r.fuelDetails) && r.fuelDetails.length > 0;
         details.push({
@@ -2109,7 +1909,7 @@ function getRecordCardHTML(r) {
                 ''
         });
     }
-    // 🔧 РЕМОНТ — кликабельная строка
+
     if (r.repairCost) {
         const hasRep = r.repairDetails && Array.isArray(r.repairDetails) && r.repairDetails.length > 0;
         details.push({
@@ -2122,7 +1922,7 @@ function getRecordCardHTML(r) {
         });
     }
     if (r.tax) details.push({ label: 'Налог', value: formatMoney(r.tax) });
-    
+
     const detailsHTML = details.length ?
         details.map(d =>
             `<div class="rcd-item ${d.cls || ''}" ${d.attrs || ''}>
@@ -2130,7 +1930,7 @@ function getRecordCardHTML(r) {
                 <span class="rcd-val">${d.value}</span>
             </div>`).join('') :
         '<div class="rcd-empty">Нет дополнительных данных</div>';
-    
+
     return `
     <div class="record-card">
         <div class="record-card-header">
@@ -2190,7 +1990,6 @@ function toggleCardDetails(cardId, btn) {
 }
 
 function renderCardsView(tbody, filteredRecords) {
-    // Скрываем таблицу, показываем контейнер карточек
     const table = tbody.closest('table');
     let cardsContainer = document.getElementById('records-cards');
     if (!cardsContainer) {
@@ -2201,10 +2000,10 @@ function renderCardsView(tbody, filteredRecords) {
     }
     table.style.display = 'none';
     const box = table.closest('.table-container') || table.parentElement;
-if (box) box.classList.add('cards-mode');
+    if (box) box.classList.add('cards-mode');
     cardsContainer.style.display = 'flex';
     cardsContainer.innerHTML = '';
-    
+
     if (filteredRecords.length === 0) {
         cardsContainer.innerHTML = `
             <div style="text-align:center; padding:40px; color:var(--ios-text-tertiary);">
@@ -2213,8 +2012,7 @@ if (box) box.classList.add('cards-mode');
             </div>`;
         return;
     }
-    
-    // Группируем по неделям
+
     const weeksMap = new Map();
     filteredRecords.forEach(r => {
         if (!r.date) return;
@@ -2222,29 +2020,26 @@ if (box) box.classList.add('cards-mode');
         if (!weeksMap.has(weekKey)) weeksMap.set(weekKey, []);
         weeksMap.get(weekKey).push(r);
     });
-    
+
     const sortedWeeks = Array.from(weeksMap.keys()).sort((a, b) => b.localeCompare(a));
-    
+
     sortedWeeks.forEach(weekKey => {
         const weekRecords = weeksMap.get(weekKey);
         const weekRange = getWeekDateRange(weekKey);
-        
-        // Заголовок недели
+
         const header = document.createElement('div');
         header.className = 'week-card-header';
         header.innerHTML = `
             <ion-icon name="calendar-outline"></ion-icon>
             Неделя ${weekKey.split('-W')[1]} (${weekRange.label})`;
         cardsContainer.appendChild(header);
-        
-        // Карточки записей
+
         weekRecords.forEach(r => {
             const wrapper = document.createElement('div');
             wrapper.innerHTML = getRecordCardHTML(r);
             cardsContainer.appendChild(wrapper.firstElementChild);
         });
-        
-        // Итоги недели
+
         const summary = weekRecords.reduce((acc, r) => {
             acc.totalIncome += r.totalIncome || 0;
             acc.totalExpenses += r.totalExpenses || 0;
@@ -2253,7 +2048,7 @@ if (box) box.classList.add('cards-mode');
             acc.orders += (r.ordersPickup || 0) + (r.ordersDelivery || 0);
             return acc;
         }, { totalIncome: 0, totalExpenses: 0, netProfit: 0, hours: 0, orders: 0 });
-        
+
         const summaryEl = document.createElement('div');
         summaryEl.className = 'week-card-summary';
         summaryEl.innerHTML = `
@@ -2288,8 +2083,7 @@ function renderTable() {
         console.error('❌ Элемент <tbody id="records-body"> не найден в HTML');
         return;
     }
-    
-    // === КАРТОЧНЫЙ РЕЖИМ ===
+
     if (isCardsMode()) {
         let filteredRecords = [...records];
         const historyTab = document.getElementById('tab-history');
@@ -2311,39 +2105,28 @@ function renderTable() {
         renderCardsView(tbody, filteredRecords);
         return;
     }
-    // === КОНЕЦ КАРТОЧНОГО РЕЖИМА ===
-    showTableView();  
-    
-    if (!tbody) {
-        console.error('❌ Элемент <tbody id="records-body"> не найден в HTML');
-        return;
-    }
-    
+
+    showTableView();
+
     tbody.innerHTML = '';
-    
-    // Определяем, активна ли вкладка "История"
+
     const historyTab = document.getElementById('tab-history');
     const isHistoryActive = historyTab && historyTab.classList.contains('active');
-    
+
     let filteredRecords = [...records];
-    
-    // ===== ЕСЛИ АКТИВНА ВКЛАДКА "ИСТОРИЯ" =====
+
     if (isHistoryActive) {
-// 1. Сначала применяем фильтр по дате (месяц/год) ТОЛЬКО если не активен фильтр по столбцу "Дата"
-if (!showAllHistoryMode && currentHistoryMonth && currentHistoryYear && filterState.date.values.length === 0) {
-    filteredRecords = filteredRecords.filter(function(r) {
-        if (!r.date) return false;
-        const d = parseLocalDate(r.date);
-        if (!d) return false;
-        return (d.getMonth() + 1) === currentHistoryMonth && d.getFullYear() === currentHistoryYear;
-    });
-}
-        
-        // 2. Затем применяем ВСЕ фильтры из filterState (по всем 23 столбцам)
-        // ⭐ ИСПРАВЛЕНИЕ: было Filters, стало applyFilters
+        if (!showAllHistoryMode && currentHistoryMonth && currentHistoryYear && filterState.date.values.length === 0) {
+            filteredRecords = filteredRecords.filter(function (r) {
+                if (!r.date) return false;
+                const d = parseLocalDate(r.date);
+                if (!d) return false;
+                return (d.getMonth() + 1) === currentHistoryMonth && d.getFullYear() === currentHistoryYear;
+            });
+        }
+
         filteredRecords = applyFilters(filteredRecords);
-        
-        // 3. Сортируем
+
         if (sortState.column && sortState.direction) {
             filteredRecords = applySorting(filteredRecords);
         } else {
@@ -2353,18 +2136,17 @@ if (!showAllHistoryMode && currentHistoryMonth && currentHistoryYear && filterSt
                 return (db || 0) - (da || 0);
             });
         }
-        
-        // 4. Рендерим с недельными итогами или без
+
         const hasActiveFilters = Object.keys(filterState).some(key => {
             const filter = filterState[key];
             if (filter.type === 'checkbox' || filter.type === 'month') return filter.values && filter.values.length > 0;
             else if (filter.type === 'range') return filter.min !== '' || filter.max !== '';
             return false;
         });
-        
+
         const hasActiveSorting = sortState.column !== null && sortState.direction !== null;
         const shouldHideWeeklySummary = hasActiveFilters || hasActiveSorting;
-        
+
         if (!shouldHideWeeklySummary && !showAllHistoryMode) {
             renderTableWithWeeklySummary(tbody, filteredRecords);
         } else {
@@ -2374,25 +2156,22 @@ if (!showAllHistoryMode && currentHistoryMonth && currentHistoryYear && filterSt
                 tbody.appendChild(tr);
             });
         }
-        
-        // Обновляем пагинацию
+
         const totalPages = Math.ceil(filteredRecords.length / RECORDS_PER_PAGE);
         renderPagination(totalPages);
-        
     } else {
-        // ===== ДЛЯ ДРУГИХ ВКЛАДОК (аналитика и т.д.) =====
         filteredRecords = applyFilters(filteredRecords);
-        
+
         const hasActiveFilters = Object.keys(filterState).some(key => {
             const filter = filterState[key];
             if (filter.type === 'checkbox' || filter.type === 'month') return filter.values && filter.values.length > 0;
             else if (filter.type === 'range') return filter.min !== '' || filter.max !== '';
             return false;
         });
-        
+
         const hasActiveSorting = sortState.column !== null && sortState.direction !== null;
         const shouldHideWeeklySummary = hasActiveFilters || hasActiveSorting;
-        
+
         if (sortState.column && sortState.direction) {
             filteredRecords = applySorting(filteredRecords);
         } else {
@@ -2402,7 +2181,7 @@ if (!showAllHistoryMode && currentHistoryMonth && currentHistoryYear && filterSt
                 return (db || 0) - (da || 0);
             });
         }
-        
+
         if (!shouldHideWeeklySummary) {
             renderTableWithWeeklySummary(tbody, filteredRecords);
         } else {
@@ -2414,16 +2193,10 @@ if (!showAllHistoryMode && currentHistoryMonth && currentHistoryYear && filterSt
         }
     }
 
-    
-    // ===== ИНФОРМАЦИОННЫЙ БЛОК =====
     let tableContainer = tbody.closest('.table-container');
-    if (!tableContainer) {
-        tableContainer = tbody.closest('table');
-    }
-    if (!tableContainer) {
-        tableContainer = tbody.parentElement;
-    }
-    
+    if (!tableContainer) tableContainer = tbody.closest('table');
+    if (!tableContainer) tableContainer = tbody.parentElement;
+
     if (tableContainer) {
         let infoEl = document.getElementById('filter-info');
         if (!infoEl) {
@@ -2436,10 +2209,10 @@ if (!showAllHistoryMode && currentHistoryMonth && currentHistoryYear && filterSt
                 tableContainer.appendChild(infoEl);
             }
         }
-        
+
         const count = filteredRecords.length;
         const total = records.length;
-        
+
         if (count < total || count === 0) {
             infoEl.style.display = 'block';
             if (isHistoryActive) {
@@ -2458,45 +2231,11 @@ if (!showAllHistoryMode && currentHistoryMonth && currentHistoryYear && filterSt
     }
 }
 
-// ===== ПРИМЕНЕНИЕ ВСЕХ ФИЛЬТРОВ (ДЛЯ ИСТОРИИ) =====
-function applyAllFilters(data) {
-    return data.filter(r => {
-        // 1. Фильтр по дате (месяц)
-        if (filterState.date.values.length > 0) {
-            const recordMonth = r.date ? r.date.substring(0, 7) : '';
-            if (!filterState.date.values.includes(recordMonth)) return false;
-        }
-        
-        // 2. Фильтр по дню недели
-        if (filterState.weekday.values.length > 0) {
-            const recordWeekday = r.weekday ? r.weekday.trim().charAt(0).toUpperCase() + r.weekday.trim().slice(1).toLowerCase() : '';
-            if (!filterState.weekday.values.includes(recordWeekday)) return false;
-        }
-        
-        // 3. Фильтр по типу записи
-        if (filterState.type.values.length > 0) {
-            if (!filterState.type.values.includes(r.recordType)) return false;
-        }
-        
-        // 4. Фильтры по диапазонам для всех числовых полей
-        const rangeFields = Object.keys(filterState).filter(k => filterState[k].type === 'range');
-        for (const field of rangeFields) {
-            const filter = filterState[field];
-            const value = parseFloat(r[field]) || 0;
-            if (filter.min !== '' && value < parseFloat(filter.min)) return false;
-            if (filter.max !== '' && value > parseFloat(filter.max)) return false;
-        }
-        
-        return true;
-    });
-}
-
-
-// ===== ПОЛУЧЕНИЕ ISO НЕДЕЛИ ИЗ ДАТЫ =====
+// ===== ISO-НЕДЕЛЯ =====
 function getISOWeek(dateStr) {
     const date = parseLocalDate(dateStr);
     if (!date) return '';
-    
+
     const target = new Date(date.valueOf());
     const dayNr = (date.getDay() + 6) % 7;
     target.setDate(target.getDate() - dayNr + 3);
@@ -2510,41 +2249,35 @@ function getISOWeek(dateStr) {
     return `${year}-W${String(weekNumber).padStart(2, '0')}`;
 }
 
-// ===== ПОЛУЧЕНИЕ ДИАПАЗОНА ДАТ НЕДЕЛИ =====
 function getWeekDateRange(weekKey) {
     const [yearStr, weekStr] = weekKey.split('-W');
     const year = parseInt(yearStr);
     const week = parseInt(weekStr);
-    
-    // Находим первый день года — используем parseLocalDate
+
     const jan4 = parseLocalDate(`${year}-01-04`);
     if (!jan4) return { start: null, end: null, label: '' };
-    
+
     const dayOfWeek = (jan4.getDay() + 6) % 7;
     const firstMonday = new Date(jan4);
     firstMonday.setDate(jan4.getDate() - dayOfWeek);
-    
-    // Находим понедельник нужной недели
+
     const weekMonday = new Date(firstMonday);
     weekMonday.setDate(firstMonday.getDate() + (week - 1) * 7);
-    
+
     const weekSunday = new Date(weekMonday);
     weekSunday.setDate(weekMonday.getDate() + 6);
-    
+
     return {
         start: weekMonday,
         end: weekSunday,
-        label: `${weekMonday.getDate()}.${String(weekMonday.getMonth()+1).padStart(2,'0')} - ${weekSunday.getDate()}.${String(weekSunday.getMonth()+1).padStart(2,'0')}.${weekSunday.getFullYear()}`
+        label: `${weekMonday.getDate()}.${String(weekMonday.getMonth() + 1).padStart(2, '0')} - ${weekSunday.getDate()}.${String(weekSunday.getMonth() + 1).padStart(2, '0')}.${weekSunday.getFullYear()}`
     };
 }
 
-// ===== РЕНДЕР ТАБЛИЦЫ С ПОНЕДЕЛЬНЫМИ ИТОГАМИ =====
-// ===== РЕНДЕР ТАБЛИЦЫ С ПОНЕДЕЛЬНЫМИ ИТОГАМИ =====
 function renderTableWithWeeklySummary(tbody, records) {
-    // Определяем реальное количество колонок из thead
     const headerCells = document.querySelectorAll('thead tr:first-child th');
-    const totalColumns = headerCells.length; // Динамически получаем число колонок!
-    
+    const totalColumns = headerCells.length;
+
     const weeksMap = new Map();
     records.forEach(r => {
         if (!r.date) return;
@@ -2581,18 +2314,17 @@ function renderTableWithWeeklySummary(tbody, records) {
             acc.netProfit += r.netProfit || 0;
             if (r.recordType === 'work') acc.workingDays += 1;
             return acc;
-        }, { 
-            hours: 0, ordersPickup: 0, payPickup: 0, 
-            ordersDelivery: 0, payDelivery: 0, 
-            distance: 0, payDistance: 0, 
-            weight: 0, payWeight: 0, 
+        }, {
+            hours: 0, ordersPickup: 0, payPickup: 0,
+            ordersDelivery: 0, payDelivery: 0,
+            distance: 0, payDistance: 0,
+            weight: 0, payWeight: 0,
             loadPay: 0, bonusPay: 0, rating: 0, tips: 0,
             fuelCost: 0, repairCost: 0, tax: 0,
-            totalIncome: 0, totalExpenses: 0, netProfit: 0, 
-            workingDays: 0 
+            totalIncome: 0, totalExpenses: 0, netProfit: 0,
+            workingDays: 0
         });
 
-        // ✅ Заголовок недели — colspan = ВСЕМ колонкам
         const headerRow = document.createElement('tr');
         headerRow.className = 'week-summary-header';
         headerRow.innerHTML = `
@@ -2604,47 +2336,43 @@ function renderTableWithWeeklySummary(tbody, records) {
         `;
         tbody.appendChild(headerRow);
 
-        // Записи недели
         weekRecords.forEach(r => {
             const tr = document.createElement('tr');
             tr.innerHTML = getRecordRowHTML(r);
             tbody.appendChild(tr);
         });
 
-        // ✅ Итоговая строка — ровно totalColumns ячеек
         const summaryRow = document.createElement('tr');
         summaryRow.className = 'week-summary-row';
-        
-        // Собираем все значения в массив в правильном порядке
+
         const values = [
-            summary.hours.toFixed(1),           // Часы
-            summary.ordersPickup,               // Забор (шт)
-            formatMoney(summary.payPickup),     // Забор (₽)
-            summary.ordersDelivery,             // Выдача (шт)
-            formatMoney(summary.payDelivery),   // Выдача (₽)
-            summary.distance.toFixed(1),        // Км
-            formatMoney(summary.payDistance),   // Км (₽)
-            summary.weight.toFixed(1),          // Вес (кг)
-            formatMoney(summary.payWeight),     // Вес (₽)
-            formatMoney(summary.loadPay),       // Нагрузка (₽)
-            formatMoney(summary.bonusPay),      // Бонус (₽)
-            formatMoney(summary.rating),        // Рейтинг (₽)
-            formatMoney(summary.tips),          // Чаевые (₽)
-            formatMoney(summary.fuelCost),      // Бензин (₽)
-            formatMoney(summary.repairCost),    // Ремонт (₽)
-            formatMoney(summary.tax),           // Налог (₽)
-            formatMoney(summary.totalIncome),   // Доход (₽)
-            formatMoney(summary.totalExpenses), // Расход (₽)
-            `<span style="color:${summary.netProfit >= 0 ? '#10b981' : '#ef4444'}">${formatMoney(summary.netProfit)}</span>` // Прибыль
+            summary.hours.toFixed(1),
+            summary.ordersPickup,
+            formatMoney(summary.payPickup),
+            summary.ordersDelivery,
+            formatMoney(summary.payDelivery),
+            summary.distance.toFixed(1),
+            formatMoney(summary.payDistance),
+            summary.weight.toFixed(1),
+            formatMoney(summary.payWeight),
+            formatMoney(summary.loadPay),
+            formatMoney(summary.bonusPay),
+            formatMoney(summary.rating),
+            formatMoney(summary.tips),
+            formatMoney(summary.fuelCost),
+            formatMoney(summary.repairCost),
+            formatMoney(summary.tax),
+            formatMoney(summary.totalIncome),
+            formatMoney(summary.totalExpenses),
+            `<span style="color:${summary.netProfit >= 0 ? '#10b981' : '#ef4444'}">${formatMoney(summary.netProfit)}</span>`
         ];
-        
-        // Формируем HTML: 3 объединённые ячейки (Дата, День, Тип) + все значения + пустая для действий
+
         let summaryHTML = `<td colspan="3"><strong><ion-icon name="bar-chart-outline" class="week-summary-icon"></ion-icon> ИТОГО:</strong></td>`;
         values.forEach(v => {
             summaryHTML += `<td><strong>${v}</strong></td>`;
         });
-        summaryHTML += `<td></td>`; // Пустая ячейка для колонки "Действия"
-        
+        summaryHTML += `<td></td>`;
+
         summaryRow.innerHTML = summaryHTML;
         tbody.appendChild(summaryRow);
     });
@@ -2665,15 +2393,18 @@ async function deleteRecord(id, confirmDelete = true) {
     saveData();
     renderTable();
     populateFilters();
+
+    if (typeof window.updateHomeTab === 'function' &&
+        document.getElementById('tab-home')?.classList.contains('active')) {
+        window.updateHomeTab();
+    }
 }
 
 function exportData() {
     try {
-        // Получаем данные из глобальных переменных ИЛИ из localStorage
         const recordsToExport = records || [];
         const tariffsToExport = tariffs || [];
-        
-        // Получаем топливо: сначала пробуем window.fuelLogs, потом localStorage
+
         let fuelToExport = [];
         if (window.fuelLogs && window.fuelLogs.length > 0) {
             fuelToExport = window.fuelLogs;
@@ -2687,8 +2418,7 @@ function exportData() {
                 }
             }
         }
-        
-        // Получаем ремонты: сначала пробуем window.repairRecords, потом localStorage
+
         let repairToExport = [];
         if (window.repairRecords && window.repairRecords.length > 0) {
             repairToExport = window.repairRecords;
@@ -2698,11 +2428,11 @@ function exportData() {
                 try {
                     repairToExport = JSON.parse(localRepair);
                 } catch (e) {
-                    console.error(' Ошибка парсинга ремонтов из localStorage:', e);
+                    console.error('❌ Ошибка парсинга ремонтов из localStorage:', e);
                 }
             }
         }
-        
+
         const data = {
             records: recordsToExport,
             tariffs: tariffsToExport,
@@ -2711,14 +2441,14 @@ function exportData() {
             exportDate: new Date().toISOString(),
             version: '2.0'
         };
-        
+
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = `driver-full-backup-${new Date().toISOString().split('T')[0]}.json`;
         a.click();
         URL.revokeObjectURL(a.href);
-        
+
         alert(`✅ Полная резервная копия экспортирована!\n\n📝 Записей: ${recordsToExport.length}\n⛽ Заправок: ${fuelToExport.length}\n🔧 Ремонтов: ${repairToExport.length}`);
     } catch (err) {
         alert('❌ Ошибка при экспорте: ' + err.message);
@@ -2728,93 +2458,84 @@ function exportData() {
 async function importData(e) {
     const file = e.target.files[0];
     if (!file) return;
-    
+
     const importBtn = e.target.previousElementSibling;
     const originalText = importBtn.textContent;
     importBtn.textContent = '⏳ Загрузка...';
     importBtn.disabled = true;
-    
+
     const reader = new FileReader();
     reader.onload = async (ev) => {
         try {
             const data = JSON.parse(ev.target.result);
-            
+
             if (data.records) {
-                // 1. Восстанавливаем основные записи и тарифы
                 records = data.records.map(normalizeRecord);
                 if (data.tariffs) tariffs = data.tariffs.map(normalizeTariff);
-                
-                // 2. Восстанавливаем данные топлива
+
                 if (data.fuelLogs) {
                     window.fuelLogs = data.fuelLogs;
                     localStorage.setItem('driverFuelLogs', JSON.stringify(window.fuelLogs));
                     console.log('✅ Импортировано заправок:', window.fuelLogs.length);
                 }
-                
-                // 3. Восстанавливаем данные ремонтов
+
                 if (data.repairRecords) {
                     window.repairRecords = data.repairRecords;
                     localStorage.setItem('repair_records', JSON.stringify(window.repairRecords));
                     console.log('✅ Импортировано ремонтов:', window.repairRecords.length);
                 }
-                
-                // 4. Сохраняем основные данные в localStorage
+
                 saveData();
-                
-                // 5. Синхронизация с Firebase (если пользователь авторизован)
+
                 if (typeof db !== 'undefined' && currentUser) {
-                    // Синхронизируем записи и тарифы
                     await syncToFirebase();
-                    
-                    // Синхронизируем топливо
+
                     if (data.fuelLogs && typeof window.saveFuelLogToFirebase === 'function') {
                         for (const log of data.fuelLogs) {
                             await window.saveFuelLogToFirebase(log);
                         }
                     }
-                    
-                    // Синхронизируем ремонты
+
                     if (data.repairRecords && typeof window.syncRepairToFirebase === 'function') {
                         for (const rec of data.repairRecords) {
                             await window.syncRepairToFirebase(rec);
                         }
                     }
                 }
-                
-                // 6. Обновляем интерфейс основной таблицы
+
                 renderTable();
                 renderTariffs();
                 populateFilters();
                 updateAnalytics();
-                
-                // 7. Обновляем интерфейс модуля топлива
+
                 if (typeof window.renderFuelLogs === 'function') window.renderFuelLogs();
                 if (typeof window.updateFuelStats === 'function') window.updateFuelStats();
                 if (typeof window.updateFuelChart === 'function') window.updateFuelChart();
-                
-                // 8. Обновляем интерфейс модуля ремонта
+
                 if (typeof window.renderRepairList === 'function') window.renderRepairList();
                 if (typeof window.updateRepairStats === 'function') window.updateRepairStats();
                 if (typeof window.updateRepairCharts === 'function') window.updateRepairCharts();
-                
-                // 9. КРИТИЧЕСКИ ВАЖНО: Пересчитываем расходы в основной таблице на основе импортированных данных
+
                 if (typeof window.syncFuelToRecords === 'function') await window.syncFuelToRecords();
                 if (typeof window.syncRepairToMainRecords === 'function') await window.syncRepairToMainRecords();
-                
+
                 const fuelCount = data.fuelLogs ? data.fuelLogs.length : 0;
                 const repairCount = data.repairRecords ? data.repairRecords.length : 0;
-                
+
                 alert(`✅ Успешно импортировано:\n📝 Записей: ${records.length}\n⛽ Заправок: ${fuelCount}\n🔧 Ремонтов: ${repairCount}`);
-                
+
+                if (typeof window.updateHomeTab === 'function') {
+                    window.updateHomeTab();
+                }
+
             } else if (Array.isArray(data)) {
-                // Поддержка старого формата (только массив записей)
                 records = data.map(normalizeRecord);
                 saveData();
-                
+
                 if (typeof db !== 'undefined' && currentUser) {
                     await syncToFirebase();
                 }
-                
+
                 renderTable();
                 populateFilters();
                 updateAnalytics();
@@ -2827,21 +2548,20 @@ async function importData(e) {
         } finally {
             importBtn.textContent = originalText;
             importBtn.disabled = false;
-            e.target.value = ''; // Сброс input для возможности повторного выбора того же файла
+            e.target.value = '';
         }
     };
-    
+
     reader.onerror = () => {
         alert('❌ Ошибка при чтении файла');
         importBtn.textContent = originalText;
         importBtn.disabled = false;
         e.target.value = '';
     };
-    
+
     reader.readAsText(file);
 }
 
-// Синхронизация данных с Firebase (полная замена)
 async function syncToFirebase() {
     if (!currentUser) return;
 
@@ -2851,18 +2571,14 @@ async function syncToFirebase() {
         const recordsRef = userRef.collection('records');
         const tariffsRef = userRef.collection('tariffs');
 
-        const BATCH_SIZE = 400; // Безопасный лимит Firestore
+        const BATCH_SIZE = 400;
 
-        // ==========================================
-        // 1. ПОДГОТОВКА: Получаем ID всех записей, которые уже есть в Firebase
-        // ==========================================
         const fbRecordsSnapshot = await recordsRef.get();
         const fbRecordIds = new Set(fbRecordsSnapshot.docs.map(doc => doc.id));
         const localRecordIds = new Set(records.map(r => r.id));
 
-        // Находим записи, которые были УДАЛЕНЫ локально, чтобы удалить их и из Firebase
         const idsToDelete = [...fbRecordIds].filter(id => !localRecordIds.has(id));
-        
+
         if (idsToDelete.length > 0) {
             console.log(`🗑️ Очистка ${idsToDelete.length} удаленных локально записей из Firebase...`);
             for (let i = 0; i < idsToDelete.length; i += BATCH_SIZE) {
@@ -2872,9 +2588,6 @@ async function syncToFirebase() {
             }
         }
 
-        // ==========================================
-        // 2. УМНАЯ ЗАГРУЗКА/ОБНОВЛЕНИЕ ЗАПИСЕЙ (UPSERT)
-        // ==========================================
         if (records.length > 0) {
             console.log(`📤 Синхронизация ${records.length} записей (обновление + создание)...`);
             for (let i = 0; i < records.length; i += BATCH_SIZE) {
@@ -2883,25 +2596,19 @@ async function syncToFirebase() {
 
                 for (const r of chunk) {
                     const recordToSave = { ...r };
-                    const docId = recordToSave.id; // Сохраняем ID, чтобы использовать его как ID документа
-                    delete recordToSave.id; // В теле документа поле id не храним
+                    const docId = recordToSave.id;
+                    delete recordToSave.id;
 
-                    // batch.set работает как Upsert: 
-                    // Если документ с docId существует -> обновит его.
-                    // Если не существует -> создаст новый.
                     batch.set(recordsRef.doc(docId), recordToSave);
                 }
                 await batch.commit();
             }
         }
 
-        // ==========================================
-        // 3. УМНАЯ ЗАГРУЗКА/ОБНОВЛЕНИЕ ТАРИФОВ (аналогично)
-        // ==========================================
         const fbTariffsSnapshot = await tariffsRef.get();
         const fbTariffIds = new Set(fbTariffsSnapshot.docs.map(doc => doc.id));
         const localTariffIds = new Set(tariffs.map(t => t.id));
-        
+
         const tariffIdsToDelete = [...fbTariffIds].filter(id => !localTariffIds.has(id));
         if (tariffIdsToDelete.length > 0) {
             for (let i = 0; i < tariffIdsToDelete.length; i += BATCH_SIZE) {
@@ -2926,12 +2633,14 @@ async function syncToFirebase() {
             }
         }
 
-        // ==========================================
-        // 4. СОХРАНЕНИЕ СОСТОЯНИЯ
-        // ==========================================
-        saveData(); 
+        saveData();
         console.log('✅ Умная синхронизация успешно завершена!');
-        
+
+        // ⭐ Обновляем время синхронизации
+        if (typeof window.remindersMarkAsSynced === 'function') {
+            window.remindersMarkAsSynced();
+        }
+
     } catch (error) {
         console.error('❌ Критическая ошибка синхронизации:', error);
         alert('⚠️ Ошибка синхронизации с облаком. Проверьте интернет-соединение.');
@@ -2939,7 +2648,7 @@ async function syncToFirebase() {
 }
 
 function formatMoney(n) {
-    return new Intl.NumberFormat('ru-RU', {style:'currency', currency:'RUB', minimumFractionDigits: 2}).format(n);
+    return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 2 }).format(n);
 }
 
 function formatDate(s) {
@@ -2949,20 +2658,17 @@ function formatDate(s) {
     return d.toLocaleDateString('ru-RU');
 }
 
-// Переключение режима авто-расчета
 function toggleAutoCalc(field) {
     autoCalcState[field] = !autoCalcState[field];
     const btn = document.querySelector(`[onclick="toggleAutoCalc('${field}')"]`);
     const input = document.getElementById(field === 'km' ? 'pay-distance' : 'pay-weight');
     const hint = input ? input.closest('.form-group').querySelector('.auto-hint') : null;
-    
+
     if (autoCalcState[field]) {
-        // Включаем авто-расчет
         if (btn) btn.classList.remove('manual-mode');
         if (input) input.classList.remove('manual-edit');
         if (hint) hint.textContent = 'автоматически';
-        
-        // Убираем поле из списка ручных правок
+
         if (editingId) {
             const recordIndex = records.findIndex(r => r.id === editingId);
             if (recordIndex !== -1) {
@@ -2972,16 +2678,13 @@ function toggleAutoCalc(field) {
                 }
             }
         }
-        
-        // Пересчитываем автоматически
+
         autoCalc(field);
     } else {
-        // Отключаем авто-расчет
         if (btn) btn.classList.add('manual-mode');
         if (input) input.classList.add('manual-edit');
         if (hint) hint.textContent = 'ручной ввод';
-        
-        // Добавляем поле в список ручных правок
+
         if (editingId) {
             const recordIndex = records.findIndex(r => r.id === editingId);
             if (recordIndex !== -1) {
@@ -2997,7 +2700,6 @@ function toggleAutoCalc(field) {
     }
 }
 
-// Помечаем поле как отредактированное вручную
 function markManualEdit(field) {
     if (autoCalcState[field]) {
         autoCalcState[field] = false;
@@ -3007,8 +2709,7 @@ function markManualEdit(field) {
         if (btn) btn.classList.add('manual-mode');
         if (input) input.classList.add('manual-edit');
         if (hint) hint.textContent = 'ручной ввод';
-        
-        // Добавляем поле в список ручных правок текущей записи
+
         if (editingId) {
             const recordIndex = records.findIndex(r => r.id === editingId);
             if (recordIndex !== -1) {
@@ -3024,32 +2725,28 @@ function markManualEdit(field) {
     }
 }
 
-// ===== ЭКСПОРТ В EXCEL (отдельная функция) =====
 // ===== ЭКСПОРТ В EXCEL =====
 function exportToExcel() {
     console.log('📊 Начало экспорта в Excel...');
-    
+
     if (!records || records.length === 0) {
         alert('❌ Нет данных для экспорта. Сначала добавьте записи.');
         return;
     }
-    
+
     try {
-        // Проверяем библиотеку
         if (typeof XLSX === 'undefined') {
             alert('❌ Библиотека Excel не загружена. Обновите страницу.');
             return;
         }
-        
-        // Формируем данные
+
         const data = records.map((r, index) => {
             const typeLabel = r.recordType === 'bonus' ? 'Бонус' :
                 r.recordType === 'expense' ? 'Расход' : 'Работа';
-            
-            // Используем parseLocalDate для форматирования даты
+
             const d = parseLocalDate(r.date);
             const dateStr = d ? d.toLocaleDateString('ru-RU') : r.date || '';
-            
+
             return {
                 '№': index + 1,
                 'Дата': dateStr,
@@ -3076,79 +2773,67 @@ function exportToExcel() {
                 'Чистая прибыль (₽)': Math.round((r.netProfit || 0) * 100) / 100
             };
         });
-        
+
         console.log('✅ Подготовлено строк:', data.length);
-        
-        // Создаем worksheet
+
         const ws = XLSX.utils.json_to_sheet(data);
-        
-        // Настраиваем ширину колонок
+
         const colWidths = Object.keys(data[0]).map(key => ({ wch: Math.max(key.length, 12) }));
         ws['!cols'] = colWidths;
-        
-        // Создаем workbook
+
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Журнал водителя");
-        
-        // ===== НАДЕЖНОЕ СОХРАНЕНИЕ ФАЙЛА (РАБОТАЕТ ВЕЗДЕ, ВКЛЮЧАЯ iOS/Android) =====
+
         const fileName = `driver-data-${new Date().toISOString().split('T')[0]}.xlsx`;
-        
-        // 1. Генерируем бинарный буфер данных
+
         const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-        
-        // 2. Создаем Blob-объект
+
         const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        
-        // 3. Создаем временную ссылку для скачивания
+
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.download = fileName;
         link.style.display = 'none';
         document.body.appendChild(link);
-        
-        // 4. Инициируем клик по ссылке (скачивание)
+
         link.click();
-        
-        // 5. Очищаем память через небольшую задержку
+
         setTimeout(() => {
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
         }, 1000);
-        
+
         console.log('✅ Excel файл создан:', fileName);
         alert('✅ Excel файл успешно создан!\n\nИмя файла: ' + fileName + '\n\nПроверьте папку "Загрузки"');
-        
+
     } catch (error) {
         console.error('❌ Ошибка экспорта в Excel:', error);
         alert('❌ Ошибка при создании Excel файла:\n\n' + error.message);
     }
 }
 
-// ===== ЭКСПОРТ В PDF (через печать браузера) =====
+// ===== ЭКСПОРТ В PDF =====
 function exportToPDF() {
     if (!records || records.length === 0) {
         alert('❌ Нет данных для экспорта');
         return;
     }
-    
-    // Считаем итоги
+
     const totalIncome = records.reduce((sum, r) => sum + (r.totalIncome || 0), 0);
     const totalExpenses = records.reduce((sum, r) => sum + (r.totalExpenses || 0), 0);
     const totalProfit = records.reduce((sum, r) => sum + (r.netProfit || 0), 0);
     const totalHours = records.reduce((sum, r) => sum + (r.hours || 0), 0);
-    
-    // Создаем HTML контент со ВСЕМИ столбцами
+
     let rowsHTML = '';
     records.forEach(r => {
         const typeLabel = r.recordType === 'bonus' ? 'Бонус' :
             r.recordType === 'expense' ? 'Расход' : 'Работа';
         const profitColor = r.netProfit >= 0 ? '#10b981' : '#ef4444';
-        
-        // Используем parseLocalDate для форматирования даты
+
         const d = parseLocalDate(r.date);
         const dateStr = d ? d.toLocaleDateString('ru-RU') : r.date || '-';
-        
+
         rowsHTML += `
             <tr>
                 <td style="border: 1px solid #ddd; padding: 6px; font-size: 10px;">${dateStr}</td>
@@ -3176,11 +2861,10 @@ function exportToPDF() {
             </tr>
         `;
     });
-    
-    // Используем parseLocalDate для даты выгрузки
+
     const today = new Date();
     const exportDate = today.toLocaleDateString('ru-RU');
-    
+
     const htmlContent = `
         <!DOCTYPE html>
         <html>
@@ -3189,69 +2873,19 @@ function exportToPDF() {
             <title>Журнал работы водителя</title>
             <style>
                 @page { size: A4 landscape; margin: 8mm; }
-                body { 
-                    font-family: Arial, sans-serif; 
-                    font-size: 10px; 
-                    margin: 10px;
-                    color: #000;
-                }
-                h1 { 
-                    text-align: center; 
-                    margin-bottom: 8px; 
-                    font-size: 18px;
-                }
-                .date-info {
-                    text-align: center;
-                    color: #666;
-                    margin-bottom: 12px;
-                    font-size: 11px;
-                }
-                table { 
-                    width: 100%; 
-                    border-collapse: collapse;
-                    font-size: 9px;
-                }
-                th, td { 
-                    border: 1px solid #ddd; 
-                    padding: 5px; 
-                    font-size: 9px;
-                }
-                th { 
-                    background-color: #f2f2f7; 
-                    text-align: center;
-                    font-weight: bold;
-                    font-size: 9px;
-                }
-                td {
-                    text-align: right;
-                }
-                td:first-child, td:nth-child(2), td:nth-child(3) {
-                    text-align: left;
-                }
-                .summary-table {
-                    margin-top: 15px;
-                    width: 100%;
-                    border-collapse: collapse;
-                }
-                .summary-table td {
-                    padding: 10px;
-                    border: 1px solid #ddd;
-                    text-align: center;
-                    font-size: 11px;
-                }
-                .summary-table .label {
-                    background-color: #f2f2f7;
-                    font-weight: bold;
-                    text-align: left;
-                    width: 30%;
-                }
-                .summary-table .value {
-                    font-weight: bold;
-                }
-                @media print {
-                    body { margin: 0; }
-                    .no-print { display: none; }
-                }
+                body { font-family: Arial, sans-serif; font-size: 10px; margin: 10px; color: #000; }
+                h1 { text-align: center; margin-bottom: 8px; font-size: 18px; }
+                .date-info { text-align: center; color: #666; margin-bottom: 12px; font-size: 11px; }
+                table { width: 100%; border-collapse: collapse; font-size: 9px; }
+                th, td { border: 1px solid #ddd; padding: 5px; font-size: 9px; }
+                th { background-color: #f2f2f7; text-align: center; font-weight: bold; font-size: 9px; }
+                td { text-align: right; }
+                td:first-child, td:nth-child(2), td:nth-child(3) { text-align: left; }
+                .summary-table { margin-top: 15px; width: 100%; border-collapse: collapse; }
+                .summary-table td { padding: 10px; border: 1px solid #ddd; text-align: center; font-size: 11px; }
+                .summary-table .label { background-color: #f2f2f7; font-weight: bold; text-align: left; width: 30%; }
+                .summary-table .value { font-weight: bold; }
+                @media print { body { margin: 0; } .no-print { display: none; } }
             </style>
         </head>
         <body>
@@ -3290,7 +2924,6 @@ function exportToPDF() {
                 </tbody>
             </table>
             
-            <!-- ИТОГИ ОТДЕЛЬНОЙ ТАБЛИЦЕЙ ПОСЛЕ ОСНОВНОЙ -->
             <table class="summary-table">
                 <tr>
                     <td class="label">📊 ВСЕГО ЗАПИСЕЙ:</td>
@@ -3330,38 +2963,30 @@ function exportToPDF() {
         </body>
         </html>
     `;
-    
-    // Открываем в новом окне
+
     const printWindow = window.open('', '_blank');
     printWindow.document.write(htmlContent);
     printWindow.document.close();
-    
+
     alert('💡 Откроется окно для сохранения PDF\n\nВыберите "Сохранить как PDF" в диалоге печати');
 }
 
 // ============================================
 // ФИЛЬТРАЦИЯ ИСТОРИИ ПО МЕСЯЦУ И ГОДУ
 // ============================================
-
 let currentHistoryMonth = null;
 let currentHistoryYear = null;
 
-
-
-
-// Заполняем фильтры при загрузке
 function initHistoryFilters() {
     const now = new Date();
     const currentMonth = now.getMonth() + 1;
     const currentYear = now.getFullYear();
-    
-    // Устанавливаем текущий месяц
+
     const monthSelect = document.getElementById('history-month');
     if (monthSelect) {
         monthSelect.value = currentMonth;
     }
-    
-    // Заполняем список годов
+
     const yearSelect = document.getElementById('history-year');
     if (yearSelect) {
         yearSelect.innerHTML = '';
@@ -3375,36 +3000,28 @@ function initHistoryFilters() {
             yearSelect.appendChild(option);
         }
     }
-    
-    // Устанавливаем текущие значения
+
     currentHistoryMonth = currentMonth;
     currentHistoryYear = currentYear;
     showAllHistoryMode = false;
     currentHistoryPage = 1;
 }
 
-
-
-// Фильтрация по месяцу и году
 function filterHistoryByMonth() {
     const monthSelect = document.getElementById('history-month');
     const yearSelect = document.getElementById('history-year');
-    
+
     if (!monthSelect || !yearSelect) return;
-    
+
     currentHistoryMonth = parseInt(monthSelect.value);
     currentHistoryYear = parseInt(yearSelect.value);
     showAllHistoryMode = false;
     currentHistoryPage = 1;
-    
-    // Обновляем информацию
+
     updateHistoryInfo();
-    
-    // Перерисовываем таблицу
     renderTableWithMonthFilter();
 }
 
-// Показать все записи
 function showAllHistory() {
     showAllHistoryMode = true;
     currentHistoryPage = 1;
@@ -3412,31 +3029,28 @@ function showAllHistory() {
     renderTableWithMonthFilter();
 }
 
-// Обновление информации
 function updateHistoryInfo() {
     const infoDiv = document.getElementById('history-info');
     if (!infoDiv) return;
-    
+
     const totalRecords = records.length;
-    
+
     if (showAllHistoryMode) {
         infoDiv.textContent = 'Показаны все записи: ' + totalRecords + ' шт.';
     } else {
         const monthName = getMonthName(currentHistoryMonth);
-        
-        // Считаем количество записей за выбранный период
-        const filteredCount = records.filter(function(r) {
+
+        const filteredCount = records.filter(function (r) {
             if (!r.date) return false;
             const d = parseLocalDate(r.date);
             if (!d) return false;
             return (d.getMonth() + 1) === currentHistoryMonth && d.getFullYear() === currentHistoryYear;
         }).length;
-        
+
         infoDiv.textContent = 'Показано: ' + filteredCount + ' записей за ' + monthName + ' ' + currentHistoryYear + ' г. (всего: ' + totalRecords + ')';
     }
 }
 
-// Название месяца
 function getMonthName(month) {
     const months = [
         'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -3445,76 +3059,64 @@ function getMonthName(month) {
     return months[month - 1] || '';
 }
 
-// Рендер таблицы с учётом фильтра
 function renderTableWithMonthFilter() {
     const tbody = document.getElementById('records-body');
     if (!tbody) return;
-    
-    // Фильтруем записи
+
     let filteredRecords = [...records];
-    
+
     if (!showAllHistoryMode && currentHistoryMonth && currentHistoryYear) {
-        filteredRecords = filteredRecords.filter(function(r) {
+        filteredRecords = filteredRecords.filter(function (r) {
             if (!r.date) return false;
             const d = parseLocalDate(r.date);
             if (!d) return false;
             return (d.getMonth() + 1) === currentHistoryMonth && d.getFullYear() === currentHistoryYear;
         });
     }
-    
-    // Сортируем по дате (новые сверху)
-    filteredRecords.sort(function(a, b) {
+
+    filteredRecords.sort(function (a, b) {
         const da = parseLocalDate(a.date);
         const db = parseLocalDate(b.date);
         return (db || 0) - (da || 0);
     });
-    
-    // Применяем пагинацию
+
     const totalPages = Math.ceil(filteredRecords.length / RECORDS_PER_PAGE);
     const startIndex = (currentHistoryPage - 1) * RECORDS_PER_PAGE;
     const endIndex = Math.min(startIndex + RECORDS_PER_PAGE, filteredRecords.length);
     const pageRecords = filteredRecords.slice(startIndex, endIndex);
-    
-    // Очищаем таблицу
+
     tbody.innerHTML = '';
-    
-    // Если нет записей
+
     if (pageRecords.length === 0) {
         tbody.innerHTML = '<tr><td colspan="23" style="text-align: center; padding: 40px; color: var(--ios-text-tertiary);">' +
             '<ion-icon name="document-text-outline" style="font-size: 48px; display: block; margin: 0 auto 12px;"></ion-icon>' +
             'Нет записей за выбранный период</td></tr>';
-        
+
         const paginationDiv = document.getElementById('history-pagination');
         if (paginationDiv) paginationDiv.innerHTML = '';
         return;
     }
-    
-    // Используем существующую функцию рендеринга с недельными итогами
+
     renderTableWithWeeklySummary(tbody, pageRecords);
-    
-    // Обновляем пагинацию
     renderPagination(totalPages);
 }
 
-// Пагинация
 function renderPagination(totalPages) {
     const paginationDiv = document.getElementById('history-pagination');
     if (!paginationDiv) return;
-    
+
     if (totalPages <= 1) {
         paginationDiv.innerHTML = '';
         return;
     }
-    
+
     let html = '';
-    
-    // Кнопка "Назад"
+
     if (currentHistoryPage > 1) {
         html += '<button class="btn btn-secondary btn-small" onclick="goToPage(' + (currentHistoryPage - 1) + ')">' +
-                '<ion-icon name="chevron-back-outline"></ion-icon></button>';
+            '<ion-icon name="chevron-back-outline"></ion-icon></button>';
     }
-    
-    // Номера страниц
+
     for (let i = 1; i <= totalPages; i++) {
         if (i === currentHistoryPage) {
             html += '<button class="btn btn-primary btn-small" style="min-width: 40px;">' + i + '</button>';
@@ -3524,158 +3126,79 @@ function renderPagination(totalPages) {
             html += '<span style="margin: 0 4px;">...</span>';
         }
     }
-    
-    // Кнопка "Вперёд"
+
     if (currentHistoryPage < totalPages) {
         html += '<button class="btn btn-secondary btn-small" onclick="goToPage(' + (currentHistoryPage + 1) + ')">' +
-                '<ion-icon name="chevron-forward-outline"></ion-icon></button>';
+            '<ion-icon name="chevron-forward-outline"></ion-icon></button>';
     }
-    
-    // Информация о страницах
+
     html += '<span style="margin-left: 12px; font-size: 13px; color: var(--ios-text-tertiary); align-self: center;">' +
-            'Стр. ' + currentHistoryPage + ' из ' + totalPages + '</span>';
-    
+        'Стр. ' + currentHistoryPage + ' из ' + totalPages + '</span>';
+
     paginationDiv.innerHTML = html;
 }
 
-// Переход на страницу
 function goToPage(page) {
     const filteredRecords = getFilteredRecords();
     const totalPages = Math.ceil(filteredRecords.length / RECORDS_PER_PAGE);
-    
+
     if (page < 1 || page > totalPages) return;
-    
+
     currentHistoryPage = page;
     renderTableWithMonthFilter();
-    
+
     const tableContainer = document.querySelector('.table-container');
     if (tableContainer) {
         tableContainer.scrollTop = 0;
     }
 }
 
-// Получить отфильтрованные записи
 function getFilteredRecords() {
     let filteredRecords = [...records];
-    
+
     if (!showAllHistoryMode && currentHistoryMonth && currentHistoryYear) {
-        filteredRecords = filteredRecords.filter(function(r) {
+        filteredRecords = filteredRecords.filter(function (r) {
             if (!r.date) return false;
             const d = parseLocalDate(r.date);
             if (!d) return false;
             return (d.getMonth() + 1) === currentHistoryMonth && d.getFullYear() === currentHistoryYear;
         });
     }
-    
-    filteredRecords.sort(function(a, b) {
+
+    filteredRecords.sort(function (a, b) {
         const da = parseLocalDate(a.date);
         const db = parseLocalDate(b.date);
         return (db || 0) - (da || 0);
     });
-    
+
     return filteredRecords;
 }
-
-
-
-// Инициализация при загрузке
-console.log('✅ Модуль фильтрации истории загружен');
 
 // ============================================
 // ИНДИКАТОР СТАТУСА ПОДКЛЮЧЕНИЯ
 // ============================================
-
-let connectionMode = 'checking'; // 'firebase', 'local', 'checking'
+let connectionMode = 'checking';
 let firebaseErrorReason = '';
 
-
-
 // ============================================
-// ВКЛАДКА "ГЛАВНАЯ" - МОЙ ПРОФИЛЬ
+// ОБНОВЛЕНИЕ ИМЕНИ ПОЛЬЗОВАТЕЛЯ (ОСТАЁТСЯ В SCRIPT.JS)
 // ============================================
-
-// ===== ЕДИНАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ ВКЛАДКИ "ГЛАВНАЯ" =====
-function updateHomeTab() {
-    const homeTab = document.getElementById('tab-home');
-    // Если вкладка не активна, не тратим ресурсы на обновление
-    if (!homeTab || !homeTab.classList.contains('active')) return;
-
-    console.log('🔄 Обновление вкладки "Главная"...');
-
-    // 1. Информация о пользователе
-    if (currentUser) {
-        const nameEl = document.getElementById('profile-name');
-        const emailEl = document.getElementById('profile-email');
-        const syncEl = document.getElementById('profile-sync-status');
-        
-        let userName = currentUser.displayName || (currentUser.email ? currentUser.email.split('@')[0] : 'Водитель');
-        if (nameEl) nameEl.textContent = userName;
-        if (emailEl) emailEl.textContent = currentUser.email || 'email@example.com';
-        
-        if (syncEl) {
-            if (connectionMode === 'firebase') {
-                syncEl.innerHTML = '<ion-icon name="cloud-done-outline"></ion-icon> Синхронизация активна';
-                syncEl.style.color = 'var(--ios-success)';
-            } else {
-                syncEl.innerHTML = '<ion-icon name="cloud-offline-outline"></ion-icon> Локальный режим';
-                syncEl.style.color = 'var(--ios-warning)';
-            }
-        }
-    }
-
-    // 2. Общая статистика
-    const totalDays = new Set(records.filter(r => r.recordType === 'work' || r.hours > 0).map(r => r.date)).size;
-    const totalProfit = records.reduce((sum, r) => sum + (r.netProfit || 0), 0);
-    const totalIncome = records.reduce((sum, r) => sum + (r.totalIncome || 0), 0);
-    const totalOrders = records.reduce((sum, r) => sum + (r.ordersDelivery || 0), 0);
-    const totalHours = records.reduce((sum, r) => sum + (r.hours || 0), 0);
-    
-    const setEl = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
-    setEl('profile-total-days', totalDays);
-    setEl('profile-total-profit', formatMoney(totalProfit));
-    setEl('profile-avg-per-day', totalDays > 0 ? formatMoney(totalProfit / totalDays) : '0 ₽');
-    setEl('profile-efficiency', totalIncome > 0 ? ((totalProfit / totalIncome) * 100).toFixed(1) + '%' : '0%');
-    setEl('profile-total-records', records.length);
-    setEl('profile-total-km', records.reduce((sum, r) => sum + (r.distance || 0), 0).toFixed(1));
-    setEl('profile-avg-check', totalOrders > 0 ? formatMoney(totalIncome / totalOrders) : '0 ₽');
-    setEl('profile-total-hours', totalHours.toFixed(1));
-    setEl('profile-total-orders', totalOrders);
-    setEl('profile-per-hour', totalHours > 0 ? formatMoney(totalProfit / totalHours) : '0 ₽');
-
-    // 3. Вызов всех вспомогательных функций обновления (теперь они гарантированно выполнятся)
-    renderAchievements();
-    loadProfileAvatar();
-    
-  
-    updateTrends();
-    updateRecentRecords();
-
-    console.log('✅ Вкладка "Главная" полностью обновлена');
-}
-
-// ============================================
-// ОБНОВЛЕНИЕ ИМЕНИ ПОЛЬЗОВАТЕЛЯ
-// ============================================
-
-// Функция для обновления имени пользователя
 async function updateUserName(newName) {
     if (!currentUser) {
         alert('❌ Пользователь не авторизован');
         return;
     }
-    
+
     if (!newName || newName.trim() === '') {
         alert('❌ Имя не может быть пустым');
         return;
     }
-    
+
     try {
-        // Обновляем displayName в Firebase Auth
         await currentUser.updateProfile({
             displayName: newName.trim()
         });
-        
-        // Обновляем имя в Firestore
+
         if (typeof db !== 'undefined') {
             await db.collection('users')
                 .doc(currentUser.uid)
@@ -3684,34 +3207,31 @@ async function updateUserName(newName) {
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
         }
-        
-        // Обновляем отображение
+
         const nameEl = document.getElementById('profile-name');
         if (nameEl) {
             nameEl.textContent = newName.trim();
         }
-        
+
         showToast('✅ Имя обновлено!');
-        
-        // Перезагружаем данные пользователя
+
         await loadUserData();
-        
+
     } catch (error) {
         console.error('❌ Ошибка обновления имени:', error);
         alert('❌ Ошибка при обновлении имени: ' + error.message);
     }
 }
 
-// Открытие модалки изменения имени
-window.showEditNameDialog = function() {
+window.showEditNameDialog = function () {
     const modal = document.getElementById('name-modal-overlay');
     const input = document.getElementById('name-modal-input');
     const nameEl = document.getElementById('profile-name');
-    
+
     if (!modal || !input) return;
-    
+
     input.value = nameEl ? nameEl.textContent : '';
-    
+
     modal.style.display = 'flex';
     requestAnimationFrame(() => {
         modal.classList.add('visible');
@@ -3722,8 +3242,7 @@ window.showEditNameDialog = function() {
     });
 };
 
-// Закрытие модалки
-window.closeNameModal = function() {
+window.closeNameModal = function () {
     const modal = document.getElementById('name-modal-overlay');
     if (!modal) return;
     modal.classList.remove('visible');
@@ -3732,157 +3251,51 @@ window.closeNameModal = function() {
     }, 300);
 };
 
-// Сохранение имени
-window.saveNameModal = async function() {
+window.saveNameModal = async function () {
     const input = document.getElementById('name-modal-input');
     if (!input) return;
-    
+
     const newName = input.value.trim();
     if (!newName) {
         if (typeof window.showToast === 'function') window.showToast('❌ Имя не может быть пустым');
         return;
     }
-    
+
     closeNameModal();
     if (typeof window.updateUserName === 'function') {
         await window.updateUserName(newName);
     }
 };
 
-// Клик по фону закрывает модалку
-document.addEventListener('click', function(e) {
+document.addEventListener('click', function (e) {
     const modal = document.getElementById('name-modal-overlay');
     if (modal && modal.classList.contains('visible') && e.target === modal) {
         closeNameModal();
     }
 });
 
-
-// Рендер достижений
-function renderAchievements() {
-    const container = document.getElementById('profile-achievements');
-    if (!container) return;
-    
-    const totalIncome = records.reduce((sum, r) => sum + (r.totalIncome || 0), 0);
-    const totalOrders = records.reduce((sum, r) => sum + (r.ordersDelivery || 0), 0);
-    const totalDays = new Set(records.filter(r => r.recordType === 'work' || r.hours > 0).map(r => r.date)).size;
-    const totalKm = records.reduce((sum, r) => sum + (r.distance || 0), 0);
-    const totalHours = records.reduce((sum, r) => sum + (r.hours || 0), 0);
-    
-    const achievements = [];
-    
-    // Достижения по доходу
-if (totalIncome >= 100000) {
-    achievements.push({ icon: '<ion-icon name="trophy-outline"></ion-icon>', label: 'Золотой доход (100 000 ₽)', class: 'gold' });
-} else if (totalIncome >= 50000) {
-    achievements.push({ icon: '<ion-icon name="medal-outline"></ion-icon>', label: 'Серебряный доход (50 000 ₽)', class: 'silver' });
-} else if (totalIncome >= 10000) {
-    achievements.push({ icon: '<ion-icon name="star-outline"></ion-icon>', label: 'Бронзовый доход (10 000 ₽)', class: 'bronze' });
-}
-
-// Достижения по заказам
-if (totalOrders >= 1000) {
-    achievements.push({ icon: '<ion-icon name="cube-outline"></ion-icon>', label: '1000+ заказов', class: 'gold' });
-} else if (totalOrders >= 500) {
-    achievements.push({ icon: '<ion-icon name="cube-outline"></ion-icon>', label: '500+ заказов', class: 'silver' });
-} else if (totalOrders >= 100) {
-    achievements.push({ icon: '<ion-icon name="cube-outline"></ion-icon>', label: '100+ заказов', class: 'bronze' });
-}
-
-// Достижения по дням
-if (totalDays >= 100) {
-    achievements.push({ icon: '<ion-icon name="calendar-outline"></ion-icon>', label: '100+ рабочих дней', class: 'gold' });
-} else if (totalDays >= 50) {
-    achievements.push({ icon: '<ion-icon name="calendar-outline"></ion-icon>', label: '50+ рабочих дней', class: 'silver' });
-} else if (totalDays >= 10) {
-    achievements.push({ icon: '<ion-icon name="calendar-outline"></ion-icon>', label: '10+ рабочих дней', class: 'bronze' });
-}
-
-// Достижения по километрам
-if (totalKm >= 10000) {
-    achievements.push({ icon: '<ion-icon name="walk-outline"></ion-icon>', label: '10 000+ км', class: 'gold' });
-} else if (totalKm >= 5000) {
-    achievements.push({ icon: '<ion-icon name="walk-outline"></ion-icon>', label: '5 000+ км', class: 'silver' });
-} else if (totalKm >= 1000) {
-    achievements.push({ icon: '<ion-icon name="walk-outline"></ion-icon>', label: '1 000+ км', class: 'bronze' });
-}
-
-// Достижения по часам
-if (totalHours >= 500) {
-    achievements.push({ icon: '<ion-icon name="time-outline"></ion-icon>', label: '500+ часов', class: 'gold' });
-} else if (totalHours >= 200) {
-    achievements.push({ icon: '<ion-icon name="time-outline"></ion-icon>', label: '200+ часов', class: 'silver' });
-} else if (totalHours >= 50) {
-    achievements.push({ icon: '<ion-icon name="time-outline"></ion-icon>', label: '50+ часов', class: 'bronze' });
-}
-    
-    // Первое достижение
-    if (achievements.length === 0 && records.length > 0) {
-        achievements.push({ icon: '🌟', label: 'Первая запись!', class: 'bronze' });
-    }
-    
-    if (achievements.length === 0) {
-        container.innerHTML = `
-            <div style="text-align: center; padding: 20px; color: var(--ios-text-tertiary); width: 100%;">
-                <ion-icon name="trophy-outline" style="font-size: 36px; display: block; margin: 0 auto 8px;"></ion-icon>
-                <span style="font-size: 14px;">Добавьте первые записи, чтобы получать достижения!</span>
-            </div>
-        `;
-        return;
-    }
-    
-    container.innerHTML = achievements.map(a => `
-        <div class="achievement-badge ${a.class}">
-            <span style="font-size: 18px;">${a.icon}</span>
-            ${a.label}
-        </div>
-    `).join('');
-}
-
-
-
-// Обновляем при загрузке данных
-function updateHomeOnLoad() {
-    const homeTab = document.getElementById('tab-home');
-    if (homeTab && homeTab.classList.contains('active')) {
-        setTimeout(updateHomeTab, 200);
-    }
-}
-
-
-
-
-
-
-
 // ============================================
-// ЗАГРУЗКА ФОТО ПРОФИЛЯ
+// ЗАГРУЗКА ФОТО ПРОФИЛЯ (ОСТАЁТСЯ В SCRIPT.JS)
 // ============================================
-
-// Ключ для хранения аватара в localStorage
 const AVATAR_STORAGE_KEY = 'driverProfileAvatar';
 
-// Загрузка аватара при открытии профиля
 function loadProfileAvatar() {
     const avatarImg = document.getElementById('avatar-image');
     const avatarIcon = document.getElementById('avatar-icon');
     const avatarContainer = document.getElementById('profile-avatar');
-    
+
     if (!avatarImg || !avatarIcon) return;
-    
-    // Проверяем localStorage
+
     const savedAvatar = localStorage.getItem(AVATAR_STORAGE_KEY);
-    
+
     if (savedAvatar) {
         try {
-            // Показываем фото
             avatarImg.src = savedAvatar;
             avatarImg.style.display = 'block';
             avatarIcon.style.display = 'none';
             avatarContainer.style.background = 'none';
             avatarContainer.style.borderColor = 'var(--ios-success)';
-            
-            // Обновляем кнопку загрузки
+
             const uploadBtn = document.getElementById('avatar-upload-btn');
             if (uploadBtn) {
                 uploadBtn.style.background = 'var(--ios-success)';
@@ -3891,12 +3304,11 @@ function loadProfileAvatar() {
             console.error('❌ Ошибка загрузки аватара:', e);
         }
     } else {
-        // Показываем иконку
         avatarImg.style.display = 'none';
         avatarIcon.style.display = 'block';
         avatarContainer.style.background = 'var(--ios-accent-light)';
         avatarContainer.style.borderColor = 'var(--ios-accent)';
-        
+
         const uploadBtn = document.getElementById('avatar-upload-btn');
         if (uploadBtn) {
             uploadBtn.style.background = 'var(--ios-accent)';
@@ -3904,12 +3316,10 @@ function loadProfileAvatar() {
     }
 }
 
-// Загрузка фото через input
 function uploadAvatar(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    // ИСПРАВЛЕНИЕ: Лимит Firestore составляет строго 1 МБ (1024 * 1024 байт)
     if (file.size > 1 * 1024 * 1024) {
         alert('❌ Файл слишком большой для облачной синхронизации!\nМаксимальный размер: 1 МБ.\nПожалуйста, выберите фото меньшего размера или сожмите его.');
         event.target.value = '';
@@ -3923,10 +3333,9 @@ function uploadAvatar(event) {
     }
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function (e) {
         const imageData = e.target.result;
-        
-        // 1. Сначала сохраняем локально для мгновенного отображения
+
         try {
             localStorage.setItem(AVATAR_STORAGE_KEY, imageData);
             console.log('✅ Аватар сохранён в localStorage');
@@ -3937,7 +3346,6 @@ function uploadAvatar(event) {
             return;
         }
 
-        // 2. Обновляем интерфейс
         const avatarImg = document.getElementById('avatar-image');
         const avatarIcon = document.getElementById('avatar-icon');
         const avatarContainer = document.getElementById('profile-avatar');
@@ -3947,12 +3355,11 @@ function uploadAvatar(event) {
             avatarIcon.style.display = 'none';
             avatarContainer.style.background = 'none';
             avatarContainer.style.borderColor = 'var(--ios-success)';
-            
+
             const uploadBtn = document.getElementById('avatar-upload-btn');
             if (uploadBtn) uploadBtn.style.background = 'var(--ios-success)';
         }
 
-        // 3. Отправляем в Firebase
         if (currentUser && typeof db !== 'undefined') {
             saveAvatarToFirebase(imageData);
         }
@@ -3960,66 +3367,66 @@ function uploadAvatar(event) {
         showToast('✅ Фото профиля обновлено!');
         event.target.value = '';
     };
-    
-    reader.onerror = function() {
+
+    reader.onerror = function () {
         alert('❌ Ошибка чтения файла. Попробуйте ещё раз.');
         event.target.value = '';
     };
     reader.readAsDataURL(file);
 }
 
-// Сохранение аватара в Firebase
 async function saveAvatarToFirebase(imageData) {
     if (!currentUser) return;
-    
+
     try {
-        // Сохраняем в Firestore (в поле avatar)
         await db.collection('users')
             .doc(currentUser.uid)
             .set({
                 avatar: imageData,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
-        
+
         console.log('✅ Аватар сохранён в Firebase');
+
+        // ⭐ Обновляем время синхронизации
+        if (typeof window.remindersMarkAsSynced === 'function') {
+            window.remindersMarkAsSynced();
+        }
     } catch (error) {
         console.error('❌ Ошибка сохранения аватара в Firebase:', error);
     }
 }
 
-// Загрузка аватара из Firebase
 async function loadAvatarFromFirebase() {
     if (!currentUser || typeof db === 'undefined') return;
-    
+
     try {
         const doc = await db.collection('users')
             .doc(currentUser.uid)
             .get();
-        
+
         if (doc.exists && doc.data().avatar) {
             const avatarData = doc.data().avatar;
-            
-            // Сохраняем в localStorage
+
             localStorage.setItem(AVATAR_STORAGE_KEY, avatarData);
-            
-            // Обновляем отображение
+
             const avatarImg = document.getElementById('avatar-image');
             const avatarIcon = document.getElementById('avatar-icon');
             const avatarContainer = document.getElementById('profile-avatar');
-            
+
             if (avatarImg && avatarIcon) {
                 avatarImg.src = avatarData;
                 avatarImg.style.display = 'block';
                 avatarIcon.style.display = 'none';
                 avatarContainer.style.background = 'none';
                 avatarContainer.style.borderColor = 'var(--ios-success)';
-                
+
                 const uploadBtn = document.getElementById('avatar-upload-btn');
                 if (uploadBtn) {
                     uploadBtn.style.background = 'var(--ios-success)';
                 }
             }
-            
+
             console.log('✅ Аватар загружен из Firebase');
         }
     } catch (error) {
@@ -4027,55 +3434,54 @@ async function loadAvatarFromFirebase() {
     }
 }
 
-// Удаление аватара (контекстное меню или долгое нажатие)
 function removeAvatar() {
     if (!confirm('Удалить фото профиля?')) return;
-    
-    // Удаляем из localStorage
+
     localStorage.removeItem(AVATAR_STORAGE_KEY);
-    
-    // Удаляем из Firebase
+
     if (currentUser && typeof db !== 'undefined') {
         db.collection('users')
             .doc(currentUser.uid)
             .update({
                 avatar: firebase.firestore.FieldValue.delete()
             })
-            .then(() => console.log('✅ Аватар удалён из Firebase'))
+            .then(() => {
+                console.log('✅ Аватар удалён из Firebase');
+                // ⭐ Обновляем время синхронизации
+                if (typeof window.remindersMarkAsSynced === 'function') {
+                    window.remindersMarkAsSynced();
+                }
+            })
             .catch(err => console.error('❌ Ошибка удаления:', err));
     }
-    
-    // Обновляем отображение
+
     const avatarImg = document.getElementById('avatar-image');
     const avatarIcon = document.getElementById('avatar-icon');
     const avatarContainer = document.getElementById('profile-avatar');
-    
+
     if (avatarImg && avatarIcon) {
         avatarImg.src = '';
         avatarImg.style.display = 'none';
         avatarIcon.style.display = 'block';
         avatarContainer.style.background = 'var(--ios-accent-light)';
         avatarContainer.style.borderColor = 'var(--ios-accent)';
-        
+
         const uploadBtn = document.getElementById('avatar-upload-btn');
         if (uploadBtn) {
             uploadBtn.style.background = 'var(--ios-accent)';
         }
     }
-    
+
     showToast('🗑️ Фото профиля удалено');
 }
 
-
-
-// Показываем уведомление (Toast)
+// ============================================
+// TOAST УВЕДОМЛЕНИЕ
+// ============================================
 function showToast(message) {
-    // Проверяем, есть ли уже тост
     let toast = document.getElementById('custom-toast');
-    if (toast) {
-        toast.remove();
-    }
-    
+    if (toast) toast.remove();
+
     toast = document.createElement('div');
     toast.id = 'custom-toast';
     toast.style.cssText = `
@@ -4102,14 +3508,12 @@ function showToast(message) {
     `;
     toast.textContent = message;
     document.body.appendChild(toast);
-    
-    // Показываем
+
     setTimeout(() => {
         toast.style.opacity = '1';
         toast.style.transform = 'translateX(-50%) translateY(0)';
     }, 10);
-    
-    // Скрываем через 2.5 секунды
+
     setTimeout(() => {
         toast.style.opacity = '0';
         toast.style.transform = 'translateX(-50%) translateY(20px)';
@@ -4121,14 +3525,9 @@ function showToast(message) {
     }, 2500);
 }
 
-
-
 // ============================================
-// ПЛАВАЮЩАЯ КНОПКА "+" ДЛЯ ДОБАВЛЕНИЯ
+// FAB — ПУЛЬСАЦИЯ И ТУЛТИП
 // ============================================
-
-
-// Убираем пульсацию после первого использования
 let fabPulseRemoved = false;
 
 function removeFabPulse() {
@@ -4140,19 +3539,13 @@ function removeFabPulse() {
     }
 }
 
-// Добавляем обработчик клика для удаления пульсации
-document.addEventListener('click', function(e) {
+document.addEventListener('click', function (e) {
     const row = e.target.closest('.rcd-fuel, .rcd-repair');
     const myTip = document.getElementById('card-tooltip');
-    
-    // Тап вне тултипа — закрыть мой
+
     if (myTip && !myTip.contains(e.target) && !row) closeCardTooltip();
     if (!row) return;
-    
-    // Даём обработчику модуля среагировать на этот же клик
-    // (классы fuel-cell-with-details / repair-cell-with-details уже на строке).
-    // Если через 150 мс его тултип не появился (модуль вешает слушатели
-    // поточечно на ячейки, а не делегированием) — открываем свой.
+
     setTimeout(() => {
         const moduleTip = document.querySelector(
             '.fuel-tooltip.visible:not(#card-tooltip), .repair-tooltip.visible:not(#card-tooltip)'
@@ -4166,7 +3559,6 @@ document.addEventListener('click', function(e) {
     }, 150);
 });
 
-// На сенсорных экранах приводим подсказку к одному тексту в обоих тултипах
 function unifyTooltipHint() {
     if (!window.matchMedia || !matchMedia('(hover: none)').matches) return;
     document.querySelectorAll('.fuel-tooltip-hint, .repair-tooltip-hint').forEach(h => {
@@ -4174,590 +3566,35 @@ function unifyTooltipHint() {
     });
 }
 
-// Убираем пульсацию через 10 секунд (если пользователь не нажал)
 setTimeout(removeFabPulse, 10000);
 
-// Быстрый доступ через клавишу "N" (New)
-document.addEventListener('keydown', function(e) {
-    // Ctrl+N или Cmd+N для открытия ввода
+document.addEventListener('keydown', function (e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
         e.preventDefault();
-        openEntryTab();
+        if (typeof window.openEntryModal === 'function') {
+            window.openEntryModal();
+        }
     }
-    
-    // Escape для закрытия, если нужно
+
     if (e.key === 'Escape' && document.getElementById('tab-entry')?.classList.contains('active')) {
         switchTab('home');
     }
 });
 
 // ============================================
-// УПРАВЛЕНИЕ ЦЕЛЯМИ С СИНХРОНИЗАЦИЕЙ FIREBASE
+// ИНИЦИАЛИЗАЦИЯ
 // ============================================
-
-// Ключ для хранения целей в localStorage
-const GOALS_STORAGE_KEY = 'driverGoals';
-
-// Получение целей (сначала из localStorage, потом из Firebase)
-async function getGoals() {
-    // Сначала проверяем localStorage
-    let goals = null;
-    try {
-        const saved = localStorage.getItem(GOALS_STORAGE_KEY);
-        if (saved) {
-            goals = JSON.parse(saved);
-            console.log('📊 Цели из localStorage:', goals);
-        }
-    } catch (e) {
-        console.warn('⚠️ Ошибка чтения целей из localStorage:', e);
-    }
-    
-    // Если в localStorage нет, пробуем загрузить из Firebase
-    if (!goals && currentUser && typeof db !== 'undefined') {
-        try {
-            const doc = await db.collection('users')
-                .doc(currentUser.uid)
-                .get();
-            
-            if (doc.exists && doc.data().goals) {
-                goals = doc.data().goals;
-                // Сохраняем в localStorage для кэша
-                localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(goals));
-                console.log('✅ Цели загружены из Firebase:', goals);
-                return goals;
-            }
-        } catch (error) {
-            console.error('❌ Ошибка загрузки целей из Firebase:', error);
-        }
-    }
-    
-    // Если ничего нет, создаем дефолтные
-    if (!goals) {
-        goals = { income: 100000, orders: 500, hours: 200 };
-        localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(goals));
-        console.log('📊 Созданы дефолтные цели:', goals);
-        
-        // Сохраняем в Firebase
-        if (currentUser && typeof db !== 'undefined') {
-            await saveGoalsToFirebase(goals);
-        }
-    }
-    
-    return goals;
-}
-
-// Сохранение целей в Firebase
-async function saveGoalsToFirebase(goals) {
-    if (!currentUser || typeof db === 'undefined') {
-        console.log('⚠️ Firebase не доступен, цели сохранены только локально');
-        return false;
-    }
-    
-    try {
-        await db.collection('users')
-            .doc(currentUser.uid)
-            .set({
-                goals: goals,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-        console.log('✅ Цели сохранены в Firebase');
-        return true;
-    } catch (error) {
-        console.error('❌ Ошибка сохранения целей в Firebase:', error);
-        return false;
-    }
-}
-
-// ============================================
-// ДИАЛОГ НАСТРОЙКИ ЦЕЛЕЙ (iOS MODAL STYLE)
-// Сохраняет в localStorage + Firebase
-// ============================================
-async function showGoalSettings() {
-    console.log('⚙️ Открытие настроек целей');
-    
-    // 1. Проверяем авторизацию
-    if (!currentUser) {
-        showToast('❌ Войдите в аккаунт для настройки целей');
-        return;
-    }
-    
-    // 2. Загружаем текущие цели
-    const goals = await getGoals();
-    if (!goals) {
-        showToast('❌ Ошибка загрузки целей');
-        return;
-    }
-    console.log('📊 Текущие цели:', goals);
-    
-    // 3. Создаём модальное окно
-    const overlay = document.createElement('div');
-    overlay.className = 'goals-modal-overlay';
-    overlay.innerHTML = `
-        <div class="goals-modal">
-            <div class="goals-modal-header">
-                <ion-icon name="flag-outline"></ion-icon>
-                <h3>Мои цели</h3>
-            </div>
-
-            <div class="goals-modal-body">
-                <div class="goal-input-group">
-                    <label>
-                        <ion-icon name="cash-outline" style="color: var(--ios-success);"></ion-icon>
-                        Доход за месяц
-                    </label>
-                    <input type="number" id="goal-income-input" value="${goals.income}" min="1" step="1000" inputmode="numeric" placeholder="100000">
-                    <div class="hint">
-                        <ion-icon name="information-circle-outline"></ion-icon>
-                        Целевая сумма заработка
-                    </div>
-                </div>
-
-                <div class="goal-input-group">
-                    <label>
-                        <ion-icon name="cube-outline" style="color: var(--ios-accent);"></ion-icon>
-                        Заказы за месяц
-                    </label>
-                    <input type="number" id="goal-orders-input" value="${goals.orders}" min="1" step="10" inputmode="numeric" placeholder="500">
-                    <div class="hint">
-                        <ion-icon name="information-circle-outline"></ion-icon>
-                        Количество выполненных заказов
-                    </div>
-                </div>
-
-                <div class="goal-input-group">
-                    <label>
-                        <ion-icon name="time-outline" style="color: var(--ios-warning);"></ion-icon>
-                        Часы за месяц
-                    </label>
-                    <input type="number" id="goal-hours-input" value="${goals.hours}" min="1" step="10" inputmode="numeric" placeholder="200">
-                    <div class="hint">
-                        <ion-icon name="information-circle-outline"></ion-icon>
-                        Общее рабочее время
-                    </div>
-                </div>
-            </div>
-
-            <div class="goals-modal-footer">
-                <button class="btn btn-secondary" id="goal-cancel-btn">
-                    <ion-icon name="close-outline"></ion-icon>
-                    Отмена
-                </button>
-                <button class="btn btn-primary" id="goal-save-btn">
-                    <ion-icon name="checkmark-outline"></ion-icon>
-                    Сохранить
-                </button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-    
-    // 4. Показываем с анимацией (даём браузеру применить начальные стили)
-    requestAnimationFrame(() => overlay.classList.add('visible'));
-    
-    // 5. Ссылки на элементы
-    const incomeInp = overlay.querySelector('#goal-income-input');
-    const ordersInp = overlay.querySelector('#goal-orders-input');
-    const hoursInp = overlay.querySelector('#goal-hours-input');
-    const cancelBtn = overlay.querySelector('#goal-cancel-btn');
-    const saveBtn = overlay.querySelector('#goal-save-btn');
-    
-    // Фокус на первое поле после анимации
-    setTimeout(() => incomeInp.focus(), 300);
-    
-    // 6. Валидация в реальном времени
-    const validate = (input) => {
-        const val = parseFloat(input.value);
-        input.classList.toggle('invalid', isNaN(val) || val <= 0);
-    };
-    [incomeInp, ordersInp, hoursInp].forEach(inp => {
-        inp.addEventListener('input', () => validate(inp));
-    });
-    
-    // 7. Функция закрытия с анимацией
-    const closeModal = () => {
-        overlay.classList.remove('visible');
-        document.removeEventListener('keydown', escHandler);
-        setTimeout(() => {
-            if (overlay.parentNode) overlay.remove();
-        }, 300);
-    };
-    
-    // 8. Закрытие по клику на оверлей (но не на саму модалку)
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) closeModal();
-    });
-    
-    // 9. Закрытие по Escape
-    const escHandler = (e) => {
-        if (e.key === 'Escape') closeModal();
-    };
-    document.addEventListener('keydown', escHandler);
-    
-    // 10. Кнопка "Отмена"
-    cancelBtn.addEventListener('click', closeModal);
-    
-    // 11. Кнопка "Сохранить" — с валидацией + Firebase
-    saveBtn.addEventListener('click', async () => {
-        validate(incomeInp);
-        validate(ordersInp);
-        validate(hoursInp);
-        
-        const income = parseFloat(incomeInp.value);
-        const orders = parseInt(ordersInp.value, 10);
-        const hours = parseFloat(hoursInp.value);
-        
-        if (isNaN(income) || income <= 0) {
-            showToast('❌ Введите корректный доход');
-            incomeInp.focus();
-            return;
-        }
-        if (isNaN(orders) || orders <= 0) {
-            showToast('❌ Введите корректное количество заказов');
-            ordersInp.focus();
-            return;
-        }
-        if (isNaN(hours) || hours <= 0) {
-            showToast('❌ Введите корректное количество часов');
-            hoursInp.focus();
-            return;
-        }
-        
-        // Блокируем кнопку на время сохранения
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<ion-icon name="sync-outline"></ion-icon> Сохраняем...';
-        
-        const newGoals = { income, orders, hours };
-        
-        try {
-            // === СОХРАНЕНИЕ В LOCALSTORAGE ===
-            localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(newGoals));
-            console.log('✅ Цели сохранены в localStorage:', newGoals);
-            
-            // === СОХРАНЕНИЕ В FIREBASE ===
-            const saved = await saveGoalsToFirebase(newGoals);
-            
-            // === ОБНОВЛЕНИЕ ОТОБРАЖЕНИЯ ===
-            await updateGoals();
-            
-            // === УВЕДОМЛЕНИЕ ===
-            if (saved) {
-                showToast('✅ Цели обновлены и сохранены в облаке!');
-            } else {
-                showToast('⚠️ Цели сохранены локально (ошибка синхронизации)');
-            }
-            
-            closeModal();
-        } catch (error) {
-            console.error('❌ Ошибка сохранения целей:', error);
-            showToast('❌ Ошибка сохранения: ' + error.message);
-            saveBtn.disabled = false;
-            saveBtn.innerHTML = '<ion-icon name="checkmark-outline"></ion-icon> Сохранить';
-        }
-    });
-    
-    // 12. Enter в любом поле — сохранить
-    [incomeInp, ordersInp, hoursInp].forEach((inp, idx, arr) => {
-        inp.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                if (idx < arr.length - 1) arr[idx + 1].focus();
-                else saveBtn.click();
-            }
-        });
-    });
-}
-
-// Обновление отображения целей
-async function updateGoals() {
-    console.log('🎯 Обновление отображения целей');
-    
-    // Проверяем наличие элементов
-    const elements = {
-        incomeCurrent: document.getElementById('goal-income-current'),
-        incomeTarget: document.getElementById('goal-income-target'),
-        incomeBar: document.getElementById('goal-income-bar'),
-        ordersCurrent: document.getElementById('goal-orders-current'),
-        ordersTarget: document.getElementById('goal-orders-target'),
-        ordersBar: document.getElementById('goal-orders-bar'),
-        hoursCurrent: document.getElementById('goal-hours-current'),
-        hoursTarget: document.getElementById('goal-hours-target'),
-        hoursBar: document.getElementById('goal-hours-bar')
-    };
-    
-    // Проверяем, что все элементы существуют
-    for (const [key, el] of Object.entries(elements)) {
-        if (!el) {
-            console.warn(`⚠️ Элемент ${key} не найден в DOM`);
-            return;
-        }
-    }
-    
-    // Загружаем цели
-    const goals = await getGoals();
-    if (!goals) {
-        console.error('❌ Не удалось загрузить цели');
-        return;
-    }
-    
-    console.log('📊 Загружены цели:', goals);
-    
-    // Данные за текущий месяц
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    
-    const monthRecords = records.filter(r => {
-        if (!r.date) return false;
-        const d = parseLocalDate(r.date);
-        if (!d) return false;
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    });
-    
-    const monthIncome = monthRecords.reduce((sum, r) => sum + (r.totalIncome || 0), 0);
-    const monthOrders = monthRecords.reduce((sum, r) => sum + (r.ordersDelivery || 0), 0);
-    const monthHours = monthRecords.reduce((sum, r) => sum + (r.hours || 0), 0);
-    
-    console.log('📊 Данные за месяц:', { monthIncome, monthOrders, monthHours });
-    
-    // Обновляем тексты
-    elements.incomeCurrent.textContent = Math.round(monthIncome);
-    elements.incomeTarget.textContent = goals.income;
-    elements.ordersCurrent.textContent = monthOrders;
-    elements.ordersTarget.textContent = goals.orders;
-    elements.hoursCurrent.textContent = monthHours.toFixed(1);
-    elements.hoursTarget.textContent = goals.hours;
-    
-    // Обновляем прогресс-бары
-    const incomePercent = goals.income > 0 ? Math.min((monthIncome / goals.income) * 100, 100) : 0;
-    const ordersPercent = goals.orders > 0 ? Math.min((monthOrders / goals.orders) * 100, 100) : 0;
-    const hoursPercent = goals.hours > 0 ? Math.min((monthHours / goals.hours) * 100, 100) : 0;
-    
-    elements.incomeBar.style.width = incomePercent + '%';
-    elements.ordersBar.style.width = ordersPercent + '%';
-    elements.hoursBar.style.width = hoursPercent + '%';
-    
-    console.log('📊 Прогресс:', { incomePercent, ordersPercent, hoursPercent });
-}
-
-// ============================================
-// ТРЕНДЫ
-// ============================================
-
-// Обновление трендов
-function updateTrends() {
-    console.log('📈 Обновление трендов');
-    
-    // Проверяем наличие всех элементов
-    const elements = {
-        income: document.getElementById('trend-income'),
-        orders: document.getElementById('trend-orders'),
-        hours: document.getElementById('trend-hours'),
-        efficiency: document.getElementById('trend-efficiency')
-    };
-    
-    // Проверяем, что все элементы существуют
-    for (const [key, el] of Object.entries(elements)) {
-        if (!el) {
-            console.warn(`⚠️ Элемент trend-${key} не найден в DOM`);
-            return;
-        }
-    }
-    
-    if (records.length === 0) {
-        elements.income.textContent = '0%';
-        elements.orders.textContent = '0%';
-        elements.hours.textContent = '0%';
-        elements.efficiency.textContent = '0%';
-        return;
-    }
-    
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-    const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-    
-    // Фильтрация записей за текущий месяц
-    const currentRecords = records.filter(r => {
-        if (!r.date) return false;
-        const d = parseLocalDate(r.date);
-        if (!d) return false;
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    });
-    
-    // Фильтрация записей за предыдущий месяц
-    const prevRecords = records.filter(r => {
-        if (!r.date) return false;
-        const d = parseLocalDate(r.date);
-        if (!d) return false;
-        return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
-    });
-    
-    const calc = (arr) => {
-        const totalIncome = arr.reduce((sum, r) => sum + (r.totalIncome || 0), 0);
-        const totalOrders = arr.reduce((sum, r) => sum + (r.ordersDelivery || 0), 0);
-        const totalHours = arr.reduce((sum, r) => sum + (r.hours || 0), 0);
-        const totalProfit = arr.reduce((sum, r) => sum + (r.netProfit || 0), 0);
-        const efficiency = totalIncome > 0 ? (totalProfit / totalIncome) * 100 : 0;
-        return { income: totalIncome, orders: totalOrders, hours: totalHours, efficiency };
-    };
-    
-    const c = calc(currentRecords);
-    const p = calc(prevRecords);
-    
-    const calcTrend = (current, prev) => {
-        if (prev === 0) return current > 0 ? 100 : 0;
-        return ((current - prev) / prev) * 100;
-    };
-    
-    const formatTrend = (value) => {
-        const sign = value > 0 ? '+' : '';
-        return sign + value.toFixed(1) + '%';
-    };
-    
-    elements.income.textContent = formatTrend(calcTrend(c.income, p.income));
-    elements.orders.textContent = formatTrend(calcTrend(c.orders, p.orders));
-    elements.hours.textContent = formatTrend(calcTrend(c.hours, p.hours));
-    elements.efficiency.textContent = formatTrend(calcTrend(c.efficiency, p.efficiency));
-    
-    console.log('✅ Тренды обновлены');
-}
-
-// ============================================
-// ПОСЛЕДНИЕ ЗАПИСИ
-// ============================================
-
-// Обновление последних записей
-function updateRecentRecords() {
-    const container = document.getElementById('recent-records-list');
-    const countEl = document.getElementById('recent-count');
-    
-    if (!container) {
-        console.warn('⚠️ Контейнер recent-records-list не найден');
-        return;
-    }
-    
-    console.log('📋 Обновление последних записей, всего:', records.length);
-    
-    // Сортировка с использованием parseLocalDate
-    const sorted = [...records].sort((a, b) => {
-        const da = parseLocalDate(a.date);
-        const db = parseLocalDate(b.date);
-        return (db || 0) - (da || 0);
-    });
-    const recent = sorted.slice(0, 5);
-    
-    if (countEl) countEl.textContent = sorted.length;
-    
-    if (recent.length === 0) {
-        container.innerHTML = `
-            <div style="text-align: center; padding: 30px; color: var(--ios-text-tertiary);">
-                <ion-icon name="document-text-outline" style="font-size: 48px; display: block; margin: 0 auto 12px;"></ion-icon>
-                Нет записей. Начните вести журнал!
-            </div>
-        `;
-        return;
-    }
-    
-    container.innerHTML = recent.map((r, index) => {
-        // Используем parseLocalDate для форматирования даты
-        const d = parseLocalDate(r.date);
-        const dateStr = d ? d.toLocaleDateString('ru-RU') : r.date || '-';
-        
-        return `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0; ${index < recent.length - 1 ? 'border-bottom: 1px solid var(--ios-border);' : ''}">
-                <div style="flex: 1; min-width: 0;">
-                    <div style="font-weight: 600; font-size: 15px;">${dateStr}</div>
-                    <div style="font-size: 13px; color: var(--ios-text-tertiary);">
-                        ${r.weekday || ''} · <ion-icon name="cube-outline" style="vertical-align: middle; margin-right: 4px; font-size: 14px;"></ion-icon> ${r.ordersDelivery || 0} заказов · <ion-icon name="time-outline" style="vertical-align: middle; margin-right: 4px; font-size: 14px;"></ion-icon> ${r.hours || 0} ч
-                    </div>
-                </div>
-                <div style="text-align: right; flex-shrink: 0; margin-left: 12px;">
-                    <div style="font-weight: 700; font-size: 16px; color: ${r.netProfit >= 0 ? 'var(--ios-success)' : 'var(--ios-danger)'};">
-                        ${formatMoney(r.netProfit)}
-                    </div>
-                    <div style="font-size: 12px; color: var(--ios-text-tertiary);">
-                        доход ${formatMoney(r.totalIncome || 0)}
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-    
-    console.log('✅ Последние записи обновлены, показано:', recent.length);
-}
-
-
-
-// ============================================
-// TOAST УВЕДОМЛЕНИЕ
-// ============================================
-
-function showToast(message) {
-    let toast = document.getElementById('custom-toast');
-    if (toast) toast.remove();
-    
-    toast = document.createElement('div');
-    toast.id = 'custom-toast';
-    toast.style.cssText = `
-        position: fixed;
-        bottom: 120px;
-        left: 50%;
-        transform: translateX(-50%) translateY(20px);
-        background: rgba(0, 0, 0, 0.8);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        color: white;
-        padding: 12px 24px;
-        border-radius: 14px;
-        font-size: 15px;
-        font-weight: 600;
-        z-index: 99999;
-        opacity: 0;
-        transition: all 0.4s cubic-bezier(0.32, 0.72, 0, 1);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-        max-width: 90%;
-        text-align: center;
-        pointer-events: none;
-        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-    `;
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.style.opacity = '1';
-        toast.style.transform = 'translateX(-50%) translateY(0)';
-    }, 10);
-    
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(-50%) translateY(20px)';
-        setTimeout(() => {
-            if (toast.parentNode) toast.remove();
-        }, 400);
-    }, 2500);
-}
-
-
-
-// ============================================
-// ЕДИНСТВЕННЫЙ DOMContentLoaded - ВСЯ ИНИЦИАЛИЗАЦИЯ В ОДНОМ МЕСТЕ
-// ============================================
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     console.log('📱 DOM загружен, инициализация приложения...');
-    
-    // Устанавливаем флаги
+
     window._homeTabInitialized = false;
     window._homeDataUpdated = false;
-    
-    // ========================================
-    // 1. ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ
-    // ========================================
+
     (async function initApp() {
         console.log('🚀 Инициализация приложения...');
-        
+
         await loadData();
-        
+
         let fixed = false;
         records = records.map(r => {
             if (!r.recordType || r.recordType === '' || r.recordType === 'undefined') {
@@ -4766,59 +3603,50 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             return normalizeRecord(r);
         });
-        
+
         if (fixed) {
             console.log('✅ Исправлены некорректные recordType в localStorage');
             saveData();
         }
-        
-        
-        
-        
-        
+
         const tariffForm = document.getElementById('tariff-form');
         if (tariffForm) {
             tariffForm.addEventListener('submit', saveTariff);
         }
-        
+
         const mainContainer = document.querySelector('.container');
         const bottomNav = document.querySelector('.bottom-nav');
         const authScreen = document.getElementById('auth-screen');
-        
+
         if (mainContainer) mainContainer.style.display = 'none';
         if (bottomNav) bottomNav.style.display = 'none';
         if (authScreen) authScreen.classList.remove('hidden');
-        
+
         addFormValidation();
-        
+
         console.log('✅ Базовая инициализация завершена. Ожидание авторизации...');
     })();
-    
-    // ========================================
-    // 2. ИНИЦИАЛИЗАЦИЯ ФИЛЬТРОВ ИСТОРИИ
-    // ========================================
+
     initHistoryFilters();
     console.log('✅ Фильтры истории инициализированы');
-    
-    // ========================================
-    // 3. ИНИЦИАЛИЗАЦИЯ ИНДИКАТОРА ПОДКЛЮЧЕНИЯ
-    // ========================================
-    if (typeof window.renderUnifiedStatus === 'function') {     window.renderUnifiedStatus(); }
-    
-    setTimeout(function() {
-        checkFirebaseConnection();
+
+    if (typeof window.renderUnifiedStatus === 'function') { window.renderUnifiedStatus(); }
+
+    setTimeout(function () {
+        if (typeof window.checkFirebaseConnection === 'function') {
+            window.checkFirebaseConnection();
+        }
     }, 3000);
-    
-    setInterval(function() {
+
+    setInterval(function () {
         if (document.body.classList.contains('authenticated')) {
-            checkFirebaseConnection();
+            if (typeof window.checkFirebaseConnection === 'function') {
+                window.checkFirebaseConnection();
+            }
         }
     }, 30000);
     console.log('✅ Индикатор подключения инициализирован');
-    
-    // ========================================
-    // 4. ИНИЦИАЛИЗАЦИЯ ИМЕНИ ПОЛЬЗОВАТЕЛЯ
-    // ========================================
+
     const nameEl = document.getElementById('profile-name');
     if (nameEl) {
         nameEl.addEventListener('dblclick', showEditNameDialog);
@@ -4826,65 +3654,59 @@ document.addEventListener('DOMContentLoaded', function() {
         nameEl.title = 'Двойной клик для изменения имени';
     }
     console.log('✅ Имя пользователя инициализировано');
-    
-    // ========================================
-    // 5. ИНИЦИАЛИЗАЦИЯ АВАТАРА
-    // ========================================
+
     const avatarContainer = document.getElementById('profile-avatar-container');
     if (avatarContainer) {
         let pressTimer = null;
-        
-        avatarContainer.addEventListener('mousedown', function(e) {
-            pressTimer = setTimeout(function() {
+
+        avatarContainer.addEventListener('mousedown', function () {
+            pressTimer = setTimeout(function () {
                 removeAvatar();
             }, 1000);
         });
-        
-        avatarContainer.addEventListener('mouseup', function() {
+
+        avatarContainer.addEventListener('mouseup', function () {
             clearTimeout(pressTimer);
         });
-        
-        avatarContainer.addEventListener('mouseleave', function() {
+
+        avatarContainer.addEventListener('mouseleave', function () {
             clearTimeout(pressTimer);
         });
-        
-        avatarContainer.addEventListener('touchstart', function(e) {
-            pressTimer = setTimeout(function() {
+
+        avatarContainer.addEventListener('touchstart', function () {
+            pressTimer = setTimeout(function () {
                 removeAvatar();
             }, 1000);
         });
-        
-        avatarContainer.addEventListener('touchend', function() {
+
+        avatarContainer.addEventListener('touchend', function () {
             clearTimeout(pressTimer);
         });
-        
-        avatarContainer.addEventListener('touchmove', function() {
+
+        avatarContainer.addEventListener('touchmove', function () {
             clearTimeout(pressTimer);
         });
     }
-    
+
     loadProfileAvatar();
     console.log('✅ Аватар инициализирован');
-    
-    // ========================================
-    // 6. ИНИЦИАЛИЗАЦИЯ FAB КНОПКИ
-    // ========================================
+
     const fab = document.getElementById('fab-add');
     const tooltip = document.getElementById('fab-tooltip');
-    
+
     if (fab && tooltip) {
-        fab.addEventListener('mouseenter', function() {
+        fab.addEventListener('mouseenter', function () {
             tooltip.style.opacity = '1';
             tooltip.style.transform = 'translateX(0) scale(1)';
         });
-        
-        fab.addEventListener('mouseleave', function() {
+
+        fab.addEventListener('mouseleave', function () {
             tooltip.style.opacity = '0';
             tooltip.style.transform = 'translateX(10px) scale(0.9)';
         });
-        
+
         let tooltipShown = false;
-        fab.addEventListener('touchstart', function() {
+        fab.addEventListener('touchstart', function () {
             if (!tooltipShown) {
                 tooltip.style.opacity = '1';
                 tooltip.style.transform = 'translateX(0) scale(1)';
@@ -4897,25 +3719,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     console.log('✅ FAB кнопка инициализирована');
-    
-    // ========================================
-    // 7. НЕ ВЫЗЫВАЕМ updateHomeTab() ЗДЕСЬ
-    // ========================================
-    // Главная вкладка обновится после входа пользователя
+
     console.log('✅ Вкладка "Главная" ожидает авторизации...');
-    
     console.log('✅ ВСЯ ИНИЦИАЛИЗАЦИЯ ЗАВЕРШЕНА!');
-    
-    // ========================================
-// 8. ВОССТАНОВЛЕНИЕ СОСТОЯНИЯ (ПОСЛЕДНЕЕ ДЕЙСТВИЕ!)
-// ========================================
-// Восстанавливаем последнюю активную вкладку после загрузки данных
-setTimeout(() => {
-    restoreState();
-}, 500);
+
+    setTimeout(() => {
+        restoreState();
+    }, 500);
 });
 
-// Автопереключение режим при изменении ширины экрана
 let _resizeTimer;
 window.addEventListener('resize', () => {
     clearTimeout(_resizeTimer);
@@ -4924,7 +3736,6 @@ window.addEventListener('resize', () => {
     }, 250);
 });
 
-// Инициализация кнопок переключателя
 const btnTable = document.getElementById('vmt-table');
 const btnCards = document.getElementById('vmt-cards');
 if (btnTable && btnCards) {
@@ -4937,11 +3748,8 @@ if (btnTable && btnCards) {
     }
 }
 
-
-
 // ===== ГАРАНТИРОВАННАЯ ПРИВЯЗКА ФИЛЬТРОВ =====
-document.addEventListener('DOMContentLoaded', function() {
-    // Делаем все функции глобально доступными
+document.addEventListener('DOMContentLoaded', function () {
     window.applyFilters = applyFilters;
     window.applySorting = applySorting;
     window.renderTable = renderTable;
@@ -4950,10 +3758,9 @@ document.addEventListener('DOMContentLoaded', function() {
     window.filterState = filterState;
     window.sortState = sortState;
     window.records = records;
-    
+
     console.log('✅ Все функции и переменные экспортированы в window');
-    
-    // Проверяем, что строка фильтров существует
+
     const filterRow = document.getElementById('filter-row');
     if (filterRow) {
         console.log('✅ Строка фильтров найдена, display:', filterRow.style.display);
@@ -4962,93 +3769,27 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Заполняет выпадающие списки автомобилей в формах топлива и ремонта
 function updateFormVehicleSelects() {
     const vehicles = typeof window.getVehicles === 'function' ? window.getVehicles() : [{ id: 'default', name: 'Основной автомобиль', plate: 'Не указан' }];
-    
+
     const optionsHTML = vehicles.map(v => `<option value="${v.id}">${v.name} (${v.plate})</option>`).join('');
-    
+
     const fuelSelect = document.getElementById('fuel-vehicle-select');
     const repairSelect = document.getElementById('repair-vehicle-select');
-    
+
     if (fuelSelect) fuelSelect.innerHTML = optionsHTML;
     if (repairSelect) repairSelect.innerHTML = optionsHTML;
 }
 
-// Вызываем эту функцию при загрузке страницы и при смене автомобиля
 document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(updateFormVehicleSelects, 500); // Небольшая задержка, чтобы модуль автомобилей успел загрузиться
+    setTimeout(updateFormVehicleSelects, 500);
 });
 
-// Переопределяем notifyVehicleChanged, чтобы обновлять формы при смене авто
-const originalNotifyVehicleChanged = window.notifyVehicleChanged || function() {};
-window.notifyVehicleChanged = function() {
+const originalNotifyVehicleChanged = window.notifyVehicleChanged || function () { };
+window.notifyVehicleChanged = function () {
     originalNotifyVehicleChanged();
     updateFormVehicleSelects();
 };
-
-// ============================================
-// КНОПКА «АВТО» С ВСПЛЫВАЮЩИМ МЕНЮ (Топливо + Ремонт)
-// ============================================
-function toggleAutoMenu(e) {
-    if (e) e.stopPropagation();
-    const menu = document.getElementById('auto-menu');
-    const btn = document.getElementById('nav-auto-btn');
-    if (!menu || !btn) return;
-    
-    if (menu.classList.contains('open')) { closeAutoMenu(); return; }
-    
-    // Меню выпадает ВВЕРХ над кнопкой «Авто»
-    const r = btn.getBoundingClientRect();
-    const mw = 92;
-    let left = r.left + r.width / 2 - mw / 2;
-    left = Math.max(8, Math.min(left, window.innerWidth - mw - 8));
-    menu.style.width = mw + 'px';
-    menu.style.left = left + 'px';
-    menu.style.bottom = (window.innerHeight - r.top + 10) + 'px';
-    menu.classList.add('open');
-    btn.classList.add('menu-open');
-}
-
-function closeAutoMenu() {
-    const menu = document.getElementById('auto-menu');
-    const btn = document.getElementById('nav-auto-btn');
-    if (menu) menu.classList.remove('open');
-    if (btn) btn.classList.remove('menu-open');
-}
-
-function selectAutoTab(tab) {
-    closeAutoMenu();
-    switchTab(tab);
-}
-
-// Закрытие по тапу вне меню
-document.addEventListener('click', function(e) {
-    const menu = document.getElementById('auto-menu');
-    const btn = document.getElementById('nav-auto-btn');
-    if (!menu || !menu.classList.contains('open')) return;
-    if (menu.contains(e.target) || (btn && btn.contains(e.target))) return;
-    closeAutoMenu();
-});
-
-// Обёртка switchTab: «Авто» подсвечивается для fuel/repair,
-// вкладка корректно сохраняется и восстанавливается после перезагрузки
-(function() {
-    const origSwitchTab = window.switchTab;
-    if (typeof origSwitchTab !== 'function') return;
-    
-    window.switchTab = function(tabName) {
-        const autoBtn = document.getElementById('nav-auto-btn');
-        if (autoBtn && (tabName === 'fuel' || tabName === 'repair')) {
-            autoBtn.setAttribute('data-tab', tabName);
-        }
-        origSwitchTab.apply(this, arguments);
-        
-        document.querySelectorAll('#auto-menu .auto-menu-item').forEach(function(it) {
-            it.classList.toggle('active', it.getAttribute('data-tab') === tabName);
-        });
-    };
-})();
 
 // ============================================
 // КНОПКИ «АВТО» И «ОТЧЁТЫ» С ВСПЛЫВАЮЩИМИ МЕНЮ
@@ -5069,7 +3810,6 @@ function togglePopupMenu(menuId, btnId) {
     closeAllMenus();
     if (wasOpen) return;
 
-    // Меню выпадает ВВЕРХ над своей кнопкой
     const r = btn.getBoundingClientRect();
     const mw = 92;
     let left = r.left + r.width / 2 - mw / 2;
@@ -5093,7 +3833,6 @@ function closeAllMenus() {
 function selectAutoTab(tab) { closeAllMenus(); switchTab(tab); }
 function selectReportsTab(tab) { closeAllMenus(); switchTab(tab); }
 
-// Закрытие по тапу вне меню
 document.addEventListener('click', function (e) {
     const menus = ['auto-menu', 'reports-menu'].map(id => document.getElementById(id)).filter(Boolean);
     const btns = ['nav-auto-btn', 'nav-reports-btn'].map(id => document.getElementById(id)).filter(Boolean);
@@ -5103,7 +3842,7 @@ document.addEventListener('click', function (e) {
     closeAllMenus();
 });
 
-// Обёртка switchTab: подсветка «Авто» и «Отчёты» + корректное сохранение вкладок
+// Обёртка switchTab для подсветки «Авто» и «Отчёты»
 (function () {
     const origSwitchTab = window.switchTab;
     if (typeof origSwitchTab !== 'function') return;
@@ -5129,20 +3868,18 @@ document.addEventListener('click', function (e) {
 })();
 
 // ============================================
-// FAB: МЕНЮ ДОБАВЛЕНИЯ (Запись / Топливо / Ремонт)
+// FAB: МЕНЮ ДОБАВЛЕНИЯ
 // ============================================
 function toggleFabMenu(e) {
     if (e) e.stopPropagation();
     const menu = document.getElementById('fab-menu');
     const fab = document.getElementById('fab-add');
     if (!menu || !fab) return;
-    
+
     if (menu.classList.contains('open')) { closeFabMenu(); return; }
-    
-    // Закрываем другие открытые меню («Авто», «Отчёты»)
+
     if (typeof closeAllMenus === 'function') closeAllMenus();
-    
-    // Меню выпадает ВВЕРХ над кнопкой «+»
+
     const r = fab.getBoundingClientRect();
     const mw = 92;
     let left = r.left + r.width / 2 - mw / 2;
@@ -5163,41 +3900,35 @@ function closeFabMenu() {
 
 function selectFabAction(action) {
     closeFabMenu();
-    
-    // 1. Запись дня — открывает модалку
+
     if (action === 'entry') {
         if (typeof window.openEntryModal === 'function') {
             window.openEntryModal();
         }
         return;
     }
-    
-    // 2. Топливо — ОТКРЫВАЕМ МОДАЛКУ (ИСПРАВЛЕНО)
+
     if (action === 'fuel') {
         if (typeof window.openFuelModal === 'function') {
             window.openFuelModal();
         } else {
-            // Фолбэк, только если модуль топлива вдруг не загрузился
             switchTab('fuel');
             setTimeout(() => scrollToFirstField('tab-fuel', ['fuel-form', 'fuel-log-form', 'add-fuel-form']), 350);
         }
         return;
     }
-    
-// 3. Ремонт — ОТКРЫВАЕМ МОДАЛКУ (как у Записи и Топлива)
-if (action === 'repair') {
-    if (typeof window.openRepairModal === 'function') {
-        window.openRepairModal();
-    } else {
-        // Фолбэк, только если модуль ремонта вдруг не загрузился
-        switchTab('repair');
-        setTimeout(() => scrollToFirstField('tab-repair', ['repair-form', 'add-repair-form']), 350);
+
+    if (action === 'repair') {
+        if (typeof window.openRepairModal === 'function') {
+            window.openRepairModal();
+        } else {
+            switchTab('repair');
+            setTimeout(() => scrollToFirstField('tab-repair', ['repair-form', 'add-repair-form']), 350);
+        }
+        return;
     }
-    return;
-}
 }
 
-// Универсальный скролл к форме и фокус на первом поле
 function scrollToFirstField(tabId, formIds) {
     let target = null;
     (formIds || []).forEach(id => { if (!target) target = document.getElementById(id); });
@@ -5213,8 +3944,7 @@ function scrollToFirstField(tabId, formIds) {
     }
 }
 
-// Закрытие меню FAB по тапу вне его
-document.addEventListener('click', function(e) {
+document.addEventListener('click', function (e) {
     const menu = document.getElementById('fab-menu');
     const fab = document.getElementById('fab-add');
     if (!menu || !menu.classList.contains('open')) return;
@@ -5223,13 +3953,12 @@ document.addEventListener('click', function(e) {
 });
 
 // ============================================
-// СВОРАЧИВАНИЕ «УПРАВЛЕНИЕ ТАРИФАМИ» — v3 (ИСПРАВЛЕНО)
-// (по умолчанию СВЁРНУТО, стрелка смотрит ВНИЗ)
+// СВОРАЧИВАНИЕ «УПРАВЛЕНИЕ ТАРИФАМИ»
 // ============================================
-(function() {
+(function () {
     function initTariffsCollapse() {
         if (document.getElementById('tariffs-collapse-done-v3')) return;
-        
+
         const h2 = Array.from(document.querySelectorAll('h2'))
             .find(el => {
                 const t = el.textContent.replace(/\s+/g, ' ').trim();
@@ -5238,8 +3967,7 @@ document.addEventListener('click', function(e) {
         if (!h2) return;
         const firstCard = h2.closest('.card') || h2.parentElement;
         if (!firstCard) return;
-        
-        // --- Область 1: всё внутри карточки после заголовка ---
+
         const region1 = document.createElement('div');
         region1.className = 'collapse-region';
         const inner1 = document.createElement('div');
@@ -5252,8 +3980,7 @@ document.addEventListener('click', function(e) {
             inner1.appendChild(cur);
         }
         firstCard.appendChild(region1);
-        
-        // --- Область 2: соседние блоки «Массовые действия» и «История тарифов» ---
+
         const extraBlocks = [];
         let next = firstCard.nextElementSibling;
         while (next) {
@@ -5273,14 +4000,10 @@ document.addEventListener('click', function(e) {
             firstCard.parentNode.insertBefore(region2, extraBlocks[0]);
             extraBlocks.forEach(b => inner2.appendChild(b));
         }
-        
-        // --- ✅ ПЕРВОНАЧАЛЬНОЕ СОСТОЯНИЕ: СВЁРНУТО ---
+
         region1.classList.add('collapsed');
         if (region2) region2.classList.add('collapsed');
-        // ⚠️ КЛАСС 'open' НЕ ВЕШАЕМ — стрелка остаётся смотреть ВНИЗ
-        // (класс 'open' появится только при разворачивании)
-        
-        // --- Заголовок: шеврон + тап ---
+
         h2.classList.add('collapse-toggle');
         if (!h2.querySelector('.collapse-chevron')) {
             const chev = document.createElement('ion-icon');
@@ -5288,21 +4011,19 @@ document.addEventListener('click', function(e) {
             chev.className = 'collapse-chevron';
             h2.appendChild(chev);
         }
-        h2.addEventListener('click', function() {
+        h2.addEventListener('click', function () {
             const collapsed = !region1.classList.contains('collapsed');
             region1.classList.toggle('collapsed', collapsed);
             if (region2) region2.classList.toggle('collapsed', collapsed);
-            // ✅ ИСПРАВЛЕНО: open когда НЕ свёрнуто (!collapsed)
             h2.classList.toggle('open', !collapsed);
         });
-        
-        // Метка от повторной инициализации
+
         const mark = document.createElement('span');
         mark.id = 'tariffs-collapse-done-v3';
         mark.style.display = 'none';
         firstCard.appendChild(mark);
     }
-    
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initTariffsCollapse);
     } else {
@@ -5311,16 +4032,15 @@ document.addEventListener('click', function(e) {
 })();
 
 // ============================================
-// ШАПКА v4: автораспорка + живая дата
+// ШАПКА: автораспорка + живая дата
 // ============================================
-(function() {
+(function () {
     function syncSpacer() {
         const header = document.querySelector('.top-header');
         const spacer = document.getElementById('header-spacer');
         if (!header || !spacer) return;
         spacer.style.height = header.offsetHeight + 'px';
     }
-    // Пересчитываем высоту при любом изменении шапки и экрана
     if ('ResizeObserver' in window) {
         const header = document.querySelector('.top-header');
         if (header) new ResizeObserver(syncSpacer).observe(header);
@@ -5329,8 +4049,7 @@ document.addEventListener('click', function(e) {
     window.addEventListener('load', syncSpacer);
     setTimeout(syncSpacer, 300);
     setTimeout(syncSpacer, 1000);
-    
-    // Подзаголовок с сегодняшней датой
+
     const sub = document.getElementById('header-subtitle');
     if (sub) {
         const s = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -5339,26 +4058,24 @@ document.addEventListener('click', function(e) {
 })();
 
 // ============================================
-// СВОРАЧИВАНИЕ «МОИ АВТОМОБИЛИ» — v2 (общая система с тарифами)
+// СВОРАЧИВАНИЕ «МОИ АВТОМОБИЛИ»
 // ============================================
-(function() {
+(function () {
     function initVehiclesCollapse() {
         if (document.getElementById('vehicles-collapse-done-v2')) return;
-        
+
         const h2 = Array.from(document.querySelectorAll('h2'))
             .find(el => el.textContent.includes('Мои автомобили'));
         if (!h2) return;
         const card = h2.closest('.card') || h2.parentElement;
         if (!card) return;
-        
-        // Если осталась обёртка старой версии — разворачиваем её обратно
+
         const oldWrap = card.querySelector('.collapse-wrapper');
         if (oldWrap) {
             while (oldWrap.firstChild) card.insertBefore(oldWrap.firstChild, oldWrap);
             oldWrap.remove();
         }
-        
-        // --- Область сворачивания (как у тарифов) ---
+
         const region = document.createElement('div');
         region.className = 'collapse-region';
         const inner = document.createElement('div');
@@ -5371,11 +4088,9 @@ document.addEventListener('click', function(e) {
             inner.appendChild(cur);
         }
         card.appendChild(region);
-        
-        // ✅ По умолчанию СВЁРНУТО, стрелка ВНИЗ
+
         region.classList.add('collapsed');
-        
-        // --- Шеврон + тап ---
+
         h2.classList.add('collapse-toggle');
         if (!h2.querySelector('.collapse-chevron')) {
             const chev = document.createElement('ion-icon');
@@ -5383,18 +4098,18 @@ document.addEventListener('click', function(e) {
             chev.className = 'collapse-chevron';
             h2.appendChild(chev);
         }
-        h2.addEventListener('click', function() {
+        h2.addEventListener('click', function () {
             const collapsed = !region.classList.contains('collapsed');
             region.classList.toggle('collapsed', collapsed);
-            h2.classList.toggle('open', !collapsed); // open = развёрнуто = стрелка вверх
+            h2.classList.toggle('open', !collapsed);
         });
-        
+
         const mark = document.createElement('span');
         mark.id = 'vehicles-collapse-done-v2';
         mark.style.display = 'none';
         card.appendChild(mark);
     }
-    
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initVehiclesCollapse);
     } else {
@@ -5403,8 +4118,7 @@ document.addEventListener('click', function(e) {
 })();
 
 // ============================================
-// КАСТОМНЫЕ iOS-СПИСКИ ДЛЯ МЕСЯЦЕВ И ГОДОВ
-// (нативный select остаётся в DOM скрытым — вся логика работает)
+// iOS-СПИСКИ
 // ============================================
 function closeAllIosSelects() {
     document.querySelectorAll('.ios-select-wrap.open').forEach(w => w.classList.remove('open'));
@@ -5468,11 +4182,9 @@ function buildIosSelect(sel) {
     });
     menu.addEventListener('click', e => e.stopPropagation());
 
-    // Следим за динамическим изменением options (новые годы и т.п.)
     new MutationObserver(() => { wrap.classList.contains('open') ? rebuild() : sync(); })
         .observe(sel, { childList: true, subtree: true, characterData: true });
 
-    // Синхронизация при change и при программной смене значения
     sel.addEventListener('change', sync);
     setInterval(() => {
         const opt = sel.options[sel.selectedIndex];
@@ -5490,20 +4202,18 @@ function initCustomSelects() {
     document.querySelectorAll('select').forEach(sel => {
         if (sel.dataset.iosDone) return;
         const texts = Array.from(sel.options).map(o => o.textContent.trim());
-const isMonth = texts.some(t => monthRe.test(t));
-const isYear = texts.some(t => yearRe.test(t));
-const periodRe = /все время|этот месяц|месяца|полгода|недел|период|^\s*год\s*$/i;
-const isPeriod = texts.some(t => periodRe.test(t));
-// ✅ НОВОЕ: категории ремонтов
-const catRe = /все категории|категори|двигатель|трансмисс|тормозн|подвеск|электрик|кузов|шины|диски|масло|жидкост|охлажден|выхлопн|прочее/i;
-const isCategory = texts.some(t => catRe.test(t));
-if (!isMonth && !isYear && !isPeriod && !isCategory) return;
-sel.dataset.iosDone = '1';
-buildIosSelect(sel);
+        const isMonth = texts.some(t => monthRe.test(t));
+        const isYear = texts.some(t => yearRe.test(t));
+        const periodRe = /все время|этот месяц|месяца|полгода|недел|период|^\s*год\s*$/i;
+        const isPeriod = texts.some(t => periodRe.test(t));
+        const catRe = /все категории|категори|двигатель|трансмисс|тормозн|подвеск|электрик|кузов|шины|диски|масло|жидкост|охлажден|выхлопн|прочее/i;
+        const isCategory = texts.some(t => catRe.test(t));
+        if (!isMonth && !isYear && !isPeriod && !isCategory) return;
+        sel.dataset.iosDone = '1';
+        buildIosSelect(sel);
     });
 }
 
-// Закрытие по тапу вне, по скроллу страницы и по ресайзу
 document.addEventListener('click', closeAllIosSelects);
 document.addEventListener('scroll', (e) => {
     if (e.target && e.target.closest && e.target.closest('.ios-select-menu')) return;
@@ -5511,38 +4221,32 @@ document.addEventListener('scroll', (e) => {
 }, true);
 window.addEventListener('resize', closeAllIosSelects);
 
-// Первый запуск
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initCustomSelects);
 } else {
     initCustomSelects();
 }
 
-// ✅ ФИКС: селекты с ДИНАМИЧЕСКИМИ опциями (Отчёты и др.)
-// Повторяем конвертацию, пока опции не появятся (макс. 20 секунд)
 let _iosTries = 0;
 const _iosTimer = setInterval(() => {
     initCustomSelects();
     if (++_iosTries > 20) clearInterval(_iosTimer);
 }, 1000);
 
-// ✅ Слежение за появлением новых select / опций в DOM
 new MutationObserver(() => initCustomSelects())
     .observe(document.body, { childList: true, subtree: true });
-    
+
 // ============================================
-// ФИКС v4: ИСТОРИЯ — мгновенный пересчёт (renderTable напрямую)
+// ФИКС: ИСТОРИЯ — мгновенный пересчёт
 // ============================================
-document.addEventListener('change', function(e) {
+document.addEventListener('change', function (e) {
     const sel = e.target;
     if (!sel || sel.tagName !== 'SELECT' || !sel.dataset.iosDone) return;
-    if (!sel.closest('#tab-history')) return; // только История
-    
+    if (!sel.closest('#tab-history')) return;
+
     setTimeout(() => {
         const card = sel.closest('.card');
-        
-        // 1) Клик по главной кнопке фильтров — она выставляет
-        //    currentHistoryMonth / currentHistoryYear из селектов
+
         if (card) {
             const btn = card.querySelector('.btn-primary');
             if (btn) {
@@ -5550,8 +4254,7 @@ document.addEventListener('change', function(e) {
                 console.log('✅ Клик по кнопке фильтров Истории');
             }
         }
-        
-        // 2) Прямая перерисовка таблицы + строки «Показано…»
+
         if (typeof window.renderTable === 'function') {
             window.renderTable();
             console.log('✅ renderTable() вызван напрямую');
@@ -5560,18 +4263,17 @@ document.addEventListener('change', function(e) {
 });
 
 // ============================================
-// ТЁМНАЯ ТЕМА v2: прямая привязка + фон html + логи
+// ТЁМНАЯ ТЕМА
 // ============================================
-(function() {
+(function () {
     const KEY = 'driverTheme';
     const toggle = document.getElementById('theme-toggle');
-    
+
     function applyTheme(dark) {
         document.body.classList.toggle('dark-theme', dark);
-        // Фон под скроллом (overscroll) тоже темнеет
         document.documentElement.style.background = dark ? '#000000' : '#F2F2F7';
         if (toggle) toggle.checked = dark;
-        
+
         let meta = document.querySelector('meta[name="theme-color"]');
         if (!meta) {
             meta = document.createElement('meta');
@@ -5581,17 +4283,15 @@ document.addEventListener('change', function(e) {
         meta.content = dark ? '#000000' : '#F2F2F7';
         console.log(dark ? '🌙 Тёмная тема включена' : '☀️ Светлая тема включена');
     }
-    
-    // При загрузке: сохранённая или системная
+
     const saved = localStorage.getItem(KEY);
     const prefersDark = window.matchMedia &&
         window.matchMedia('(prefers-color-scheme: dark)').matches;
     applyTheme(saved ? saved === 'dark' : prefersDark);
-    
-    // Прямой слушатель на ползунок (без делегирования — надёжнее)
+
     if (toggle) {
-        toggle.addEventListener('change', function() {
-            const dark = this.checked; //_checked = тема_
+        toggle.addEventListener('change', function () {
+            const dark = this.checked;
             localStorage.setItem(KEY, dark ? 'dark' : 'light');
             applyTheme(dark);
             showToast(dark ? '🌙 Тёмная тема включена' : '☀️ Светлая тема включена');
@@ -5601,42 +4301,39 @@ document.addEventListener('change', function(e) {
     }
 })();
 
-// Помечаем «Детальная статистика» И «Тренды за месяц» (ячейки → ds-cell)
-(function() {
+// Помечаем «Детальная статистика» И «Тренды за месяц»
+(function () {
     const targets = ['детальная статистика', 'тренды за месяц'];
     const doneMap = {};
-    
+
     function tagSection(text) {
         if (doneMap[text]) return true;
         const heading = Array.from(
             document.querySelectorAll('#tab-home h1, #tab-home h2, #tab-home h3, #tab-home h4')
         ).find(el => el.textContent.toLowerCase().includes(text));
         if (!heading) return false;
-        
+
         const card = heading.closest('.card') || heading.parentElement;
-        
-        // Ячейки: дети блока-сетки, идущего сразу после заголовка (+ запасные варианты)
+
         let cells = [];
         const grid = heading.nextElementSibling;
         if (grid && grid.children.length) cells = Array.from(grid.children);
         if (!cells.length) cells = Array.from(card.querySelectorAll('.stat-card, .stats-grid > *'));
         if (!cells.length) cells = Array.from(card.children).filter(c => c !== heading);
-        
+
         cells.forEach(el => el.classList.add('ds-cell'));
         doneMap[text] = true;
         console.log('✅ Секция «' + text + '» помечена, ячеек:', cells.length);
         return true;
     }
-    
+
     function tagAll() { return targets.every(t => tagSection(t)); }
-    
-    // Ретрай, пока секции не отрендерятся (макс. 30 сек)
+
     let tries = 0;
     const timer = setInterval(() => {
         if (tagAll() || ++tries > 30) clearInterval(timer);
     }, 1000);
-    
-    // Мгновенно при изменениях DOM в Профиле
+
     const home = document.getElementById('tab-home');
     if (home) {
         new MutationObserver(() => tagAll()).observe(home, { childList: true, subtree: true });
@@ -5644,7 +4341,7 @@ document.addEventListener('change', function(e) {
     tagAll();
 })();
 
-// Подсветка шестерёнки, когда открыта вкладка Настройки
+// Подсветка шестерёнки при открытии настроек
 (function () {
     const orig = window.switchTab;
     if (typeof orig !== 'function') return;
@@ -5657,28 +4354,26 @@ document.addEventListener('change', function(e) {
 })();
 
 // ============================================
-// СТОП-ПОДЁРГИВАНИЕ: гасим анимации карточки профиля при перерисовках
+// СТОП-ПОДЁРГИВАНИЕ: гасим анимации карточки профиля
 // ============================================
-(function() {
+(function () {
     const home = document.getElementById('tab-home');
     if (!home) return;
-    
+
     function killAnims() {
-        const card = home.querySelector('.card'); // карточка с фото — первая
+        const card = home.querySelector('.card');
         if (!card) return;
-        // Мгновенно отменяем все запустившиеся анимации
         [card, ...card.querySelectorAll('*')].forEach(el => {
             if (el.getAnimations) el.getAnimations().forEach(a => a.cancel());
         });
     }
-    
-    // Срабатывает в момент любой перерисовки вкладки
+
     new MutationObserver(killAnims).observe(home, { childList: true, subtree: true });
     killAnims();
 })();
 
 // ============================================
-// ТЁМНАЯ ТЕМА v3: кнопка-пилюля с луной/солнцем
+// ТЁМНАЯ ТЕМА: кнопка-пилюля
 // ============================================
 (function () {
     const KEY = 'driverTheme';
@@ -5686,7 +4381,7 @@ document.addEventListener('change', function(e) {
     function applyTheme(dark) {
         document.body.classList.toggle('dark-theme', dark);
         document.documentElement.style.background = dark ? '#000000' : '#F2F2F7';
-        const old = document.getElementById('theme-toggle');   // если старый слайдер ещё в DOM
+        const old = document.getElementById('theme-toggle');
         if (old) old.checked = dark;
         let meta = document.querySelector('meta[name="theme-color"]');
         if (!meta) {
@@ -5697,13 +4392,11 @@ document.addEventListener('change', function(e) {
         meta.content = dark ? '#000000' : '#F2F2F7';
     }
 
-    // При загрузке: сохранённая или системная
     const saved = localStorage.getItem(KEY);
     const prefersDark = window.matchMedia &&
         window.matchMedia('(prefers-color-scheme: dark)').matches;
     applyTheme(saved ? saved === 'dark' : prefersDark);
 
-    // Клик по кнопке-пилюле
     document.addEventListener('click', function (e) {
         const btn = e.target.closest('#theme-toggle-btn');
         if (!btn) return;
@@ -5717,29 +4410,27 @@ document.addEventListener('change', function(e) {
 // ============================================
 // КРАСИВЫЕ АЛЕРТЫ (iOS-стиль)
 // ============================================
-(function() {
-    window.showIOSAlert = function(message) {
+(function () {
+    window.showIOSAlert = function (message) {
         const lines = String(message).split('\n').map(s => s.trim()).filter(Boolean);
         const title = lines[0] || '';
         const body = lines.slice(1)
             .map(s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;'))
             .join('<br>');
-        
+
         const overlay = document.createElement('div');
         overlay.className = 'ios-alert-overlay';
         overlay.innerHTML = `
             <div class="ios-alert">
-                <div class="ios-alert-title">${title.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>
+                <div class="ios-alert-title">${title.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</div>
                 ${body ? `<div class="ios-alert-body">${body}</div>` : ''}
                 <button class="ios-alert-btn">OK</button>
             </div>`;
         document.body.appendChild(overlay);
-        
-        // Плавное появление
+
         requestAnimationFrame(() => overlay.classList.add('visible'));
-        
+
         const close = (e) => {
-            // Останавливаем всплытие, чтобы клик не доходил до других элементов
             if (e) {
                 e.stopPropagation();
                 e.preventDefault();
@@ -5747,28 +4438,25 @@ document.addEventListener('change', function(e) {
             overlay.classList.remove('visible');
             setTimeout(() => overlay.remove(), 250);
         };
-        
-        // Закрытие по кнопке
+
         overlay.querySelector('.ios-alert-btn').addEventListener('click', close);
-        
-        // Закрытие по клику на фон
+
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) close(e);
         });
     };
-    
-    // Подменяем стандартный alert на наш красивый
+
     window.alert = window.showIOSAlert;
 })();
 
 // ============================================
-// ТУЛТИПЫ БЕНЗИНА/РЕМОНТА В КАРТОЧКАХ (ВЕРХНИЙ УРОВЕНЬ!)
+// ТУЛТИПЫ БЕНЗИНА/РЕМОНТА В КАРТОЧКАХ
 // ============================================
 function _cardNum(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
 
 function getRepairCategoryName(cat) {
     if (!cat) return 'Ремонт';
-    if (/[а-яА-Я]/.test(cat)) return cat; // уже по-русски
+    if (/[а-яА-Я]/.test(cat)) return cat;
     const ext = window.REPAIR_CATEGORIES || window.repairCategories;
     if (ext) {
         if (!Array.isArray(ext) && ext[cat]) return ext[cat].name || ext[cat].label || ext[cat];
@@ -5795,7 +4483,7 @@ function closeCardTooltip() {
 }
 
 function positionCardTooltip(tip, anchor) {
-    if (window.innerWidth <= 480) return; // на мобильных CSS центрирует сам
+    if (window.innerWidth <= 480) return;
     const r = anchor.getBoundingClientRect();
     const tw = tip.offsetWidth, th = tip.offsetHeight;
     let left = r.left + r.width / 2 - tw / 2;
@@ -5812,15 +4500,19 @@ function showCardFuelTooltip(row) {
     let details = [];
     try { details = JSON.parse(row.getAttribute('data-fuel-details') || '[]'); } catch (e) { details = []; }
     const liters = _cardNum(row.getAttribute('data-fuel-liters'));
-    const count  = _cardNum(row.getAttribute('data-fuel-count')) || details.length;
-    const total  = _cardNum(row.getAttribute('data-fuel-total'));
+    const count = _cardNum(row.getAttribute('data-fuel-count')) || details.length;
+    const total = _cardNum(row.getAttribute('data-fuel-total'));
 
     const detailsHTML = details.map(d => {
-        const name    = d.vehicleName || d.vehicle || d.name || 'Заправка';
-        const plate   = d.plate ? ' (' + d.plate + ')' : '';
-        const lit     = _cardNum(d.liters !== undefined ? d.liters : d.l);
-        const mile    = _cardNum(d.mileage !== undefined ? d.mileage : (d.odometer !== undefined ? d.odometer : d.km));
-        const amount  = _cardNum(d.amount !== undefined ? d.amount : (d.cost !== undefined ? d.cost : (d.sum !== undefined ? d.sum : d.price)));
+        let name = d.vehicleName || d.vehicle || d.name;
+        if (!name && d.vehicleId && typeof window.getVehicleNameById === 'function') {
+            name = window.getVehicleNameById(d.vehicleId);
+        }
+        if (!name) name = 'Заправка';
+        const plate = d.plate ? ' (' + d.plate + ')' : '';
+        const lit = _cardNum(d.liters !== undefined ? d.liters : d.l);
+        const mile = _cardNum(d.mileage !== undefined ? d.mileage : (d.odometer !== undefined ? d.odometer : d.km));
+        const amount = _cardNum(d.amount !== undefined ? d.amount : (d.cost !== undefined ? d.cost : (d.sum !== undefined ? d.sum : d.price)));
         const comment = d.comment || d.note || '';
         return `
         <div class="fuel-tooltip-detail-item">
@@ -5860,14 +4552,14 @@ function showCardRepairTooltip(row) {
     const count = _cardNum(row.getAttribute('data-repair-count')) || details.length;
 
     const detailsHTML = details.map(d => {
-        const category    = getRepairCategoryName(d.category);
-        const title       = d.title || d.name || category;
+        const category = getRepairCategoryName(d.category);
+        const title = d.title || d.name || category;
         const description = d.description || d.desc || '';
         const amount = _cardNum(d.amount !== undefined ? d.amount : (d.cost !== undefined ? d.cost : d.total));
-        const date   = d.date ? formatDate(d.date) : '';
-        const mile   = _cardNum(d.mileage !== undefined ? d.mileage : (d.odometer !== undefined ? d.odometer : d.km));
-        const parts  = Array.isArray(d.parts) ? d.parts : [];
-        const works  = Array.isArray(d.works) ? d.works : [];
+        const date = d.date ? formatDate(d.date) : '';
+        const mile = _cardNum(d.mileage !== undefined ? d.mileage : (d.odometer !== undefined ? d.odometer : d.km));
+        const parts = Array.isArray(d.parts) ? d.parts : [];
+        const works = Array.isArray(d.works) ? d.works : [];
         const partsHTML = parts.length ? `<div class="repair-tooltip-detail-parts"><div class="label">Запчасти:</div>${parts.map(p => `<div class="item">• ${p.name || p.title || ''}${p.cost ? ' — ' + formatMoney(_cardNum(p.cost)) : ''}</div>`).join('')}</div>` : '';
         const worksHTML = works.length ? `<div class="repair-tooltip-detail-works"><div class="label">Работы:</div>${works.map(w => `<div class="item">• ${w.name || w.title || ''}${w.cost ? ' — ' + formatMoney(_cardNum(w.cost)) : ''}</div>`).join('')}</div>` : '';
         return `
@@ -5901,14 +4593,13 @@ function showCardRepairTooltip(row) {
     positionCardTooltip(tip, row);
 }
 
-// Делегированный обработчик: тап по строке «Бензин» / «Ремонт» в карточке
 document.addEventListener('click', function (e) {
-    const fuelRow   = e.target.closest('.rcd-fuel');
+    const fuelRow = e.target.closest('.rcd-fuel');
     const repairRow = e.target.closest('.rcd-repair');
     const tip = document.getElementById('card-tooltip');
 
     if (fuelRow || repairRow) {
-        const target  = fuelRow || repairRow;
+        const target = fuelRow || repairRow;
         const wasOpen = !!tip;
         closeCardTooltip();
         setTimeout(() => {
@@ -5919,15 +4610,14 @@ document.addEventListener('click', function (e) {
     }
     if (tip && !tip.contains(e.target)) closeCardTooltip();
 });
-window.addEventListener('scroll', function(e) {
+window.addEventListener('scroll', function (e) {
     const tip = document.getElementById('card-tooltip');
-    // Скролл ВНУТРИ тултипа (чтение длинного списка) — НЕ закрываем
     if (tip && (e.target === tip || tip.contains(e.target))) return;
     closeCardTooltip();
 }, true);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCardTooltip(); });
 
-document.addEventListener('keydown', function(e) {
+document.addEventListener('keydown', function (e) {
     const modal = document.getElementById('name-modal-overlay');
     if (modal && modal.classList.contains('visible')) {
         if (e.key === 'Enter') {
@@ -5940,12 +4630,33 @@ document.addEventListener('keydown', function(e) {
     }
 });
 
-// ============================================
-// СИНХРОНИЗАЦИЯ С WINDOW (для auth-module.js и др.)
-// ============================================
-// Просто копируем данные, без get/set — никакой рекурсии.
-// Вызывается вручную после каждого изменения.
+// Прямая привязка тултипов к таблице (обходим fuel-module.js)
+document.addEventListener('click', function(e) {
+    const fuelCell = e.target.closest('td.fuel-cell-with-details');
+    const repairCell = e.target.closest('td.repair-cell-with-details');
+    const existingTip = document.getElementById('card-tooltip');
 
+    // Если клик по ячейке таблицы — открываем тултип из script.js
+    if (fuelCell || repairCell) {
+        if (existingTip) existingTip.remove();
+
+        if (fuelCell) {
+            showCardFuelTooltip(fuelCell);
+        } else {
+            showCardRepairTooltip(repairCell);
+        }
+        return;
+    }
+
+    // Клик вне тултипа — закрываем
+    if (existingTip && !existingTip.contains(e.target)) {
+        closeCardTooltip();
+    }
+});
+
+// ============================================
+// СИНХРОНИЗАЦИЯ С WINDOW
+// ============================================
 function syncGlobalsToWindow() {
     window.records = records;
     window.tariffs = tariffs;
@@ -5957,7 +4668,7 @@ function syncGlobalsToWindow() {
 
 window.syncGlobalsToWindow = syncGlobalsToWindow;
 
-// Экспорт функций для auth-module.js
+// Экспорт функций (без updateHomeTab/updateGoals/saveGoalsToFirebase — они в home-module.js)
 window.loadUserData = loadUserData;
 window.loadData = loadData;
 window.saveData = saveData;
@@ -5967,10 +4678,5 @@ window.renderTable = renderTable;
 window.renderTariffs = renderTariffs;
 window.populateFilters = populateFilters;
 window.updateAnalytics = updateAnalytics;
-window.updateGoals = updateGoals;
-window.updateHomeTab = updateHomeTab;
 window.loadProfileAvatar = loadProfileAvatar;
-window.saveGoalsToFirebase = saveGoalsToFirebase;
-
-
 window.showToast = showToast;
