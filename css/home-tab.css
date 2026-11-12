@@ -1,0 +1,549 @@
+/* ============================================
+   ВКЛАДКА "ГЛАВНАЯ" (ПРОФИЛЬ) — СТИЛИ v2.0
+   ============================================ */
+
+/* --- Карточки метрик (верхние 4) --- */
+
+/* ☀️ Светлая тема */
+body:not(.dark-theme) #tab-home .stat-card:not(.ds-cell) {
+    background: linear-gradient(180deg, #ffffff 0%, #f6f6f9 100%) !important;
+    border: 1px solid rgba(0, 0, 0, 0.07) !important;
+    box-shadow:
+        0 10px 28px rgba(0, 0, 0, 0.10),
+        0 3px 8px rgba(0, 0, 0, 0.06),
+        inset 0 1.5px 0 #ffffff,
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+/* 🌙 Тёмная тема */
+body.dark-theme #tab-home .stat-card:not(.ds-cell) {
+    background: linear-gradient(180deg, #2A2A2E 0%, #232327 55%, #1D1D21 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.50),
+        0 4px 12px rgba(0, 0, 0, 0.40),
+        inset 0 1.5px 0 rgba(255, 255, 255, 0.06),
+        inset 0 -1.5px 0 rgba(0, 0, 0, 0.40) !important;
+}
+
+/* Цвета цифр и иконок для всех карточек (Светлая тема) */
+body:not(.dark-theme) #tab-home .stat-card:not(.ds-cell):nth-child(1) * { color: #007AFF !important; }
+body:not(.dark-theme) #tab-home .stat-card:not(.ds-cell):nth-child(2) * { color: #34C759 !important; }
+body:not(.dark-theme) #tab-home .stat-card:not(.ds-cell):nth-child(3) * { color: #FF9500 !important; }
+body:not(.dark-theme) #tab-home .stat-card:not(.ds-cell):nth-child(4) * { color: #AF52DE !important; }
+
+/* Цвета цифр и иконок для всех карточек (Тёмная тема) */
+body.dark-theme #tab-home .stat-card:not(.ds-cell):nth-child(1) * { color: #0A84FF !important; }
+body.dark-theme #tab-home .stat-card:not(.ds-cell):nth-child(2) * { color: #30D158 !important; }
+body.dark-theme #tab-home .stat-card:not(.ds-cell):nth-child(3) * { color: #FF9F0A !important; }
+body.dark-theme #tab-home .stat-card:not(.ds-cell):nth-child(4) * { color: #BF5AF2 !important; }
+
+
+/* --- Детальная статистика (углубленные ячейки) --- */
+#tab-home .ds-cell {
+    background: linear-gradient(to bottom,
+            #dcdce3 0%,
+            #ececf1 8%,
+            #f8f8fb 50%,
+            #ffffff 100%) !important;
+    border: 1px solid #b4b4bd !important;
+    border-radius: 10px;
+    box-shadow:
+        inset 0 1px 2px rgba(0, 0, 0, 0.20),
+        inset 0 2px 6px rgba(0, 0, 0, 0.07),
+        0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+
+body.dark-theme #tab-home .ds-cell {
+    background: linear-gradient(to bottom,
+            #0a0a0c 0%,
+            #121215 10%,
+            #1c1c20 60%,
+            #232327 100%) !important;
+    border: 1px solid rgba(0, 0, 0, 0.60) !important;
+    border-bottom-color: rgba(255, 255, 255, 0.10) !important;
+    border-radius: 10px;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.70),
+        inset 0 3px 8px rgba(0, 0, 0, 0.35),
+        0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+
+/* --- Кнопка "Настроить цели" --- */
+.btn-goals {
+    margin-top: 20px;
+    width: 100%;
+    min-height: 50px;
+    padding: 14px 20px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    transition: transform 0.15s var(--ios-spring), background-color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.btn-goals ion-icon {
+    font-size: 20px;
+    color: inherit !important;
+    margin: 0;
+}
+
+/* ☀️ СВЕТЛАЯ ТЕМА: синий текст + синяя прорезь */
+body:not(.dark-theme) .btn-goals {
+    color: #007AFF !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 122, 255, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+body:not(.dark-theme) .btn-goals:active {
+    background-color: rgba(0, 122, 255, 0.08) !important;
+    transform: scale(0.97) !important;
+}
+
+/* 🌙 ТЁМНАЯ ТЕМА: голубой текст + голубая прорезь */
+body.dark-theme .btn-goals {
+    color: #64B5FF !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(10, 132, 255, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+body.dark-theme .btn-goals:active {
+    background-color: rgba(10, 132, 255, 0.12) !important;
+    transform: scale(0.97) !important;
+}
+
+/* Эффект нажатия */
+.btn-goals:active {
+    transform: scale(0.97) !important;
+    background-color: rgba(0, 122, 255, 0.08) !important;
+}
+body.dark-theme .btn-goals:active {
+    background-color: rgba(10, 132, 255, 0.12) !important;
+}
+
+
+/* --- Модальное окно настройки целей --- */
+.goals-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+    opacity: 0;
+    transition: opacity 0.3s var(--ios-spring);
+    pointer-events: none;
+}
+.goals-modal-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+.goals-modal {
+    background: var(--ios-bg-secondary);
+    border-radius: 20px;
+    padding: 0;
+    max-width: 400px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    transform: scale(0.9) translateY(20px);
+    transition: transform 0.3s var(--ios-spring-bounce);
+    overflow: hidden;
+}
+.goals-modal-overlay.visible .goals-modal {
+    transform: scale(1) translateY(0);
+}
+.goals-modal-header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--ios-border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.goals-modal-header ion-icon {
+    font-size: 28px;
+    color: var(--ios-accent);
+}
+.goals-modal-header h3 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--ios-text-primary);
+    margin: 0;
+}
+.goals-modal-body {
+    padding: 20px;
+}
+.goal-input-group {
+    margin-bottom: 16px;
+}
+.goal-input-group:last-child {
+    margin-bottom: 0;
+}
+.goal-input-group label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ios-text-secondary);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.goal-input-group label ion-icon {
+    font-size: 18px;
+}
+.goal-input-group input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1.5px solid var(--ios-border);
+    border-radius: 12px;
+    font-size: 17px;
+    font-weight: 500;
+    background: var(--ios-bg-input);
+    color: var(--ios-text-primary);
+    transition: all 0.2s var(--ios-spring);
+}
+.goal-input-group input:focus {
+    outline: none;
+    border-color: var(--ios-accent);
+    background: var(--ios-bg-input-hover);
+    box-shadow: 0 0 0 4px var(--ios-accent-glow);
+}
+.goal-input-group input.invalid {
+    border-color: var(--ios-danger);
+    background: var(--ios-danger-light);
+}
+.goal-input-group .hint {
+    font-size: 12px;
+    color: var(--ios-text-tertiary);
+    margin-top: 6px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.goal-input-group .hint ion-icon {
+    font-size: 14px;
+}
+.goals-modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--ios-border);
+    display: flex;
+    gap: 10px;
+}
+
+.goals-modal-footer .btn {
+    flex: 1;
+    padding: 14px 20px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    transition: transform 0.15s var(--ios-spring), background-color 0.15s ease;
+}
+
+/* ☀️ Кнопка ОТМЕНА (серая прорезь) */
+body:not(.dark-theme) .goals-modal-footer .btn-secondary {
+    color: #8E8E93 !important;
+    box-shadow: inset 0 0 0 2px rgba(142, 142, 147, 0.45),
+                0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+/* ☀️ Кнопка СОХРАНИТЬ (синяя прорезь) */
+body:not(.dark-theme) .goals-modal-footer .btn-primary {
+    color: #007AFF !important;
+    box-shadow: inset 0 0 0 2px rgba(0, 122, 255, 0.50),
+                0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+/* 🌙 Кнопка ОТМЕНА */
+body.dark-theme .goals-modal-footer .btn-secondary {
+    color: rgba(235, 235, 245, 0.65) !important;
+    box-shadow: inset 0 0 0 2px rgba(235, 235, 245, 0.22),
+                0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+/* 🌙 Кнопка СОХРАНИТЬ */
+body.dark-theme .goals-modal-footer .btn-primary {
+    color: #64B5FF !important;
+    box-shadow: inset 0 0 0 2px rgba(10, 132, 255, 0.60),
+                0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+/* Нажатие */
+.goals-modal-footer .btn:active {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+    transform: scale(0.97) !important;
+}
+body.dark-theme .goals-modal-footer .btn:active {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Адаптив */
+@media (max-width: 480px) {
+    .goals-modal-footer {
+        flex-direction: column;
+    }
+}
+
+/* ============================================
+   НОВЫЙ ДИЗАЙН ГЛАВНОЙ (ДАШБОРД)
+   ============================================ */
+
+/* --- 1. HERO КАРТОЧКА (Финансовый итог) --- */
+.dash-hero-card {
+    background: var(--ios-bg-secondary) !important;
+    border: 1px solid var(--ios-border) !important;
+    border-radius: 20px !important;
+    padding: 24px 20px !important;
+    text-align: center;
+    margin-bottom: 16px;
+    box-shadow: var(--ios-shadow-md) !important;
+}
+.dash-hero-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ios-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+.dash-hero-value {
+    font-size: 38px;
+    font-weight: 800;
+    color: var(--ios-text-primary);
+    letter-spacing: -1px;
+    line-height: 1.1;
+    margin-bottom: 20px;
+}
+.dash-hero-sub {
+    display: flex;
+    justify-content: space-around;
+    border-top: 1px solid var(--ios-border);
+    padding-top: 16px;
+}
+.dash-sub-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.dash-sub-item span {
+    font-size: 11px;
+    color: var(--ios-text-tertiary);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.dash-sub-item strong {
+    font-size: 15px;
+    color: var(--ios-text-primary);
+}
+
+/* --- 2. СЕТКА МЕТРИК --- */
+.dash-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.dash-metric-card {
+    background: var(--ios-bg-secondary) !important;
+    border: 1px solid var(--ios-border) !important;
+    border-radius: 16px !important;
+    padding: 16px !important;
+    margin-bottom: 0 !important;
+    box-shadow: var(--ios-shadow-sm) !important;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.dash-metric-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ios-text-secondary);
+}
+.dash-metric-header ion-icon {
+    font-size: 18px;
+}
+.dash-metric-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ios-text-primary);
+}
+
+/* --- 3. ЦЕЛИ --- */
+.dash-goals-card {
+    background: var(--ios-bg-secondary) !important;
+    border: 1px solid var(--ios-border) !important;
+    border-radius: 20px !important;
+    padding: 20px !important;
+    margin-bottom: 16px;
+}
+.dash-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+.dash-section-header h2 {
+    font-size: 18px !important;
+    margin: 0 !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--ios-text-primary);
+}
+.dash-section-header h2 ion-icon {
+    font-size: 22px;
+}
+
+.dash-icon-btn {
+    background: var(--ios-bg-tertiary);
+    border: none;
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--ios-text-secondary);
+    transition: background 0.2s;
+}
+.dash-icon-btn:active {
+    background: var(--ios-border);
+}
+
+.dash-goal-item {
+    margin-bottom: 16px;
+}
+.dash-goal-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--ios-text-secondary);
+    margin-bottom: 8px;
+}
+.dash-goal-labels strong {
+    color: var(--ios-text-primary);
+    font-size: 14px;
+}
+.dash-goal-labels .dim {
+    color: var(--ios-text-tertiary);
+    font-size: 12px;
+}
+
+/* Тонкие iOS прогресс-бары */
+.dash-progress-track {
+    width: 100%;
+    height: 8px;
+    background: var(--ios-border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.dash-progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.8s var(--ios-spring);
+}
+.bg-green { background: var(--ios-success); }
+.bg-blue { background: var(--ios-accent); }
+.bg-orange { background: var(--ios-warning); }
+
+/* --- 4. ДОСТИЖЕНИЯ (Скролл) --- */
+.dash-achievements-card {
+    background: var(--ios-bg-secondary) !important;
+    border: 1px solid var(--ios-border) !important;
+    border-radius: 20px !important;
+    padding: 20px !important;
+    margin-bottom: 16px;
+}
+.dash-achievements-scroll {
+    display: flex;
+    overflow-x: auto;
+    gap: 10px;
+    padding-bottom: 4px; /* Место под тень */
+    scrollbar-width: none; /* Firefox */
+}
+.dash-achievements-scroll::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+}
+
+/* Переопределяем стандартные бейджи, чтобы они были как "пилюли" */
+.dash-achievements-scroll .achievement-badge {
+    flex-shrink: 0;
+    white-space: nowrap;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 13px;
+    background: var(--ios-bg-tertiary) !important;
+    border: 1px solid var(--ios-border) !important;
+    box-shadow: none !important;
+    color: var(--ios-text-primary) !important;
+}
+
+/* Заголовок с переключателем месяцев */
+.dash-hero-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.dash-hero-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ios-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex: 1;
+    text-align: center;
+}
+
+.dash-nav-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--ios-bg-tertiary);
+    border: none;
+    color: var(--ios-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+}
+
+.dash-nav-btn:active {
+    transform: scale(0.9);
+    background: var(--ios-border);
+}
+
+.dash-nav-btn ion-icon {
+    font-size: 20px;
+}
+
+/* Убираем старую надпись, так как теперь она динамическая */
+.dash-hero-card > .dash-hero-label {
+    display: none;
+}
