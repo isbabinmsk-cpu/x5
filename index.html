@@ -229,28 +229,39 @@
         
 <div id="tab-home" class="tab-content active">
 
-    <!-- 1. HERO-СЕКЦИЯ (Финансовый итог месяца) -->
-    <div class="card dash-hero-card">
-        <div class="dash-hero-label">ЧИСТАЯ ПРИБЫЛЬ ЗА МЕСЯЦ</div>
-        <!-- Этот ID должен совпадать со скриптом (profile-total-profit) -->
-        <div class="dash-hero-value" id="profile-total-profit">0 ₽</div>
-        
-        <div class="dash-hero-sub">
-            <div class="dash-sub-item">
-                <span>ДОХОД</span>
-                <strong id="hero-month-income" style="color: var(--ios-success);">0 ₽</strong>
-            </div>
-            <div class="dash-sub-item">
-                <span>РАСХОД</span>
-                <strong id="hero-month-expense" style="color: var(--ios-danger);">0 ₽</strong>
-            </div>
-            <div class="dash-sub-item">
-                <span>СМЕНЫ</span>
-                <!-- Этот ID тоже должен совпадать (profile-total-days) -->
-                <strong id="profile-total-days" style="color: var(--ios-text-primary);">0</strong>
-            </div>
+<!-- 1. HERO-СЕКЦИЯ (Финансовый итог месяца) -->
+<div class="card dash-hero-card">
+    <!-- Заголовок с переключателем месяцев -->
+    <div class="dash-hero-header">
+        <button class="dash-nav-btn" id="dash-prev-month" type="button" aria-label="Предыдущий месяц">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+        </button>
+        <span class="dash-hero-label" id="dash-hero-month-name">—</span>
+        <button class="dash-nav-btn" id="dash-next-month" type="button" aria-label="Следующий месяц">
+            <ion-icon name="chevron-forward-outline"></ion-icon>
+        </button>
+    </div>
+    
+    <!-- Подпись "ЧИСТАЯ ПРИБЫЛЬ" оставляем как было -->
+    <div class="dash-hero-label" style="font-size:13px;">ЧИСТАЯ ПРИБЫЛЬ ЗА МЕСЯЦ</div>
+    
+    <div class="dash-hero-value" id="profile-total-profit">0 ₽</div>
+    
+    <div class="dash-hero-sub">
+        <div class="dash-sub-item">
+            <span>ДОХОД</span>
+            <strong id="hero-month-income" style="color: var(--ios-success);">0 ₽</strong>
+        </div>
+        <div class="dash-sub-item">
+            <span>РАСХОД</span>
+            <strong id="hero-month-expense" style="color: var(--ios-danger);">0 ₽</strong>
+        </div>
+        <div class="dash-sub-item">
+            <span>СМЕНЫ</span>
+            <strong id="profile-total-days" style="color: var(--ios-text-primary);">0</strong>
         </div>
     </div>
+</div>
 
     <!-- 2. СЕТКА МЕТРИК (2x2) -->
     <div class="dash-grid">
