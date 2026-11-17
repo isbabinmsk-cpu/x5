@@ -1,0 +1,242 @@
+/* ============================================
+   МОДУЛЬ УПРАВЛЕНИЯ АВТОМОБИЛЯМИ (vehicle-module.css)
+   ============================================ */
+
+/* ============================================
+   1. СПИСОК АВТОМОБИЛЕЙ
+   ============================================ */
+.vehicle-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.vehicle-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    background: var(--ios-bg-secondary, #ffffff);
+    border: 1px solid var(--ios-border, rgba(0,0,0,0.08));
+    border-radius: var(--ios-radius-lg, 16px);
+    transition: all 0.2s;
+}
+
+.vehicle-item.active {
+    border-color: var(--ios-success, #34C759);
+    background: var(--ios-success-light, rgba(52, 199, 89, 0.08));
+}
+
+.vehicle-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.vehicle-name {
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--ios-text-primary, #1d1d1f);
+    margin-bottom: 4px;
+    word-break: break-word;
+}
+
+.vehicle-meta {
+    font-size: 13px;
+    color: var(--ios-text-tertiary, #86868b);
+}
+
+.vehicle-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.current-badge {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ios-success, #34C759);
+    background: rgba(52, 199, 89, 0.15);
+    padding: 4px 10px;
+    border-radius: 100px;
+    white-space: nowrap;
+}
+
+/* ============================================
+   2. ПОЛЯ ВВОДА И СЕЛЕКТОР (вдавленные)
+   ============================================ */
+body:not(.dark-theme) #vehicle-selector,
+body:not(.dark-theme) #vehicle-form input {
+    background: linear-gradient(to bottom,
+        #cfcfd7 0%, #e8e8ee 8%, #f8f8fb 50%, #ffffff 100%) !important;
+    border: 1px solid #9d9da6 !important;
+    border-radius: 12px !important;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.35),
+        inset 0 3px 8px rgba(0, 0, 0, 0.12),
+        0 1px 0 rgba(255, 255, 255, 0.85) !important;
+    color: #1C1C1E !important;
+}
+
+body:not(.dark-theme) #vehicle-form input::placeholder {
+    color: #8E8E93 !important;
+}
+
+body.dark-theme #vehicle-selector,
+body.dark-theme #vehicle-form input {
+    background: linear-gradient(to bottom,
+        #08080a 0%, #101013 25%, #1a1a1e 100%) !important;
+    border: 1px solid #000000 !important;
+    border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+    border-radius: 12px !important;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.90),
+        inset 0 3px 8px rgba(0, 0, 0, 0.55),
+        0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    color: #FFFFFF !important;
+}
+
+body.dark-theme #vehicle-form input::placeholder {
+    color: rgba(235, 235, 245, 0.35) !important;
+}
+
+body.dark-theme #vehicle-selector option {
+    background: #1C1C1E;
+    color: #FFFFFF;
+}
+
+body:not(.dark-theme) #vehicle-form label,
+body:not(.dark-theme) #vehicle-form h3 {
+    color: #3A3A3C !important;
+}
+
+body.dark-theme #vehicle-form label,
+body.dark-theme #vehicle-form h3 {
+    color: rgba(235, 235, 245, 0.72) !important;
+}
+
+/* ============================================
+   3. КНОПКИ ФОРМЫ ДОБАВЛЕНИЯ/РЕДАКТИРОВАНИЯ
+   ============================================ */
+#vehicle-form .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 14px;
+    background: transparent !important;
+    background-image: none !important;
+    border: none !important;
+    transition: transform 0.15s var(--ios-spring),
+                background-color 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+#vehicle-form .btn ion-icon {
+    font-size: 20px;
+    color: inherit !important;
+}
+
+body:not(.dark-theme) #vehicle-form .btn-success {
+    color: #28A745 !important;
+    box-shadow: inset 0 0 0 2px rgba(52, 199, 89, 0.50),
+                0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+body.dark-theme #vehicle-form .btn-success {
+    color: #30D158 !important;
+    box-shadow: inset 0 0 0 2px rgba(48, 209, 88, 0.60),
+                0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+body:not(.dark-theme) #cancel-edit-vehicle {
+    color: #FF3B30 !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 59, 48, 0.50),
+                0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+body.dark-theme #cancel-edit-vehicle {
+    color: #FF6961 !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 69, 58, 0.60),
+                0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+#vehicle-form .btn:active {
+    transform: scale(0.97) !important;
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+body.dark-theme #vehicle-form .btn:active {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ============================================
+   4. КНОПКИ В СПИСКЕ АВТОМОБИЛЕЙ
+   ============================================ */
+body:not(.dark-theme) #vehicle-list button,
+body:not(.dark-theme) .vehicle-item button {
+    color: #007AFF !important;
+    background: transparent !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(0, 122, 255, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+body:not(.dark-theme) #vehicle-list button ion-icon,
+body:not(.dark-theme) .vehicle-item button ion-icon {
+    color: inherit !important;
+}
+
+body:not(.dark-theme) #vehicle-list .btn-secondary,
+body:not(.dark-theme) .vehicle-item .btn-secondary {
+    color: #8E8E93 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(142, 142, 147, 0.45),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+body:not(.dark-theme) #vehicle-list .btn-danger,
+body:not(.dark-theme) .vehicle-item .btn-danger {
+    color: #FF3B30 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 59, 48, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+body.dark-theme #vehicle-list button,
+body.dark-theme .vehicle-item button {
+    color: #64B5FF !important;
+    background: transparent !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(10, 132, 255, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+body.dark-theme #vehicle-list .btn-secondary,
+body.dark-theme .vehicle-item .btn-secondary {
+    color: rgba(235, 235, 245, 0.65) !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(235, 235, 245, 0.22),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+body.dark-theme #vehicle-list .btn-danger,
+body.dark-theme .vehicle-item .btn-danger {
+    color: #FF6961 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 69, 58, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+/* ============================================
+   5. АДАПТИВНОСТЬ
+   ============================================ */
+@media (max-width: 480px) {
+    .vehicle-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    .vehicle-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+}

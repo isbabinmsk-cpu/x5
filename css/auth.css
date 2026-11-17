@@ -15,6 +15,14 @@ body.authenticated .auth-screen {
     display: none !important;
 }
 
+/* Прячем FAB и меню до авторизации */
+body:not(.authenticated) .bottom-nav-wrap,
+body:not(.authenticated) .auto-menu,
+body:not(.authenticated) #fab-add,
+body:not(.authenticated) #fab-tooltip {
+    display: none !important;
+}
+
 /* ============================================
    2. ЭКРАН ЗАГРУЗКИ (показывается СРАЗУ)
    ============================================ */
@@ -37,10 +45,7 @@ body.authenticated .auth-screen {
     pointer-events: none;
 }
 
-/* ============================================
-   ⚠️ СПИННЕР: принудительно включаем анимацию
-   (перебиваем глобальное animation: none !important из style.css)
-   ============================================ */
+/* ⚠️ СПИННЕР: принудительно включаем анимацию */
 .auth-loading-screen .auth-loading-spinner,
 .auth-loading-spinner {
     width: 48px !important;
@@ -108,7 +113,6 @@ body.dark-theme .auth-loading-spinner {
     display: flex !important;
 }
 
-/* ✅ Если сессия была — экран загрузки перекрывает форму входа до ответа Firebase */
 html.was-authenticated .auth-screen:not(.show-login) {
     display: none !important;
 }
@@ -254,34 +258,85 @@ html.was-authenticated .auth-screen:not(.show-login) {
     color: #86868B;
 }
 
-.auth-input-wrapper input {
+/* -------------------------------------------------
+   ⭐ ВДАВЛЕННЫЕ ПОЛЯ ВВОДА (перенесено из style.css)
+   ------------------------------------------------- */
+body:not(.dark-theme) .auth-screen input,
+body:not(.dark-theme) #auth-screen input,
+body:not(.dark-theme) .auth-input-wrapper input {
     width: 100%;
     padding: 16px 18px;
-    border: 1.5px solid rgba(0, 0, 0, 0.08);
-    border-radius: 14px;
+    border: 1px solid #9d9da6 !important;
+    border-radius: 10px;
     font-size: 17px;
     font-weight: 500;
-    background: #F5F5FA;
-    color: #000000;
-    transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    background: linear-gradient(to bottom, #cfcfd7 0%, #e8e8ee 8%, #f8f8fb 50%, #ffffff 100%) !important;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.35),
+        inset 0 3px 8px rgba(0, 0, 0, 0.12),
+        0 1px 0 rgba(255, 255, 255, 0.85) !important;
+    color: #1C1C1E !important;
+    transition: border-color 0.2s, box-shadow 0.2s;
     outline: none;
+    box-sizing: border-box;
 }
 
-.auth-input-wrapper input:hover {
-    border-color: rgba(0, 0, 0, 0.15);
-    background: #F0F0F5;
+body:not(.dark-theme) .auth-screen input:focus,
+body:not(.dark-theme) #auth-screen input:focus,
+body:not(.dark-theme) .auth-input-wrapper input:focus {
+    border-color: #007AFF !important;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.35),
+        inset 0 3px 8px rgba(0, 0, 0, 0.12),
+        0 0 0 3px rgba(0, 122, 255, 0.25),
+        0 1px 0 rgba(255, 255, 255, 0.85) !important;
 }
 
-.auth-input-wrapper input:focus {
-    border-color: #007AFF;
-    background: #FFFFFF;
-    box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+body:not(.dark-theme) .auth-screen input::placeholder,
+body:not(.dark-theme) #auth-screen input::placeholder {
+    color: #8E8E93 !important;
 }
 
-.auth-input-wrapper input::placeholder {
-    color: #AEAEB2;
+body.dark-theme .auth-screen input,
+body.dark-theme #auth-screen input,
+body.dark-theme .auth-input-wrapper input {
+    width: 100%;
+    padding: 16px 18px;
+    border: 1px solid #000000 !important;
+    border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+    border-radius: 10px;
+    font-size: 17px;
+    font-weight: 500;
+    background: linear-gradient(to bottom, #08080a 0%, #101013 25%, #1a1a1e 100%) !important;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.90),
+        inset 0 3px 8px rgba(0, 0, 0, 0.55),
+        0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    color: #FFFFFF !important;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+    box-sizing: border-box;
 }
 
+body.dark-theme .auth-screen input:focus,
+body.dark-theme #auth-screen input:focus,
+body.dark-theme .auth-input-wrapper input:focus {
+    border-color: #0A84FF !important;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.90),
+        inset 0 3px 8px rgba(0, 0, 0, 0.55),
+        0 0 0 3px rgba(10, 132, 255, 0.30),
+        0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+body.dark-theme .auth-screen input::placeholder,
+body.dark-theme #auth-screen input::placeholder {
+    color: rgba(235, 235, 245, 0.35) !important;
+}
+
+/* -------------------------------------------------
+   ⭐ КНОПКА "ВОЙТИ" (перенесено из style.css)
+   ------------------------------------------------- */
 .auth-btn {
     width: 100%;
     padding: 17px 24px;
@@ -414,37 +469,6 @@ body.dark-theme .auth-tab.active {
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 3px rgba(0, 0, 0, 0.4) !important;
 }
 
-/* Углублённые поля ввода (Тёмная тема) */
-body.dark-theme .auth-screen input,
-body.dark-theme #auth-screen input {
-    background: linear-gradient(to bottom, #08080a 0%, #101013 25%, #1a1a1e 100%) !important;
-    border: 1px solid #000000 !important;
-    border-bottom-color: rgba(255, 255, 255, 0.12) !important;
-    border-radius: 10px;
-    box-shadow:
-        inset 0 1px 3px rgba(0, 0, 0, 0.90),
-        inset 0 3px 8px rgba(0, 0, 0, 0.55),
-        0 1px 0 rgba(255, 255, 255, 0.08) !important;
-    color: #FFFFFF !important;
-}
-
-/* Углублённые поля ввода (Светлая тема) */
-body:not(.dark-theme) .auth-screen input,
-body:not(.dark-theme) #auth-screen input {
-    background: linear-gradient(to bottom, #cfcfd7 0%, #e8e8ee 8%, #f8f8fb 50%, #ffffff 100%) !important;
-    border: 1px solid #9d9da6 !important;
-    border-radius: 10px;
-    box-shadow:
-        inset 0 1px 3px rgba(0, 0, 0, 0.35),
-        inset 0 3px 8px rgba(0, 0, 0, 0.12),
-        0 1px 0 rgba(255, 255, 255, 0.85) !important;
-    color: #1C1C1E !important;
-}
-
-body:not(.dark-theme) .auth-screen input::placeholder {
-    color: #8E8E93 !important;
-}
-
 /* ============================================
    5. АДАПТИВНОСТЬ ЭКРАНА АВТОРИЗАЦИИ
    ============================================ */
@@ -472,6 +496,13 @@ body:not(.dark-theme) .auth-screen input::placeholder {
     }
     .auth-tab ion-icon {
         font-size: 16px;
+    }
+    body:not(.dark-theme) .auth-screen input,
+    body:not(.dark-theme) #auth-screen input,
+    body.dark-theme .auth-screen input,
+    body.dark-theme #auth-screen input {
+        font-size: 16px;
+        padding: 14px 16px;
     }
 }
 
