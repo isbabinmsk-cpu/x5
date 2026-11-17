@@ -1,11 +1,10 @@
 // ============================================
-// МОДУЛЬ АУТЕНТИФИКАЦИИ (auth-module.js) v4.5
-// Загрузка держится до полной загрузки данных
+// МОДУЛЬ АУТЕНТИФИКАЦИИ (auth-module.js) v5.1
+// Исправлена ошибка Cannot set property ... which has only a getter
 // ============================================
 (function () {
     'use strict';
 
-    // ===== УТИЛИТА =====
     function $(id) {
         return document.getElementById(id);
     }
@@ -207,7 +206,7 @@
             } catch (error) {
                 console.error('❌ Ошибка при выходе:', error);
                 if (typeof window.showToast === 'function') {
-                    window.showToast('⚠️ Ошибка при выходе: ' + error.message);
+                    window.showToast('⚠️ Ошибка при выходе: ' + (error.message || 'неизвестная ошибка'));
                 }
                 confirmBtn.disabled = false;
                 cancelBtn.disabled = false;
@@ -217,11 +216,12 @@
     }
 
     // ============================================
-    // ВЫХОД
+    // ВЫХОД (ИСПРАВЛЕННЫЙ)
     // ============================================
     async function performLogout() {
         window._isLoggingOut = true;
 
+        // 1. СНАЧАЛА отписываемся от всех слушателей Firebase
         if (window._fbListeners && window._fbListeners.length > 0) {
             console.log(`🔕 Отписываемся от ${window._fbListeners.length} Firebase-слушателей...`);
             const toUnsub = [...window._fbListeners];
@@ -237,6 +237,10 @@
             }
         });
 
+        // 2. Обнуляем currentUser ДО вызова auth.signOut()
+        window.currentUser = null;
+
+        // 3. Закрываем меню и прячем интерфейс
         if (typeof window.closeAllMenus === 'function') window.closeAllMenus();
         if (typeof window.closeFabMenu === 'function') window.closeFabMenu();
 
@@ -253,18 +257,19 @@
         if (statusWrapper) statusWrapper.style.display = 'none';
 
         document.body.classList.remove('authenticated');
-
         showAuthScreen();
 
+        // 4. Очищаем локальные данные (безопасно для getter-ов)
         localStorage.removeItem('driverAuthState');
         localStorage.removeItem('appState');
 
-        if (typeof window.records !== 'undefined') window.records = [];
-        if (typeof window.tariffs !== 'undefined') window.tariffs = [];
-        if (typeof window.fuelLogs !== 'undefined') window.fuelLogs = [];
-        if (typeof window.repairRecords !== 'undefined') window.repairRecords = [];
+        if (Array.isArray(window.records)) window.records.length = 0;
+        if (Array.isArray(window.tariffs)) window.tariffs.length = 0;
+        if (Array.isArray(window.fuelLogs)) window.fuelLogs.length = 0;
+        if (Array.isArray(window.repairRecords)) window.repairRecords.length = 0;
         if (typeof window.saveData === 'function') window.saveData();
 
+        // 5. Очищаем формы
         const loginForm = $('login-form');
         const registerForm = $('register-form');
         const loginError = $('login-error');
@@ -276,6 +281,7 @@
 
         switchAuthTab('login');
 
+        // 6. ТЕПЕРЬ безопасно вызываем signOut
         try {
             await auth.signOut();
             console.log('✅ Вы вышли из аккаунта');
@@ -283,7 +289,7 @@
             console.error('Ошибка выхода:', error);
         }
 
-        window.currentUser = null;
+        // 7. Обновляем статус
         if (typeof window.connectionMode !== 'undefined') window.connectionMode = 'local';
         if (typeof window.firebaseErrorReason !== 'undefined') window.firebaseErrorReason = '';
         if (typeof window.updateConnectionIndicator === 'function') window.updateConnectionIndicator();
@@ -294,29 +300,21 @@
     }
 
     // ============================================
-    // ВХОД — КЛЮЧЕВАЯ ФУНКЦИЯ
-    // ⚠️ Загрузка скрывается ТОЛЬКО после того, как загружены ВСЕ данные
+    // ВХОД
     // ============================================
     async function handleUserLogin(user) {
         console.log('✅ Пользователь вошел:', user.email);
         console.log('⏳ Начинаем загрузку данных...');
 
-        // 1. Сразу устанавливаем currentUser, чтобы loadUserData знала uid
         window.currentUser = user;
         localStorage.setItem('driverAuthState', 'true');
 
-        // 2. НЕ скрываем загрузку, НЕ показываем интерфейс — спиннер крутится
-        // НЕ добавляем body.authenticated
-
-        // 3. Скрываем форму входа (чтобы её не было видно за спиннером)
         hideAuthScreen();
 
-        // 4. Обновляем статус
         if (typeof window.connectionMode !== 'undefined') window.connectionMode = 'checking';
         if (typeof window.firebaseErrorReason !== 'undefined') window.firebaseErrorReason = '';
         if (typeof window.updateConnectionIndicator === 'function') window.updateConnectionIndicator();
 
-        // 5. Загружаем ВСЕ данные, пока спиннер крутится
         try {
             if (typeof window.loadUserData === 'function') {
                 await window.loadUserData();
@@ -343,11 +341,7 @@
             if (typeof window.firebaseErrorReason !== 'undefined') window.firebaseErrorReason = 'Ошибка загрузки данных: ' + error.message;
         }
 
-        // 6. ✅ ТОЛЬКО ТЕПЕРЬ показываем интерфейс
-        // Скрываем загрузку
         hideLoadingScreen();
-
-        // Показываем интерфейс
         document.body.classList.add('authenticated');
 
         const logoutBtn = $('logout-btn');
@@ -360,7 +354,6 @@
         if (logoutBtn) logoutBtn.style.display = 'inline-flex';
         if (statusWrapper) statusWrapper.style.display = 'flex';
 
-        // 7. Заполняем профиль
         const nameEl = $('profile-name');
         const emailEl = $('profile-email');
         const syncEl = $('profile-sync-status');
@@ -373,13 +366,11 @@
             syncEl.style.color = 'var(--ios-success)';
         }
 
-        // 8. Аватар
         const homeTab = $('tab-home');
         if (homeTab && homeTab.classList.contains('active')) {
             if (typeof window.loadProfileAvatar === 'function') window.loadProfileAvatar();
         }
 
-        // 9. Проверка соединения
         setTimeout(() => {
             if (typeof window.checkFirebaseConnection === 'function') window.checkFirebaseConnection();
         }, 1000);
@@ -388,7 +379,7 @@
     }
 
     // ============================================
-    // ВЫХОД (автоматический)
+    // ВЫХОД (автоматический, по событию Firebase)
     // ============================================
     function handleUserLogout() {
         hideLoadingScreen();
@@ -417,8 +408,11 @@
 
         showAuthScreen();
 
-        if (typeof window.records !== 'undefined') window.records = [];
-        if (typeof window.tariffs !== 'undefined') window.tariffs = [];
+        // Безопасная очистка массивов
+        if (Array.isArray(window.records)) window.records.length = 0;
+        if (Array.isArray(window.tariffs)) window.tariffs.length = 0;
+        if (Array.isArray(window.fuelLogs)) window.fuelLogs.length = 0;
+        if (Array.isArray(window.repairRecords)) window.repairRecords.length = 0;
         if (typeof window.saveData === 'function') window.saveData();
 
         if (typeof window.connectionMode !== 'undefined') window.connectionMode = 'local';
@@ -449,7 +443,7 @@
             return;
         }
 
-        console.log('🔐 Регистрируем onAuthStateChanged (загрузка держится до загрузки данных)');
+        console.log('🔐 Регистрируем onAuthStateChanged');
 
         auth.onAuthStateChanged(async (user) => {
             try {
@@ -481,7 +475,7 @@
     function init() {
         initForms();
         initLogoutButton();
-        console.log('✅ Модуль аутентификации v4.5 инициализирован');
+        console.log('✅ Модуль аутентификации v5.1 инициализирован');
     }
 
     // ===== ЭКСПОРТ =====

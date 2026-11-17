@@ -1,12 +1,31 @@
 // ============================================
-// МОДУЛЬ ВВОДА ДАННЫХ ЗА ДЕНЬ (МОДАЛЬНОЕ ОКНО)
-// v1.0.3 — работает со СТАРЫМ HTML (onclick="selectFabAction('entry')")
+// МОДУЛЬ ВВОДА ДАННЫХ ЗА ДЕНЬ (entry-module.js) v1.1
 // ============================================
-(function() {
+// Всё, что связано с модалкой ввода — ЗДЕСЬ:
+//   • HTML модалки
+//   • открытие/закрытие
+//   • autoCalc / toggleAutoCalc / markManualEdit
+//   • updateWeekday / updateTariffDisplay / onDateChange
+//   • recalcCurrentByTariff / cancelEdit / clearForm
+//   • сохранение через window.saveRecord (из script.js)
+//
+// Из ядра используется:
+//   • window.records, window.tariffs (данные)
+//   • window.saveRecord (сохранение)
+//   • window.getTariffForDate (тариф на дату)
+//   • window.normalizeRecord, window.formatMoney, window.parseLocalDate
+//   • window.openFuelModal, window.openRepairModal (для FAB-меню, если есть)
+// ============================================
+(function () {
     'use strict';
 
     let entryModalOverlay = null;
     let isModalOpen = false;
+
+    // ============================================
+    // СОСТОЯНИЕ АВТО-РАСЧЁТА
+    // ============================================
+    const autoCalcState = { km: true, weight: true };
 
     // ============================================
     // HTML МОДАЛКИ
@@ -207,8 +226,221 @@
 </div>`;
     }
 
+    // ============================================
+    // УТИЛИТЫ МОДАЛКИ
+    // ============================================
+    function getTariff(dateStr) {
+        if (typeof window.getTariffForDate === 'function') return window.getTariffForDate(dateStr);
+        return { pickup: 60, delivery: 81, km: 11, weight: 2 };
+    }
+
+    function updateWeekday() {
+        const dateEl = document.getElementById('date');
+        const weekdayEl = document.getElementById('weekday');
+        if (!dateEl || !weekdayEl) return;
+        const val = dateEl.value;
+        if (!val) { weekdayEl.value = ''; return; }
+        const days = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
+        weekdayEl.value = days[new Date(val).getDay()];
+    }
+
+    function updateTariffDisplay() {
+        const dateEl = document.getElementById('date');
+        const display = document.getElementById('tariff-date-display');
+        if (!dateEl || !display) return;
+        const dateVal = dateEl.value;
+        display.textContent = dateVal || 'сегодня';
+        const t = getTariff(dateVal);
+        const setEl = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        if (t) {
+            setEl('t-pickup', t.pickup);
+            setEl('t-delivery', t.delivery);
+            setEl('t-km', t.km);
+            setEl('t-weight', t.weight);
+        }
+    }
+
+    function onDateChange() {
+        updateWeekday();
+        updateTariffDisplay();
+    }
+
+    // ============================================
+    // АВТО-РАСЧЁТ
+    // ============================================
+    function autoCalc(type) {
+        if (type === 'km' && autoCalcState.km === false) return;
+        if (type === 'weight' && autoCalcState.weight === false) return;
+
+        const dateEl = document.getElementById('date');
+        const tariff = getTariff(dateEl ? dateEl.value : '');
+        if (!tariff) return;
+
+        let qtyId, priceId, rate;
+        switch (type) {
+            case 'pickup': qtyId = 'orders-pickup'; priceId = 'pay-pickup'; rate = tariff.pickup; break;
+            case 'delivery': qtyId = 'orders-delivery'; priceId = 'pay-delivery'; rate = tariff.delivery; break;
+            case 'km': qtyId = 'distance'; priceId = 'pay-distance'; rate = tariff.km; break;
+            case 'weight': qtyId = 'weight'; priceId = 'pay-weight'; rate = tariff.weight; break;
+            default: return;
+        }
+        const qtyEl = document.getElementById(qtyId);
+        const priceEl = document.getElementById(priceId);
+        if (!qtyEl || !priceEl) return;
+
+        if (!qtyEl.value || qtyEl.value === '') { priceEl.value = ''; return; }
+        const qty = parseFloat(qtyEl.value);
+        if (isNaN(qty) || qty <= 0) { priceEl.value = ''; return; }
+        priceEl.value = Math.round(qty * rate * 100) / 100;
+    }
+
+    function toggleAutoCalc(field) {
+        autoCalcState[field] = !autoCalcState[field];
+        const btn = document.querySelector(`[onclick="toggleAutoCalc('${field}')"]`);
+        const input = document.getElementById(field === 'km' ? 'pay-distance' : 'pay-weight');
+        const hint = input ? input.closest('.form-group').querySelector('.auto-hint') : null;
+        const editingId = window.editingId;
+
+        if (autoCalcState[field]) {
+            if (btn) btn.classList.remove('manual-mode');
+            if (input) input.classList.remove('manual-edit');
+            if (hint) hint.textContent = 'автоматически';
+
+            if (editingId) {
+                const idx = (window.records || []).findIndex(r => r.id === editingId);
+                if (idx !== -1) {
+                    const fieldName = field === 'km' ? 'payDistance' : 'payWeight';
+                    if (window.records[idx].manualEdits) {
+                        window.records[idx].manualEdits = window.records[idx].manualEdits.filter(f => f !== fieldName);
+                    }
+                }
+            }
+            autoCalc(field);
+        } else {
+            if (btn) btn.classList.add('manual-mode');
+            if (input) input.classList.add('manual-edit');
+            if (hint) hint.textContent = 'ручной ввод';
+
+            if (editingId) {
+                const idx = (window.records || []).findIndex(r => r.id === editingId);
+                if (idx !== -1) {
+                    const fieldName = field === 'km' ? 'payDistance' : 'payWeight';
+                    if (!window.records[idx].manualEdits) window.records[idx].manualEdits = [];
+                    if (!window.records[idx].manualEdits.includes(fieldName)) {
+                        window.records[idx].manualEdits.push(fieldName);
+                    }
+                }
+            }
+        }
+    }
+
+    function markManualEdit(field) {
+        if (!autoCalcState[field]) return;
+        autoCalcState[field] = false;
+        const btn = document.querySelector(`[onclick="toggleAutoCalc('${field}')"]`);
+        const input = document.getElementById(field === 'km' ? 'pay-distance' : 'pay-weight');
+        const hint = input ? input.closest('.form-group').querySelector('.auto-hint') : null;
+        if (btn) btn.classList.add('manual-mode');
+        if (input) input.classList.add('manual-edit');
+        if (hint) hint.textContent = 'ручной ввод';
+
+        const editingId = window.editingId;
+        if (editingId) {
+            const idx = (window.records || []).findIndex(r => r.id === editingId);
+            if (idx !== -1) {
+                const fieldName = field === 'km' ? 'payDistance' : 'payWeight';
+                if (!window.records[idx].manualEdits) window.records[idx].manualEdits = [];
+                if (!window.records[idx].manualEdits.includes(fieldName)) {
+                    window.records[idx].manualEdits.push(fieldName);
+                }
+            }
+        }
+    }
+
+    // ============================================
+    // ПЕРЕСЧЁТ ПО ТАРИФУ (кнопка в режиме редактирования)
+    // ============================================
+    function recalcCurrentByTariff() {
+        const editingId = window.editingId;
+        if (!editingId) {
+            alert('⚠️ Эта функция работает только при редактировании существующей записи.');
+            return;
+        }
+        const dateEl = document.getElementById('date');
+        const tariff = getTariff(dateEl ? dateEl.value : '');
+        if (!tariff) { alert('❌ Тариф для этой даты не найден'); return; }
+
+        const pickup = parseFloat(document.getElementById('orders-pickup').value) || 0;
+        const delivery = parseFloat(document.getElementById('orders-delivery').value) || 0;
+        const km = parseFloat(document.getElementById('distance').value) || 0;
+        const weight = parseFloat(document.getElementById('weight').value) || 0;
+
+        const newPickup = pickup > 0 ? Math.round(pickup * tariff.pickup * 100) / 100 : 0;
+        const newDelivery = delivery > 0 ? Math.round(delivery * tariff.delivery * 100) / 100 : 0;
+        const newDistance = km > 0 ? Math.round(km * tariff.km * 100) / 100 : 0;
+        const newWeight = weight > 0 ? Math.round(weight * tariff.weight * 100) / 100 : 0;
+
+        document.getElementById('pay-pickup').value = newPickup;
+        document.getElementById('pay-delivery').value = newDelivery;
+        document.getElementById('pay-distance').value = newDistance;
+        document.getElementById('pay-weight').value = newWeight;
+
+        const records = window.records || [];
+        const idx = records.findIndex(r => r.id === editingId);
+        if (idx !== -1) {
+            records[idx].payPickup = newPickup;
+            records[idx].payDelivery = newDelivery;
+            records[idx].payDistance = newDistance;
+            records[idx].payWeight = newWeight;
+            if (typeof window.normalizeRecord === 'function') {
+                window.records[idx] = window.normalizeRecord(records[idx]);
+            }
+            if (typeof window.saveData === 'function') window.saveData();
+            if (typeof window.saveRecordToFirebase === 'function' && window.currentUser) {
+                window.saveRecordToFirebase(window.records[idx]);
+            }
+            if (typeof window.renderTable === 'function') window.renderTable();
+        }
+        alert('✅ Пересчитано и сохранено по тарифу на ' + (dateEl ? dateEl.value : ''));
+    }
+
+    // ============================================
+    // ОТМЕНА РЕДАКТИРОВАНИЯ
+    // ============================================
+    function cancelEdit() {
+        window.editingId = null;
+        const en = document.getElementById('editing-notice');
+        if (en) en.style.display = 'none';
+        const dateEl = document.getElementById('date');
+        if (dateEl && dateEl.value && typeof window.renderTable === 'function') {
+            // Ничего не рендерим, просто выходим из режима
+        }
+    }
+
+    // ============================================
+    // ОЧИСТКА ФОРМЫ
+    // ============================================
+    function clearForm() {
+        const form = document.getElementById('daily-form');
+        if (form) form.reset();
+        const dateEl = document.getElementById('date');
+        if (dateEl) dateEl.valueAsDate = new Date();
+        const rt = document.getElementById('record-type');
+        if (rt) rt.value = 'work';
+        const bp = document.getElementById('bonus-period');
+        if (bp) bp.value = '';
+        window.editingId = null;
+        const en = document.getElementById('editing-notice');
+        if (en) en.style.display = 'none';
+        onDateChange();
+    }
+
+    // ============================================
+    // ОТКРЫТИЕ / ЗАКРЫТИЕ
+    // ============================================
     function openEntryModal(editId) {
         console.log('📝 openEntryModal, editId =', editId);
+
         if (!entryModalOverlay) {
             const wrapper = document.createElement('div');
             wrapper.innerHTML = getEntryModalHTML();
@@ -217,21 +449,19 @@
             attachEntryEventListeners();
             console.log('✅ Модалка создана в DOM');
         }
+
         if (editId) fillFormFromRecord(editId);
         else resetEntryForm();
+
         requestAnimationFrame(() => {
             entryModalOverlay.classList.add('visible');
             isModalOpen = true;
             document.body.style.overflow = 'hidden';
-            if (typeof window.updateTariffDisplay === 'function') {
-                try { window.updateTariffDisplay(); } catch (e) {}
-            }
-            const dateInput = document.getElementById('date');
-            if (dateInput && !dateInput.value) {
-                dateInput.valueAsDate = new Date();
-                if (typeof window.onDateChange === 'function') {
-                    try { window.onDateChange(); } catch (e) {}
-                }
+            updateTariffDisplay();
+            const dateEl = document.getElementById('date');
+            if (dateEl && !dateEl.value) {
+                dateEl.valueAsDate = new Date();
+                onDateChange();
             }
         });
     }
@@ -241,70 +471,68 @@
         entryModalOverlay.classList.remove('visible');
         isModalOpen = false;
         document.body.style.overflow = '';
-        if (typeof window.cancelEditSilent === 'function') {
-            try { window.cancelEditSilent(); } catch (e) {}
-        }
+        cancelEdit();
     }
 
     function resetEntryForm() {
-        try { window.editingId = null; } catch (e) {}
+        window.editingId = null;
         const form = document.getElementById('daily-form');
         if (form) form.reset();
-        const dateInput = document.getElementById('date');
-        if (dateInput) dateInput.valueAsDate = new Date();
+        const dateEl = document.getElementById('date');
+        if (dateEl) dateEl.valueAsDate = new Date();
         const rt = document.getElementById('record-type');
         if (rt) rt.value = 'work';
         const bp = document.getElementById('bonus-period');
         if (bp) bp.value = '';
         const en = document.getElementById('editing-notice');
         if (en) en.style.display = 'none';
-        if (typeof window.onDateChange === 'function') {
-            try { window.onDateChange(); } catch (e) {}
-        }
+        onDateChange();
     }
 
     function fillFormFromRecord(id) {
-        const rec = (window.records || []).find(r => r.id === id);
+        const records = window.records || [];
+        const rec = records.find(r => r.id === id);
         if (!rec) return;
-        try { window.editingId = id; } catch (e) {}
+        window.editingId = id;
         const set = (elId, val) => {
             const el = document.getElementById(elId);
             if (el) el.value = val != null ? val : '';
         };
-        set('date', rec.date); set('hours', rec.hours);
-        set('orders-pickup', rec.ordersPickup); set('pay-pickup', rec.payPickup);
-        set('orders-delivery', rec.ordersDelivery); set('pay-delivery', rec.payDelivery);
-        set('distance', rec.distance); set('pay-distance', rec.payDistance);
-        set('weight', rec.weight); set('pay-weight', rec.payWeight);
-        set('load-pay', rec.loadPay); set('bonus-pay', rec.bonusPay);
-        set('rating', rec.rating); set('tips', rec.tips);
-        set('fuel-cost', rec.fuelCost); set('repair-cost', rec.repairCost);
-        set('tax', rec.tax); set('record-type', rec.recordType || 'work');
+        set('date', rec.date);
+        set('hours', rec.hours);
+        set('orders-pickup', rec.ordersPickup);
+        set('pay-pickup', rec.payPickup);
+        set('orders-delivery', rec.ordersDelivery);
+        set('pay-delivery', rec.payDelivery);
+        set('distance', rec.distance);
+        set('pay-distance', rec.payDistance);
+        set('weight', rec.weight);
+        set('pay-weight', rec.payWeight);
+        set('load-pay', rec.loadPay);
+        set('bonus-pay', rec.bonusPay);
+        set('rating', rec.rating);
+        set('tips', rec.tips);
+        set('fuel-cost', rec.fuelCost);
+        set('repair-cost', rec.repairCost);
+        set('tax', rec.tax);
+        set('record-type', rec.recordType || 'work');
         set('bonus-period', rec.bonusPeriod);
-        if (typeof window.updateWeekday === 'function') {
-            try { window.updateWeekday(); } catch (e) {}
-        }
-        if (typeof window.updateTariffDisplay === 'function') {
-            try { window.updateTariffDisplay(); } catch (e) {}
-        }
+        updateWeekday();
+        updateTariffDisplay();
         const en = document.getElementById('editing-notice');
         if (en) en.style.display = 'flex';
     }
 
     function attachEntryEventListeners() {
-        entryModalOverlay.addEventListener('click', function(e) {
+        entryModalOverlay.addEventListener('click', function (e) {
             if (e.target === entryModalOverlay) closeEntryModal();
         });
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape' && isModalOpen) closeEntryModal();
         });
-        const dateInput = document.getElementById('date');
-        if (dateInput) {
-            dateInput.addEventListener('change', function() {
-                if (typeof window.onDateChange === 'function') {
-                    try { window.onDateChange(); } catch (e) {}
-                }
-            });
+        const dateEl = document.getElementById('date');
+        if (dateEl) {
+            dateEl.addEventListener('change', onDateChange);
         }
     }
 
@@ -313,10 +541,11 @@
             alert('Ошибка: функция сохранения недоступна');
             return;
         }
-        const fakeEvent = { preventDefault: function() {} };
+        const fakeEvent = { preventDefault: function () {} };
         try {
-            window.saveRecord(fakeEvent);
-            closeEntryModal();
+            const ok = window.saveRecord(fakeEvent);
+            // saveRecord может вернуть false, если пользователь отменил
+            if (ok !== false) closeEntryModal();
         } catch (err) {
             console.error('❌ Ошибка сохранения:', err);
             alert('Ошибка сохранения: ' + err.message);
@@ -324,137 +553,105 @@
     }
 
     function clearEntryForm() {
-        if (typeof window.clearForm === 'function') {
-            try { window.clearForm(); } catch (e) {}
-        } else {
-            resetEntryForm();
-        }
+        clearForm();
     }
 
-    // Экспорт в window
+    // ============================================
+    // ЭКСПОРТ В WINDOW
+    // ============================================
     window.openEntryModal = openEntryModal;
     window.closeEntryModal = closeEntryModal;
     window.submitEntryForm = submitEntryForm;
     window.clearEntryForm = clearEntryForm;
 
-    // ============================================
-    // ГЛАВНЫЙ ФИКС: перехват selectFabAction СИЛОЙ
-    // ============================================
-    // Проблема: в script.js ДВЕ функции selectFabAction, вторая перезаписывает первую.
-    // Мы не можем знать, какая "победит" — поэтому:
-    // 1. Через defineProperty делаем selectFabAction "неперезаписываемым"
-    // 2. Или перехватываем через addEventListener на document (перехват кликов)
+    // Функции, которые вызывает HTML модалки
+    window.autoCalc = autoCalc;
+    window.toggleAutoCalc = toggleAutoCalc;
+    window.markManualEdit = markManualEdit;
+    window.recalcCurrentByTariff = recalcCurrentByTariff;
+    window.cancelEdit = cancelEdit;
+    window.clearForm = clearForm;
+    window.onDateChange = onDateChange;
+    window.updateWeekday = updateWeekday;
+    window.updateTariffDisplay = updateTariffDisplay;
 
-    // Способ 1: перехват КЛИКОВ на document (самый надёжный!)
-    // Ловим клики по кнопкам внутри #fab-menu и обрабатываем их сами
-    document.addEventListener('click', function(e) {
-        // Клик по кнопке "Запись" в FAB-меню
-        const entryBtn = e.target.closest('#fab-menu .auto-menu-item');
-        if (!entryBtn) return;
-        
-        const text = (entryBtn.textContent || '').trim();
-        const hasCalendarIcon = entryBtn.querySelector('ion-icon[name="calendar-outline"]');
-        
-        // Определяем, какая это кнопка
-        if (hasCalendarIcon || text.includes('Запись')) {
-            // Это "Запись" — перехватываем клик!
+    // ============================================
+    // FAB-меню: подстраховка
+    // ============================================
+    // В штатном режиме script.js.selectFabAction сам вызывает нужную модалку.
+    // Но если по какой-то причине selectFabAction не сработал (старый HTML,
+    // дублирующиеся обработчики) — перехватываем клик по FAB-меню.
+    document.addEventListener('click', function (e) {
+        const btn = e.target.closest('#fab-menu .auto-menu-item');
+        if (!btn) return;
+
+        const text = (btn.textContent || '').trim();
+        const hasCalendar = btn.querySelector('ion-icon[name="calendar-outline"]');
+        const hasFlame = btn.querySelector('ion-icon[name="flame-outline"]');
+        const hasConstruct = btn.querySelector('ion-icon[name="construct-outline"]');
+
+        // Если script.js уже сам вызвал действие — флаг __fabHandled
+        // выставляется в selectFabAction (см. ниже — мы его не трогаем).
+        // Здесь только фолбэк для "Запись", т.к. openEntryModal — наш.
+        if (hasCalendar || text.includes('Запись')) {
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
-            
-            console.log('🖱️ Перехвачен клик по "Запись" в FAB-меню');
-            
-            // Закрываем меню
-            const fabMenu = document.getElementById('fab-menu');
-            const fab = document.getElementById('fab-add');
-            if (fabMenu) fabMenu.classList.remove('open');
-            if (fab) fab.classList.remove('fab-open');
-            
-            // Открываем модалку
+
+            console.log('🖱️ FAB → Запись (фолбэк entry-module)');
+            if (typeof window.closeFabMenu === 'function') window.closeFabMenu();
             openEntryModal();
             return;
         }
-        
-        // Клик по "Топливо" — ОТКРЫВАЕМ МОДАЛКУ (ИСПРАВЛЕНО)
-if (entryBtn.querySelector('ion-icon[name="flame-outline"]') || text.includes('Топливо')) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-    console.log('🔵 Перехвачен клик по "Топливо" в FAB-меню — открываем модалку');
-    
-    // Закрываем меню
-    const fabMenu = document.getElementById('fab-menu');
-    const fab = document.getElementById('fab-add');
-    if (fabMenu) fabMenu.classList.remove('open');
-    if (fab) fab.classList.remove('fab-open');
-    
-    // Открываем МОДАЛКУ, а не вкладку!
-    if (typeof window.openFuelModal === 'function') {
-        window.openFuelModal();
-    } else {
-        console.warn('⚠️ openFuelModal не найден, открываем вкладку (фолбэк)');
-        if (typeof window.switchTab === 'function') window.switchTab('fuel');
-    }
-    return;
-}
-        
-// Клик по "Ремонт" — ОТКРЫВАЕМ МОДАЛКУ (ИСПРАВЛЕНО)
-if (entryBtn.querySelector('ion-icon[name="construct-outline"]') || text.includes('Ремонт')) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-    console.log('🔵 Перехвачен клик по "Ремонт" в FAB-меню — открываем модалку');
-    
-    // Закрываем меню
-    const fabMenu = document.getElementById('fab-menu');
-    const fab = document.getElementById('fab-add');
-    if (fabMenu) fabMenu.classList.remove('open');
-    if (fab) fab.classList.remove('fab-open');
-    
-    // Открываем МОДАЛКУ, а не вкладку!
-    if (typeof window.openRepairModal === 'function') {
-        window.openRepairModal();
-    } else {
-        console.warn('⚠️ openRepairModal не найден, открываем вкладку (фолбэк)');
-        if (typeof window.switchTab === 'function') window.switchTab('repair');
-    }
-    return;
-}
-    }, true); // ← capture:true — перехватываем ДО того, как сработает onclick
 
-    console.log('✅ entry-module v1.0.3 загружен (перехват кликов через capture)');
+        // Топливо и Ремонт — не наш DOM, отдаём модулям
+        if (hasFlame || text.includes('Топливо')) {
+            if (typeof window.openFuelModal === 'function') {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                if (typeof window.closeFabMenu === 'function') window.closeFabMenu();
+                window.openFuelModal();
+            }
+            return;
+        }
+        if (hasConstruct || text.includes('Ремонт')) {
+            if (typeof window.openRepairModal === 'function') {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                if (typeof window.closeFabMenu === 'function') window.closeFabMenu();
+                window.openRepairModal();
+            }
+            return;
+        }
+    }, true);
 
     // ============================================
-    // Дополнительно: перехват openEntryTab и editRecord
+    // ПАТЧ editRecord ИЗ script.js (чтобы открывал модалку)
     // ============================================
-    let patchAttempts = 0;
+    let attempts = 0;
     function tryPatch() {
-        patchAttempts++;
-        if (typeof window.openEntryTab === 'function' && !window.openEntryTab.__patched) {
-            const w = function() { openEntryModal(); };
-            w.__patched = true;
-            window.openEntryTab = w;
-        }
-        if (typeof window.editRecord === 'function' && !window.editRecord.__patched) {
-            const w = function(id) { openEntryModal(id); };
-            w.__patched = true;
-            window.editRecord = w;
-        }
-        if (typeof window.switchTab === 'function' && !window.switchTab.__entryPatched) {
-            const orig = window.switchTab;
-            const w = function(tabName) {
-                if (isModalOpen) closeEntryModal();
-                return orig.apply(this, arguments);
+        attempts++;
+        if (typeof window.editRecord === 'function' && !window.editRecord.__entryPatched) {
+            const orig = window.editRecord;
+            const w = function (id) {
+                if (typeof orig === 'function' && !orig.__entryPatched) {
+                    // В новом script.js editRecord уже вызывает openEntryModal
+                    return orig.call(this, id);
+                }
+                openEntryModal(id);
             };
             w.__entryPatched = true;
-            window.switchTab = w;
+            window.editRecord = w;
         }
-        if (patchAttempts >= 50) return true;
-        const ok = window.openEntryTab?.__patched && window.editRecord?.__patched;
-        return !!ok;
+        if (attempts >= 30) return true;
+        return false;
     }
-    if (!tryPatch()) {
-        const t = setInterval(() => { if (tryPatch()) clearInterval(t); }, 100);
+    tryPatch();
+    if (attempts < 30) {
+        const t = setInterval(() => { if (tryPatch()) clearInterval(t); }, 200);
     }
-    window.addEventListener('load', tryPatch);
+
+    console.log('✅ entry-module v1.1 загружен (самодостаточный)');
 })();

@@ -34,6 +34,9 @@
     <!-- Стили -->
     <link rel="stylesheet" href="css/auth.css">
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/fuel-module.css">
+    <link rel="stylesheet" href="css/repair-module.css">
+    <link rel="stylesheet" href="css/vehicle-module.css">
     <link rel="stylesheet" href="css/home-tab.css">
     <link rel="stylesheet" href="css/entry-module.css">
     <link rel="stylesheet" href="css/shift.css">
@@ -71,25 +74,25 @@
     <!-- ⚠️ ПОРЯДОК: auth-module ПОСЛЕ firebase-config, script.js с defer -->
     <script src="auth-module.js?v=1.0.2"></script>
     
-    <script src="script.js?v=2.9.95" defer></script>
+    <script src="script.js?v=2.9.97" defer></script>
     
     <!-- Модули -->
      <script 
-        src="home-module.js?v=1.0.3"></script>
+        src="home-module.js?v=1.0.5"></script>
     <script 
-        src="vehicle-module.js?v=1.1.0"></script>
-    <script type="module" 
-        src="repair-module.js?v=1.1.7"></script>
-    <script type="module" 
-        src="fuel-module.js?v=1.1.1"></script>
+        src="vehicle-module.js?v=1.1.2"></script>
     <script 
-        src="entry-module.js?v=1.0.9"></script>
+        src="repair-module.js?v=1.1.9"></script>
+    <script  
+        src="fuel-module.js?v=1.1.3"></script>
     <script 
-        src="shift-module.js?v=1.1.1"></script>
+        src="entry-module.js?v=1.1.1"></script>
     <script 
-        src="backup-module.js?v=1.0.8"></script>
+        src="shift-module.js?v=1.1.3"></script>
     <script 
-        src="control-center.js?v=1.0.3"></script>
+        src="backup-module.js?v=1.1.0"></script>
+    <script 
+        src="control-center.js?v=1.0.5"></script>
 </head>
 <body>
 
@@ -359,136 +362,218 @@
 
 <!-- Вкладка: Аналитика -->
 <div id="tab-analytics" class="tab-content">
-    <div class="filters">
-        <div class="form-group" style="flex:1;">
-            <label>Месяц</label>
-            <select id="filter-month" onchange="updateAnalytics()"></select>
-        </div>
-        <div class="form-group" style="flex:1;">
-            <label>Год</label>
-            <select id="filter-year" onchange="updateAnalytics()"></select>
-        </div>
-    </div>
-
-    <div class="section-title">ПОКАЗАТЕЛИ ЗА ПЕРИОД</div>
-    <div class="stats-grid">
-        <div class="stat-card income float-in magnetic">
-            <h3><ion-icon name="cash-outline" style="vertical-align: middle; margin-right: 4px;"></ion-icon> ОБЩИЙ ДОХОД:</h3>
-            <div class="stat-value" id="total-income">0 ₽</div>
-        </div>
-        <div class="stat-card income float-in magnetic">
-            <h3><ion-icon name="cash-outline" style="vertical-align: middle; margin-right: 4px;"></ion-icon> Общий доход в день:</h3>
-            <div class="stat-value" id="avg-income-per-day">0 ₽</div>
-        </div>
-        <div class="stat-card expense float-in magnetic">
-            <h3><ion-icon name="car-sport-outline"></ion-icon> РАСХОДЫ НА БЕНЗИН:</h3>
-            <div class="stat-value" id="total-fuel">0 ₽</div>
-        </div>
-        <div class="stat-card expense float-in magnetic">
-            <h3><ion-icon name="construct-outline"></ion-icon> РЕМОНТ:</h3>
-            <div class="stat-value" id="total-repair">0 ₽</div>
-        </div>
-        <div class="stat-card expense float-in magnetic">
-            <h3><ion-icon name="receipt-outline"></ion-icon> НАЛОГ:</h3>
-            <div class="stat-value" id="total-tax">0 ₽</div>
-        </div>
-        <div class="stat-card expense float-in magnetic">
-            <h3><ion-icon name="trending-down-outline"></ion-icon> ВСЕГО РАСХОДЫ:</h3>
-            <div class="stat-value" id="total-expenses">0 ₽</div>
-        </div>
-        <div class="stat-card profit float-in magnetic live-indicator">
-            <h3><ion-icon name="checkmark-circle-outline"></ion-icon> ЧИСТАЯ ПРИБЫЛЬ:</h3>
-            <div class="stat-value" id="net-profit">0 ₽</div>
-        </div>
-        <div class="stat-card profit float-in magnetic">
-            <h3><ion-icon name="trending-up-outline"></ion-icon> ЧИСТАЯ ПРИБЫЛЬ В ДЕНЬ:</h3>
-            <div class="stat-value" id="avg-net-profit-per-day">0 ₽</div>
-        </div>
-        <div class="stat-card float-in magnetic">
-            <h3><ion-icon name="time-outline"></ion-icon> ЧАСОВ ОТРАБОТАНО:</h3>
-            <div class="stat-value" id="total-hours">0</div>
-        </div>
-        <div class="stat-card float-in magnetic">
-            <h3><ion-icon name="arrow-up-outline"></ion-icon> ЗАКАЗОВ (ВЫДАЧА):</h3>
-            <div class="stat-value" id="total-orders">0</div>
-        </div>
-        <div class="stat-card float-in magnetic">
-            <h3><ion-icon name="navigate-outline"></ion-icon> ПРОЙДЕНО КМ:</h3>
-            <div class="stat-value" id="total-distance">0</div>
-        </div>
-        <div class="stat-card float-in magnetic">
-            <h3><ion-icon name="calendar-number-outline"></ion-icon> РАБОЧИХ ДНЕЙ:</h3>
-            <div class="stat-value" id="working-days">0</div>
-        </div>
-    </div>
-
-    <div class="section-title">ЭФФЕКТИВНОСТЬ ЗА ПЕРИОД</div>
-    <div class="stats-grid efficiency-grid">
-        <div class="stat-card profit float-in magnetic">
-            <h3><ion-icon name="cash-outline" style="font-size: 32px; margin-bottom: 8px;"></ion-icon> Средний ₽/час (чистая прибыль):</h3>
-            <div class="stat-value" id="avg-per-hour">0 ₽</div>
-        </div>
-        <div class="stat-card profit float-in magnetic">
-            <h3><ion-icon name="receipt-outline" style="font-size: 32px; margin-bottom: 8px;"></ion-icon> Средний чек:</h3>
-            <div class="stat-value" id="avg-check">0 ₽</div>
-        </div>
-        <div class="stat-card profit float-in magnetic">
-            <h3><ion-icon name="speedometer-outline" style="font-size: 32px; margin-bottom: 8px;"></ion-icon> Заказов в час:</h3>
-            <div class="stat-value" id="orders-per-hour">0</div>
-        </div>
-        <div class="stat-card profit float-in magnetic">
-            <h3><ion-icon name="analytics-outline" style="font-size: 32px; margin-bottom: 8px;"></ion-icon> Эффективность:</h3>
-            <div class="stat-value" id="efficiency-percent">0%</div>
-        </div>
-    </div>
-
-    <div class="charts-grid">
-        <div class="chart-container float-in glossy">
-            <h3>Доход и прибыль по дням</h3>
-            <canvas id="income-chart"></canvas>
-        </div>
-        <div class="chart-container float-in glossy">
-            <h3>Расходы по категориям</h3>
-            <canvas id="expenses-chart"></canvas>
-        </div>
-    </div>
-
-    <div class="comparison-section">
-        <h2><ion-icon name="git-compare-outline" style="vertical-align: middle; margin-right: 8px; font-size: 28px; color: var(--ios-accent);"></ion-icon>СРАВНЕНИЕ ПЕРИОДОВ</h2>
-        <div class="comparison-selectors">
-            <div class="comparison-period magnetic">
-                <h3><ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 6px; font-size: 22px; color: var(--ios-accent);"></ion-icon>ПЕРИОД 1</h3>
-                <div class="form-group"><select id="compare1-month" onchange="updateComparison()"></select></div>
-                <div class="form-group"><select id="compare1-year" onchange="updateComparison()"></select></div>
+    
+    <!-- ============ ФИЛЬТРЫ ============ -->
+    <div class="card" style="margin-bottom: 12px;">
+        <div class="repair-filters">
+            <div class="filter-group">
+                <label>Месяц</label>
+                <select id="filter-month" onchange="updateAnalytics()"></select>
             </div>
-            <div class="comparison-vs magnetic">VS</div>
-            <div class="comparison-period magnetic">
-                <h3><ion-icon name="calendar-outline" style="vertical-align: middle; margin-right: 6px; font-size: 22px; color: var(--ios-accent);"></ion-icon>ПЕРИОД 2</h3>
-                <div class="form-group"><select id="compare2-month" onchange="updateComparison()"></select></div>
-                <div class="form-group"><select id="compare2-year" onchange="updateComparison()"></select></div>
+            <div class="filter-group">
+                <label>Год</label>
+                <select id="filter-year" onchange="updateAnalytics()"></select>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ============ ГЛАВНЫЙ БЛОК (HERO) ============ -->
+    <div class="analytics-hero-card">
+        <div class="analytics-hero-month">
+            <!-- По умолчанию ВСЕ ВРЕМЯ, чтобы не путать -->
+            <span id="analytics-month-title">ВСЕ ВРЕМЯ</span>
+        </div>
+        
+        <div class="analytics-hero-main">
+            <div class="analytics-hero-amount" id="net-profit">0 ₽</div>
+        </div>
+        
+        <div class="analytics-hero-divider"></div>
+        
+        <div class="analytics-hero-subgrid">
+            <div class="analytics-hero-subitem">
+                <div class="sub-label">ДОХОД</div>
+                <div class="sub-value text-green" id="total-income">0 ₽</div>
+            </div>
+            <div class="analytics-hero-subitem">
+                <div class="sub-label">РАСХОД</div>
+                <div class="sub-value text-red" id="total-expenses">0 ₽</div>
+            </div>
+            <div class="analytics-hero-subitem">
+                <div class="sub-label">СМЕНЫ</div>
+                <div class="sub-value" id="working-days">0</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ============ СЕТКА 2Х2 (БЫСТРЫЕ ПОКАЗАТЕЛИ) ============ -->
+    <div class="analytics-stats-grid">
+        <div class="analytics-stat-card">
+            <div class="analytics-icon-label">
+                <ion-icon name="trending-up-outline" class="icon-green-text"></ion-icon>
+                <span>В день</span>
+            </div>
+            <div class="analytics-value" id="avg-net-profit-per-day">0 ₽</div>
+        </div>
+        
+        <div class="analytics-stat-card">
+            <div class="analytics-icon-label">
+                <ion-icon name="cube-outline" class="icon-blue-text"></ion-icon>
+                <span>Заказы</span>
+            </div>
+            <div class="analytics-value" id="total-orders">0</div>
+        </div>
+        
+        <div class="analytics-stat-card">
+            <div class="analytics-icon-label">
+                <ion-icon name="time-outline" class="icon-orange-text"></ion-icon>
+                <span>Часы</span>
+            </div>
+            <div class="analytics-value" id="total-hours">0</div>
+        </div>
+        
+        <div class="analytics-stat-card">
+            <div class="analytics-icon-label">
+                <ion-icon name="cash-outline" class="icon-purple-text"></ion-icon>
+                <span>Ср. чек</span>
+            </div>
+            <div class="analytics-value" id="avg-check">0 ₽</div>
+        </div>
+    </div>
+    
+    <!-- ============ ДЕТАЛИЗАЦИЯ ============ -->
+    <div class="card">
+        <h2><ion-icon name="stats-chart-outline" class="section-icon"></ion-icon> Детализация</h2>
+        
+        <!-- ВАЖНО: здесь используется analytics-details-grid, а не stats-grid -->
+        <div class="analytics-details-grid">
+            
+            <div class="analytics-detail-card">
+                <div class="analytics-icon-label">
+                    <ion-icon name="calendar-outline" class="icon-green-text"></ion-icon>
+                    <span>Доход в день</span>
+                </div>
+                <div class="analytics-detail-value" id="avg-income-per-day">0 ₽</div>
+            </div>
+            
+            <div class="analytics-detail-card">
+                <div class="analytics-icon-label">
+                    <ion-icon name="flame-outline" class="icon-orange-text"></ion-icon>
+                    <span>Бензин</span>
+                </div>
+                <div class="analytics-detail-value" id="total-fuel">0 ₽</div>
+            </div>
+            
+            <div class="analytics-detail-card">
+                <div class="analytics-icon-label">
+                    <ion-icon name="construct-outline" class="icon-red-text"></ion-icon>
+                    <span>Ремонт</span>
+                </div>
+                <div class="analytics-detail-value" id="total-repair">0 ₽</div>
+            </div>
+            
+            <div class="analytics-detail-card">
+                <div class="analytics-icon-label">
+                    <ion-icon name="receipt-outline" class="icon-purple-text"></ion-icon>
+                    <span>Налог</span>
+                </div>
+                <div class="analytics-detail-value" id="total-tax">0 ₽</div>
+            </div>
+            
+            <div class="analytics-detail-card">
+                <div class="analytics-icon-label">
+                    <ion-icon name="navigate-outline" class="icon-gray-text"></ion-icon>
+                    <span>Пробег</span>
+                </div>
+                <div class="analytics-detail-value" id="total-distance">0 <span class="unit">км</span></div>
+            </div>
+            
+            <div class="analytics-detail-card">
+                <div class="analytics-icon-label">
+                    <ion-icon name="speedometer-outline" class="icon-cyan-text"></ion-icon>
+                    <span>₽/час</span>
+                </div>
+                <div class="analytics-detail-value" id="avg-per-hour">0 ₽</div>
+            </div>
+            
+        </div>
+    </div>
+    
+    <!-- ============ ГРАФИКИ ============ -->
+    <div class="card">
+        <h2><ion-icon name="bar-chart-outline" class="section-icon"></ion-icon> Графики</h2>
+        <div class="repair-charts-grid">
+            <div class="repair-chart-box">
+                <h4>Доход и прибыль по дням</h4>
+                <div class="chart-wrapper">
+                    <canvas id="income-chart"></canvas>
+                </div>
+            </div>
+            <div class="repair-chart-box">
+                <h4>Расходы по категориям</h4>
+                <div class="chart-wrapper">
+                    <canvas id="expenses-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ============ СРАВНЕНИЕ ПЕРИОДОВ ============ -->
+    <div class="card">
+        <h2><ion-icon name="git-compare-outline" class="section-icon"></ion-icon> Сравнение периодов</h2>
+        
+        <div class="comparison-selectors">
+            <div class="comparison-period">
+                <h3><ion-icon name="calendar-outline"></ion-icon> Период 1</h3>
+                <div class="form-group">
+                    <select id="compare1-month" onchange="updateComparison()"></select>
+                </div>
+                <div class="form-group">
+                    <select id="compare1-year" onchange="updateComparison()"></select>
+                </div>
+            </div>
+            
+            <div class="comparison-vs">VS</div>
+            
+            <div class="comparison-period">
+                <h3><ion-icon name="calendar-outline"></ion-icon> Период 2</h3>
+                <div class="form-group">
+                    <select id="compare2-month" onchange="updateComparison()"></select>
+                </div>
+                <div class="form-group">
+                    <select id="compare2-year" onchange="updateComparison()"></select>
+                </div>
             </div>
         </div>
         
         <div class="quick-compare-buttons">
-    <button class="btn glossy ripple magnetic" onclick="quickCompare('month')">
-        <ion-icon name="calendar-number-outline" class="btn-icon"></ion-icon> Этот vs Прошлый месяц
-    </button>
-    <button class="btn glossy ripple magnetic" onclick="quickCompare('year')">
-        <ion-icon name="calendar-outline" class="btn-icon"></ion-icon> Этот vs Прошлый год
-    </button>
-    <button class="btn glossy ripple magnetic" onclick="quickCompare('yoy')">
-        <ion-icon name="calendar-number-outline" class="btn-icon"></ion-icon> Тот же месяц vs прошлый год
-    </button>
-</div>
-
-        <div class="table-scroll-wrapper">
-            <div id="comparison-results"><p class="comparison-hint">Выберите два периода для сравнения</p></div>
+            <button class="btn btn-secondary" onclick="quickCompare('month')">
+                <ion-icon name="calendar-number-outline"></ion-icon> Этот vs Прошлый месяц
+            </button>
+            <button class="btn btn-secondary" onclick="quickCompare('year')">
+                <ion-icon name="calendar-outline"></ion-icon> Этот vs Прошлый год
+            </button>
+            <button class="btn btn-secondary" onclick="quickCompare('yoy')">
+                <ion-icon name="calendar-number-outline"></ion-icon> Тот же месяц vs прошлый год
+            </button>
         </div>
-        <div class="chart-container glossy" style="margin-top: 20px;">
-            <h3>📈 Сравнительный график</h3>
-            <canvas id="comparison-chart"></canvas>
+        
+        <div class="table-scroll-wrapper" style="margin-top: 16px;">
+            <div id="comparison-results">
+                <div class="repair-list-placeholder">
+                    <ion-icon name="git-compare-outline"></ion-icon> Выберите два периода для сравнения
+                </div>
+            </div>
+        </div>
+        
+        <div class="repair-chart-box" style="margin-top: 20px;">
+            <h4>📈 Сравнительный график</h4>
+            <div class="chart-wrapper">
+                <canvas id="comparison-chart"></canvas>
+            </div>
         </div>
     </div>
+    
 </div>
 
 <!-- Вкладка: История -->
@@ -581,45 +666,106 @@
 
 <!-- Вкладка: Топливо -->
 <div id="tab-fuel" class="tab-content">
-    <div class="top-header">
-        <h1><ion-icon name="fuel-outline" class="header-icon" style="color: var(--ios-warning);"></ion-icon> Калькулятор топлива</h1>
-    </div>
-    
     <div class="card">
-        <h2><ion-icon name="stats-chart-outline" class="section-icon"></ion-icon> Статистика</h2>
-        <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr);">
-            <div class="stat-card income"><h3><ion-icon name="speedometer-outline"></ion-icon> Средний расход</h3><div class="stat-value" id="fuel-avg-consumption">0 л/100км</div></div>
-            <div class="stat-card profit"><h3><ion-icon name="cash-outline"></ion-icon> Стоимость км</h3><div class="stat-value" id="fuel-cost-per-km">0 ₽/км</div></div>
-            <div class="stat-card"><h3><ion-icon name="water-outline"></ion-icon> Всего литров</h3><div class="stat-value" id="fuel-total-liters">0 л</div></div>
-            <div class="stat-card"><h3><ion-icon name="car-outline"></ion-icon> Пробег</h3><div class="stat-value" id="fuel-total-mileage">0 км</div></div>
-            <div class="stat-card"><h3><ion-icon name="wallet-outline"></ion-icon> Всего потрачено</h3><div class="stat-value" id="fuel-total-spent">0 ₽</div></div>
-            <div class="stat-card"><h3><ion-icon name="list-outline"></ion-icon> Заправок</h3><div class="stat-value" id="fuel-total-logs">0</div></div>
+        <h2><ion-icon name="flame-outline" class="section-icon"></ion-icon> Калькулятор топлива</h2>
+        
+        <!-- ============ СТАТИСТИКА ============ -->
+        <div class="repair-stats-grid">
+            <!-- Средний расход -->
+            <div class="repair-stat-card">
+                <div class="stat-icon-wrapper icon-green">
+                    <ion-icon name="speedometer-outline"></ion-icon>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Средний<br>расход</div>
+                    <div class="stat-value" id="fuel-avg-consumption">0 <span class="unit">л/100км</span></div>
+                </div>
+            </div>
+            
+            <!-- Стоимость км -->
+            <div class="repair-stat-card">
+                <div class="stat-icon-wrapper icon-blue">
+                    <ion-icon name="cash-outline"></ion-icon>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Стоимость<br>на км</div>
+                    <div class="stat-value" id="fuel-cost-per-km">0 <span class="unit">₽/км</span></div>
+                </div>
+            </div>
+            
+            <!-- Всего литров -->
+            <div class="repair-stat-card">
+                <div class="stat-icon-wrapper icon-cyan" style="background: rgba(90, 200, 250, 0.12); color: #5AC8FA;">
+                    <ion-icon name="water-outline"></ion-icon>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Всего<br>литров</div>
+                    <div class="stat-value" id="fuel-total-liters">0 <span class="unit">л</span></div>
+                </div>
+            </div>
+            
+            <!-- Пробег -->
+            <div class="repair-stat-card">
+                <div class="stat-icon-wrapper icon-gray" style="background: rgba(142, 142, 147, 0.12); color: #8E8E93;">
+                    <ion-icon name="car-outline"></ion-icon>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Общий<br>пробег</div>
+                    <div class="stat-value" id="fuel-total-mileage">0 <span class="unit">км</span></div>
+                </div>
+            </div>
+            
+            <!-- Всего потрачено -->
+            <div class="repair-stat-card">
+                <div class="stat-icon-wrapper icon-orange">
+                    <ion-icon name="wallet-outline"></ion-icon>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Всего<br>потрачено</div>
+                    <div class="stat-value" id="fuel-total-spent">0 <span class="unit">₽</span></div>
+                </div>
+            </div>
+            
+            <!-- Заправок -->
+            <div class="repair-stat-card">
+                <div class="stat-icon-wrapper icon-purple">
+                    <ion-icon name="list-outline"></ion-icon>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Количество<br>заправок</div>
+                    <div class="stat-value" id="fuel-total-logs">0</div>
+                </div>
+            </div>
         </div>
-    </div>
-    
-    <div class="card">
-        <div class="fuel-add-trigger">
-            <button class="btn btn-primary fuel-add-btn" onclick="openFuelModal()">
+        
+        <!-- ============ КНОПКА ДОБАВЛЕНИЯ ============ -->
+        <div class="repair-add-trigger">
+            <button type="button" class="btn btn-primary repair-add-btn" onclick="openFuelModal()">
                 <ion-icon name="add-circle-outline"></ion-icon> Добавить заправку
             </button>
         </div>
     </div>
     
-    <div class="card">
-        <h2><ion-icon name="trending-up-outline" class="section-icon"></ion-icon> Динамика расхода топлива</h2>
-        <div class="chart-container" style="padding: 0; box-shadow: none; border: none;">
-            <canvas id="fuel-consumption-chart" style="max-height: 300px;"></canvas>
-        </div>
-        <div id="fuel-chart-empty" style="text-align: center; padding: 40px; color: var(--ios-text-tertiary); display: none;">
-            <ion-icon name="analytics-outline" style="font-size: 48px; display: block; margin: 0 auto 12px;"></ion-icon>
-            Добавьте минимум 2 заправки с указанием пробега для построения графика
-        </div>
+<!-- ============ ГРАФИК ============ -->
+<div class="card">
+    <h2><ion-icon name="trending-up-outline" class="section-icon"></ion-icon> Динамика расхода топлива</h2>
+    
+    <div class="chart-wrapper">
+        <canvas id="fuel-consumption-chart"></canvas>
     </div>
     
+    <div id="fuel-chart-empty" class="repair-chart-empty">
+        <ion-icon name="analytics-outline"></ion-icon>
+        Добавьте минимум 2 заправки с указанием пробега для построения графика
+    </div>
+</div>
+    
+    <!-- ============ ИСТОРИЯ ЗАПРАВОК ============ -->
     <div class="card">
         <h2><ion-icon name="time-outline" class="section-icon"></ion-icon> История заправок</h2>
-        <div class="filters" style="margin-bottom: 16px;">
-            <div class="form-group" style="flex: 1; min-width: 150px;">
+        
+        <div class="repair-filters">
+            <div class="filter-group">
                 <label>Период</label>
                 <select id="fuel-filter-period" onchange="renderFuelLogs()">
                     <option value="all">Все время</option>
@@ -629,9 +775,10 @@
                 </select>
             </div>
         </div>
+        
         <div id="fuel-logs-list">
-            <div style="text-align: center; padding: 40px; color: var(--ios-text-tertiary);">
-                <ion-icon name="fuel-outline" style="font-size: 48px; display: block; margin: 0 auto 12px;"></ion-icon>
+            <div class="repair-list-placeholder">
+                <ion-icon name="fuel-outline"></ion-icon>
                 Нет заправок. Добавьте первую!
             </div>
         </div>
@@ -674,40 +821,104 @@
     <div class="card">
         <h2><ion-icon name="construct-outline" class="section-icon"></ion-icon> Учет ремонта</h2>
         
+        <!-- ============ СТАТИСТИКА ============ -->
         <div class="repair-stats-grid">
-            <div class="repair-stat-card"><h3><ion-icon name="construct-outline"></ion-icon> Всего ремонтов</h3><div class="stat-value accent-red" id="repair-total-count">0</div></div>
-            <div class="repair-stat-card"><h3><ion-icon name="cash-outline"></ion-icon> Всего потрачено</h3><div class="stat-value accent-orange" id="repair-total-amount">0 ₽</div></div>
-            <div class="repair-stat-card"><h3><ion-icon name="calculator-outline"></ion-icon> Средний чек</h3><div class="stat-value accent-blue" id="repair-avg-amount">0 ₽</div></div>
-            <div class="repair-stat-card"><h3><ion-icon name="stats-chart-outline"></ion-icon> Частая проблема</h3><div class="stat-value accent-purple" id="repair-most-common">—</div></div>
-            <div class="repair-stat-card"><h3><ion-icon name="navigate-outline"></ion-icon> Пробег на ремонты</h3><div class="stat-value accent-green" id="repair-total-mileage">0 км</div></div>
-            <div class="repair-stat-card"><h3><ion-icon name="speedometer-outline"></ion-icon> ₽/км</h3><div class="stat-value accent-gold" id="repair-cost-per-km">0 ₽/км</div></div>
+            <!-- Карточка 1 -->
+            <div class="repair-stat-card">
+                <div class="stat-icon-wrapper icon-red">
+                    <ion-icon name="construct-outline"></ion-icon>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Всего<br>ремонтов</div>
+                    <div class="stat-value" id="repair-total-count">0</div>
+                </div>
+            </div>
+            
+            <!-- Карточка 2 -->
+            <div class="repair-stat-card">
+                <div class="stat-icon-wrapper icon-orange">
+                    <ion-icon name="cash-outline"></ion-icon>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Всего<br>потрачено</div>
+                    <div class="stat-value" id="repair-total-amount">0 ₽</div>
+                </div>
+            </div>
+            
+            <!-- Карточка 3 -->
+            <div class="repair-stat-card">
+                <div class="stat-icon-wrapper icon-blue">
+                    <ion-icon name="calculator-outline"></ion-icon>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Средний<br>чек</div>
+                    <div class="stat-value" id="repair-avg-amount">0 ₽</div>
+                </div>
+            </div>
+            
+            <!-- Карточка 4 -->
+            <div class="repair-stat-card">
+                <div class="stat-icon-wrapper icon-purple">
+                    <ion-icon name="stats-chart-outline"></ion-icon>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Частая<br>проблема</div>
+                    <div class="stat-value" id="repair-most-common">—</div>
+                </div>
+            </div>
+            
+            <!-- Карточка 5 -->
+            <div class="repair-stat-card">
+                <div class="stat-icon-wrapper icon-green">
+                    <ion-icon name="navigate-outline"></ion-icon>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Пробег на<br>ремонты</div>
+                    <div class="stat-value" id="repair-total-mileage">0 <span class="unit">км</span></div>
+                </div>
+            </div>
+            
+            <!-- Карточка 6 -->
+            <div class="repair-stat-card">
+                <div class="stat-icon-wrapper icon-gold">
+                    <ion-icon name="speedometer-outline"></ion-icon>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-label">Стоимость<br>на км</div>
+                    <div class="stat-value" id="repair-cost-per-km">0 <span class="unit">₽/км</span></div>
+                </div>
+            </div>
         </div>
         
-        <div style="margin: 24px 0;">
-            <button type="button" class="btn btn-primary" onclick="openRepairModal()" style="width: 100%; padding: 14px; font-size: 16px;">
+        <!-- ============ КНОПКА ДОБАВЛЕНИЯ ============ -->
+        <div class="repair-add-trigger">
+            <button type="button" class="btn btn-primary repair-add-btn" onclick="openRepairModal()">
                 <ion-icon name="add-circle-outline"></ion-icon> Добавить ремонт
             </button>
         </div>
         
+        <!-- ============ ГРАФИКИ ============ -->
         <div class="repair-charts-grid">
             <div class="repair-chart-box">
                 <h4>Расходы по категориям</h4>
                 <canvas id="repair-category-chart"></canvas>
-                <div id="repair-chart-empty" style="text-align: center; padding: 30px; color: var(--ios-text-tertiary, #86868b); display: none;">
-                    <ion-icon name="construct-outline" style="font-size: 36px; display: block; margin: 0 auto 8px;"></ion-icon> Нет данных
+                <div id="repair-chart-empty" class="repair-chart-empty">
+                    <ion-icon name="construct-outline"></ion-icon> Нет данных
                 </div>
             </div>
             <div class="repair-chart-box">
                 <h4>Динамика расходов</h4>
                 <canvas id="repair-trend-chart"></canvas>
-                <div id="repair-trend-empty" style="text-align: center; padding: 30px; color: var(--ios-text-tertiary, #86868b); display: none;">
-                    <ion-icon name="analytics-outline" style="font-size: 36px; display: block; margin: 0 auto 8px;"></ion-icon> Добавьте минимум 2 записи
+                <div id="repair-trend-empty" class="repair-chart-empty">
+                    <ion-icon name="analytics-outline"></ion-icon> Добавьте минимум 2 записи
                 </div>
             </div>
         </div>
         
+        <!-- ============ ФИЛЬТРЫ ============ -->
         <div class="repair-filters">
-            <div class="filter-group"><label>Период</label>
+            <div class="filter-group">
+                <label>Период</label>
                 <select id="repair-filter-period">
                     <option value="all">Все время</option>
                     <option value="month">Этот месяц</option>
@@ -715,7 +926,8 @@
                     <option value="year">Год</option>
                 </select>
             </div>
-            <div class="filter-group"><label>Категория</label>
+            <div class="filter-group">
+                <label>Категория</label>
                 <select id="repair-filter-category">
                     <option value="all">Все категории</option>
                     <option value="engine">Двигатель</option>
@@ -731,17 +943,24 @@
                     <option value="other">Прочее</option>
                 </select>
             </div>
-            <div class="filter-group" style="flex: 2;"><label>Поиск</label><input type="text" id="repair-filter-search" placeholder="Поиск по описанию..."></div>
-        </div>
-        
-        <div id="repair-list">
-            <div style="text-align: center; padding: 40px; color: var(--ios-text-tertiary, #86868b);">
-                <ion-icon name="construct-outline" style="font-size: 48px; display: block; margin: 0 auto 12px;"></ion-icon> Загрузка данных о ремонте...
+            <div class="filter-group filter-group-search">
+                <label>Поиск</label>
+                <input type="text" id="repair-filter-search" placeholder="Поиск по описанию...">
             </div>
         </div>
         
+        <!-- ============ СПИСОК ============ -->
+        <div id="repair-list">
+            <div class="repair-list-placeholder">
+                <ion-icon name="construct-outline"></ion-icon> Загрузка данных о ремонте...
+            </div>
+        </div>
+        
+        <!-- ============ ЭКСПОРТ ============ -->
         <div class="repair-export-btn">
-            <button class="btn btn-secondary" onclick="exportRepairData()"><ion-icon name="download-outline"></ion-icon> Экспорт ремонтов (JSON)</button>
+            <button class="btn btn-secondary" onclick="exportRepairData()">
+                <ion-icon name="download-outline"></ion-icon> Экспорт ремонтов (JSON)
+            </button>
         </div>
     </div>
 </div>

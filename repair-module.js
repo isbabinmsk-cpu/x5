@@ -1,1873 +1,1751 @@
 // =============================================
-// МОДУЛЬ УЧЕТА РЕМОНТА АВТО (v5.0 — С поддержкой модального окна)
-// Фото хранятся прямо в Firestore как base64 (без Firebase Storage)
+// МОДУЛЬ УЧЁТА РЕМОНТА АВТО (repair-module.js) v7.0
 // =============================================
+// Экономная версия (без onSnapshot).
+// Чтение из Firebase происходит только 1 раз при запуске.
+// =============================================
+(function () {
+    'use strict';
 
-// ===== 1. КОНСТАНТЫ И СОСТОЯНИЕ =====
-const COLLECTION_REPAIR = 'repair_records';
-const REPAIR_STORAGE_KEY = 'repair_records';
-let repairRecords = [];
-let editingRepairId = null; // Для старой формы на вкладке
-let editingRepairModalId = null; // Для модального окна
-let repairChart = null;
-let repairTrendChart = null;
-let repairPhotos = { receipt: null, document: null };
-let existingPhotos = { receipt: null, document: null };
+    const COLLECTION_REPAIR = 'repair_records';
+    const REPAIR_STORAGE_KEY = 'repair_records';
 
-// ===== 2. БЕЗОПАСНЫЙ ДОСТУП =====
-function safeShowLoading(text) {
-    if (typeof showLoading === 'function') showLoading(text);
-    else console.log('⏳', text);
-}
-function safeHideLoading() {
-    if (typeof hideLoading === 'function') hideLoading();
-    else console.log('✅ Загрузка завершена');
-}
-function safeShowToast(title, message, type, duration) {
-    if (typeof showToast === 'function') showToast(title, message, type, duration);
-    else console.log(`[${type}] ${title}: ${message}`);
-}
-function safeShowConfirm(title, message, okText, cancelText, type) {
-    if (typeof showConfirm === 'function') return showConfirm(title, message, okText, cancelText, type);
-    return Promise.resolve(confirm(message));
-}
-function safeFormatMoney(amount) {
-    if (typeof formatMoney === 'function') return formatMoney(amount);
-    return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 2 }).format(amount || 0);
-}
-function safeEscapeHtml(text) {
-    if (typeof escapeHtml === 'function') return escapeHtml(text);
-    if (text === null || text === undefined) return '';
-    const div = document.createElement('div');
-    div.textContent = String(text);
-    return div.innerHTML;
-}
+    let repairRecords = [];
+    let editingRepairId = null;
+    let editingRepairModalId = null;
+    let repairChart = null;
+    let repairTrendChart = null;
+    let currentRepairUserUid = null;
 
-function generateRecordId() {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-        return 'repair_' + crypto.randomUUID();
-    }
-    return 'repair_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-}
+    // Фото в старой форме на вкладке
+    let repairPhotos = { receipt: null, document: null };
+    let existingPhotos = { receipt: null, document: null };
 
-function deepClone(obj) {
-    if (!obj || typeof obj !== 'object') return obj;
-    try {
-        return JSON.parse(JSON.stringify(obj));
-    } catch (e) {
-        console.warn('⚠️ deepClone fallback:', e);
-        return { ...obj };
-    }
-}
+    // Фото в модалке ремонта
+    let repairModalPhotos = { receipt: null, document: null };
+    let repairModalExistingPhotos = { receipt: null, document: null };
 
-// ===== 3. ПАРСИНГ ДАТЫ =====
-function parseLocalDate(dateStr) {
-    if (!dateStr) return null;
-    const parts = dateStr.split('-');
-    if (parts.length !== 3) return new Date(dateStr);
-    return new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-}
+    // Просмотрщик фото
+    let photoViewerState = { photos: [], currentIndex: 0 };
+    let photoClickTimer = null;
 
-// ===== 4. КАТЕГОРИИ =====
-function getCategoryLabel(category) {
-    const labels = {
-        'engine': 'Двигатель', 'transmission': 'Трансмиссия',
-        'brakes': 'Тормозная система', 'suspension': 'Подвеска',
-        'electrics': 'Электрика', 'body': 'Кузов',
-        'tires': 'Шины/Диски', 'oil': 'Масло/Жидкости',
-        'cooling': 'Охлаждение', 'exhaust': 'Выхлопная система',
-        'other': 'Прочее'
-    };
-    return labels[category] || category || 'Другое';
-}
-function getCategoryIcon(category) {
-    const icons = {
-        'engine': 'cog-outline', 'transmission': 'settings-outline',
-        'brakes': 'alert-circle-outline', 'suspension': 'bicycle-outline',
-        'electrics': 'flash-outline', 'body': 'car-outline',
-        'tires': 'disc-outline', 'oil': 'water-outline',
-        'cooling': 'thermometer-outline', 'exhaust': 'leaf-outline',
-        'other': 'construct-outline'
-    };
-    return icons[category] || 'construct-outline';
-}
-function getCategoryColor(category) {
-    const colors = {
-        'engine': '#FF3B30', 'transmission': '#FF9500',
-        'brakes': '#FF2D55', 'suspension': '#AF52DE',
-        'electrics': '#007AFF', 'body': '#34C759',
-        'tires': '#5856D6', 'oil': '#5AC8FA',
-        'cooling': '#64D2FF', 'exhaust': '#8E8E93',
-        'other': '#636366'
-    };
-    return colors[category] || '#636366';
-}
-
-// ============================================
-// 5. УПРАВЛЕНИЕ МОДАЛЬНЫМ ОКНОМ РЕМОНТА
-// ============================================
-function openRepairModal(editId) {
-    const overlay = document.getElementById('repair-modal-overlay');
-    if (!overlay) {
-        console.error('❌ Модалка ремонта не найдена в HTML (#repair-modal-overlay)');
-        return;
-    }
-    
-    editingRepairModalId = editId || null;
-    
-    if (editId) {
-        fillRepairModalFromRecord(editId);
-        const titleText = document.getElementById('repair-modal-title-text');
-        if (titleText) titleText.textContent = 'Редактировать ремонт';
-        const submitText = document.getElementById('repair-modal-submit-text');
-        if (submitText) submitText.textContent = 'Обновить ремонт';
-    } else {
-        resetRepairModalForm();
-        const titleText = document.getElementById('repair-modal-title-text');
-        if (titleText) titleText.textContent = 'Добавить ремонт';
-        const submitText = document.getElementById('repair-modal-submit-text');
-        if (submitText) submitText.textContent = 'Сохранить';
-    }
-    
-    populateRepairModalVehicleSelect();
-    
-    overlay.style.display = 'flex';
-    requestAnimationFrame(() => overlay.classList.add('visible'));
-    document.body.style.overflow = 'hidden';
-    
-    setTimeout(() => {
-        const dateInput = document.getElementById('repair-modal-date');
-        if (dateInput && !dateInput.value) {
-            dateInput.valueAsDate = new Date();
+    // ============================================
+    // УТИЛИТЫ
+    // ============================================
+    function toast(msg) {
+        if (typeof window.showToast === 'function') {
+            try { window.showToast(msg); return; } catch (e) {}
         }
-    }, 100);
-    
-    calculateRepairModalTotal();
-}
-
-function closeRepairModal() {
-    const overlay = document.getElementById('repair-modal-overlay');
-    if (!overlay) return;
-    
-    overlay.classList.remove('visible');
-    setTimeout(() => {
-        overlay.style.display = 'none';
-        resetRepairModalForm();
-    }, 300);
-    document.body.style.overflow = '';
-    editingRepairModalId = null;
-}
-
-function resetRepairModalForm() {
-    const form = document.getElementById('repair-modal-form');
-    if (form) form.reset();
-    
-    const dateEl = document.getElementById('repair-modal-date');
-    if (dateEl) dateEl.valueAsDate = new Date();
-    
-    const partsList = document.getElementById('repair-modal-parts-list');
-    if (partsList) partsList.innerHTML = '';
-    
-    const worksList = document.getElementById('repair-modal-works-list');
-    if (worksList) worksList.innerHTML = '';
-    
-    addRepairModalPart();
-    addRepairModalWork();
-    calculateRepairModalTotal();
-    editingRepairModalId = null;
-    
-    // Сброс фото
-    repairModalPhotos = { receipt: null, document: null };
-    repairModalExistingPhotos = { receipt: null, document: null };
-    updateRepairModalPhotoPreview('receipt');
-    updateRepairModalPhotoPreview('document');
-    const receiptInput = document.getElementById('repair-modal-receipt-upload');
-    const documentInput = document.getElementById('repair-modal-document-upload');
-    if (receiptInput) receiptInput.value = '';
-    if (documentInput) documentInput.value = '';
-}
-
-function fillRepairModalFromRecord(id) {
-    const record = repairRecords.find(r => r.id === id);
-    if (!record) return;
-    
-    const set = (elId, val) => {
-        const el = document.getElementById(elId);
-        if (el) el.value = val != null ? val : '';
-    };
-    
-    set('repair-modal-date', record.date);
-    set('repair-modal-mileage', record.mileage);
-    set('repair-modal-category', record.category);
-    set('repair-modal-description', record.description || '');
-    set('repair-modal-comment', record.comment || '');
-    
-    const vehicleSelect = document.getElementById('repair-modal-vehicle-select');
-    if (vehicleSelect) vehicleSelect.value = record.vehicleId || 'default';
-    
-    const partsList = document.getElementById('repair-modal-parts-list');
-    if (partsList) {
-        partsList.innerHTML = '';
-        (record.parts || []).forEach(p => {
-            const item = document.createElement('div');
-            item.className = 'dynamic-item';
-            item.innerHTML = `<input type="text" class="repair-modal-part-name" placeholder="Название" value="${safeEscapeHtml(p.name)}">
-                <input type="number" class="repair-modal-part-cost" placeholder="Стоимость" step="0.01" min="0" value="${p.cost || 0}">
-                <button type="button" class="btn-remove" onclick="this.parentElement.remove(); calculateRepairModalTotal();">
-                    <ion-icon name="trash-outline"></ion-icon>
-                </button>`;
-            partsList.appendChild(item);
-        });
-    }
-    
-    const worksList = document.getElementById('repair-modal-works-list');
-    if (worksList) {
-        worksList.innerHTML = '';
-        (record.works || []).forEach(w => {
-            const item = document.createElement('div');
-            item.className = 'dynamic-item';
-            item.innerHTML = `<input type="text" class="repair-modal-work-name" placeholder="Название" value="${safeEscapeHtml(w.name)}">
-                <input type="number" class="repair-modal-work-cost" placeholder="Стоимость" step="0.01" min="0" value="${w.cost || 0}">
-                <button type="button" class="btn-remove" onclick="this.parentElement.remove(); calculateRepairModalTotal();">
-                    <ion-icon name="trash-outline"></ion-icon>
-                </button>`;
-            worksList.appendChild(item);
-        });
-    }
-    
-    // Загружаем существующие фото в модалку
-    repairModalPhotos = { receipt: null, document: null };
-    repairModalExistingPhotos = {
-        receipt: record.receiptPhotoUrl || null,
-        document: record.documentPhotoUrl || null
-    };
-    updateRepairModalPhotoPreview('receipt');
-    updateRepairModalPhotoPreview('document');
-    
-    // Сбрасываем input file
-    const receiptInput = document.getElementById('repair-modal-receipt-upload');
-    const documentInput = document.getElementById('repair-modal-document-upload');
-    if (receiptInput) receiptInput.value = '';
-    if (documentInput) documentInput.value = '';
-}
-
-function populateRepairModalVehicleSelect() {
-    const select = document.getElementById('repair-modal-vehicle-select');
-    if (!select) return;
-    
-    select.innerHTML = '';
-    if (typeof vehicles !== 'undefined' && Array.isArray(vehicles)) {
-        vehicles.forEach(v => {
-            const option = document.createElement('option');
-            option.value = v.id;
-            option.textContent = v.name || `${v.brand} ${v.model}`;
-            select.appendChild(option);
-        });
-    } else {
-        const option = document.createElement('option');
-        option.value = 'default';
-        option.textContent = 'Автомобиль по умолчанию';
-        select.appendChild(option);
-    }
-    
-    const currentVId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
-    select.value = currentVId;
-}
-
-function addRepairModalPart() {
-    const container = document.getElementById('repair-modal-parts-list');
-    if (!container) return;
-    const item = document.createElement('div');
-    item.className = 'dynamic-item';
-    item.innerHTML = `<input type="text" class="repair-modal-part-name" placeholder="Название детали">
-        <input type="number" class="repair-modal-part-cost" placeholder="Стоимость" step="0.01" min="0">
-        <button type="button" class="btn-remove" onclick="this.parentElement.remove(); calculateRepairModalTotal();">
-            <ion-icon name="trash-outline"></ion-icon>
-        </button>`;
-    container.appendChild(item);
-    calculateRepairModalTotal();
-}
-
-function addRepairModalWork() {
-    const container = document.getElementById('repair-modal-works-list');
-    if (!container) return;
-    const item = document.createElement('div');
-    item.className = 'dynamic-item';
-    item.innerHTML = `<input type="text" class="repair-modal-work-name" placeholder="Название работы">
-        <input type="number" class="repair-modal-work-cost" placeholder="Стоимость" step="0.01" min="0">
-        <button type="button" class="btn-remove" onclick="this.parentElement.remove(); calculateRepairModalTotal();">
-            <ion-icon name="trash-outline"></ion-icon>
-        </button>`;
-    container.appendChild(item);
-    calculateRepairModalTotal();
-}
-
-function calculateRepairModalTotal() {
-    let partsTotal = 0, worksTotal = 0;
-    document.querySelectorAll('.repair-modal-part-cost').forEach(el => {
-        partsTotal += parseFloat(el.value) || 0;
-    });
-    document.querySelectorAll('.repair-modal-work-cost').forEach(el => {
-        worksTotal += parseFloat(el.value) || 0;
-    });
-    const total = partsTotal + worksTotal;
-    
-    const fmt = safeFormatMoney;
-    const el1 = document.getElementById('repair-modal-parts-total');
-    const el2 = document.getElementById('repair-modal-works-total');
-    const el3 = document.getElementById('repair-modal-total-cost');
-    if (el1) el1.textContent = fmt(partsTotal);
-    if (el2) el2.textContent = fmt(worksTotal);
-    if (el3) el3.textContent = fmt(total);
-}
-
-function clearRepairModalForm() {
-    const form = document.getElementById('repair-modal-form');
-    if (form) form.reset();
-    
-    const dateEl = document.getElementById('repair-modal-date');
-    if (dateEl) dateEl.valueAsDate = new Date();
-    
-    const partsList = document.getElementById('repair-modal-parts-list');
-    if (partsList) partsList.innerHTML = '';
-    
-    const worksList = document.getElementById('repair-modal-works-list');
-    if (worksList) worksList.innerHTML = '';
-    
-    // Добавляем по одной пустой строке
-    if (typeof addRepairModalPart === 'function') addRepairModalPart();
-    if (typeof addRepairModalWork === 'function') addRepairModalWork();
-    
-    if (typeof calculateRepairModalTotal === 'function') calculateRepairModalTotal();
-    
-    const submitText = document.getElementById('repair-modal-submit-text');
-    if (submitText) submitText.textContent = 'Сохранить';
-    
-    const titleText = document.getElementById('repair-modal-title-text');
-    if (titleText) titleText.textContent = 'Добавить ремонт';
-    
-    editingRepairModalId = null;
-    
-    // Сброс фото
-    repairModalPhotos = { receipt: null, document: null };
-    repairModalExistingPhotos = { receipt: null, document: null };
-    updateRepairModalPhotoPreview('receipt');
-    updateRepairModalPhotoPreview('document');
-    const receiptInput = document.getElementById('repair-modal-receipt-upload');
-    const documentInput = document.getElementById('repair-modal-document-upload');
-    if (receiptInput) receiptInput.value = '';
-    if (documentInput) documentInput.value = '';
-    
-    if (typeof showToast === 'function') showToast('🗑️ Форма очищена');
-}
-
-// ============================================
-// ФОТО В МОДАЛКЕ РЕМОНТА
-// ============================================
-let repairModalPhotos = { receipt: null, document: null };
-let repairModalExistingPhotos = { receipt: null, document: null };
-
-function handleRepairModalPhotoSelect(event, photoType) {
-    const file = event.target.files[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-        safeShowToast('Ошибка', 'Пожалуйста, выберите изображение', 'danger');
-        return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-        safeShowToast('Ошибка', 'Файл слишком большой. Максимум 5MB.', 'danger');
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        repairModalPhotos[photoType] = { file: file, preview: e.target.result };
-        updateRepairModalPhotoPreview(photoType);
-    };
-    reader.readAsDataURL(file);
-}
-
-function updateRepairModalPhotoPreview(photoType) {
-    const previewEl = document.getElementById(`repair-modal-${photoType}-preview`);
-    const rotateControls = document.getElementById(`repair-modal-${photoType}-rotate`);
-    if (!previewEl) return;
-    const photoData = repairModalPhotos[photoType];
-    const existingUrl = repairModalExistingPhotos[photoType];
-    let hasPhoto = false;
-
-    if (photoData && photoData.preview) {
-        previewEl.innerHTML = `<img src="${photoData.preview}" alt="Preview"><button type="button" class="remove-photo-btn" onclick="removeRepairModalPhoto('${photoType}')"><ion-icon name="close-outline"></ion-icon></button>`;
-        previewEl.classList.add('has-image');
-        hasPhoto = true;
-    } else if (existingUrl) {
-        previewEl.innerHTML = `<img src="${existingUrl}" alt="Existing"><button type="button" class="remove-photo-btn" onclick="removeRepairModalPhoto('${photoType}')"><ion-icon name="close-outline"></ion-icon></button>`;
-        previewEl.classList.add('has-image');
-        hasPhoto = true;
-    } else {
-        previewEl.innerHTML = `<ion-icon name="image-outline"></ion-icon><span>Нет фото</span>`;
-        previewEl.classList.remove('has-image');
-        hasPhoto = false;
-    }
-    if (rotateControls) {
-        rotateControls.style.display = hasPhoto ? 'flex' : 'none';
-    }
-}
-
-function removeRepairModalPhoto(photoType) {
-    repairModalPhotos[photoType] = null;
-    repairModalExistingPhotos[photoType] = null;
-    updateRepairModalPhotoPreview(photoType);
-    const inputEl = document.getElementById(`repair-modal-${photoType}-upload`);
-    if (inputEl) inputEl.value = '';
-}
-
-async function rotateRepairModalPhoto(photoType, degrees) {
-    const photoData = repairModalPhotos[photoType];
-    const existingUrl = repairModalExistingPhotos[photoType];
-    let sourceDataUrl = null;
-    let isNewPhoto = false;
-
-    if (photoData && photoData.preview) {
-        sourceDataUrl = photoData.preview;
-        isNewPhoto = true;
-    } else if (existingUrl) {
-        sourceDataUrl = existingUrl;
-        isNewPhoto = false;
-    } else {
-        return;
+        console.log('🔔', msg);
     }
 
-    const img = new Image();
-    img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (degrees === 90 || degrees === -90) {
-            canvas.width = img.height;
-            canvas.height = img.width;
-        } else {
-            canvas.width = img.width;
-            canvas.height = img.height;
+    function fmtMoney(n) {
+        if (typeof window.formatMoney === 'function') return window.formatMoney(n);
+        return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 2 }).format(Number(n) || 0);
+    }
+
+    function esc(s) {
+        if (s === null || s === undefined) return '';
+        return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function parseDate(s) {
+        if (typeof window.parseLocalDate === 'function') return window.parseLocalDate(s);
+        if (!s) return null;
+        const p = String(s).split('-');
+        return p.length === 3 ? new Date(+p[0], +p[1] - 1, +p[2]) : new Date(s);
+    }
+
+    function getVId() {
+        return typeof window.getCurrentVehicleId === 'function' ? window.getCurrentVehicleId() : 'default';
+    }
+
+    function getAllVehicles() {
+        return typeof window.getVehicles === 'function' ? window.getVehicles() : [];
+    }
+
+    function isFirebaseReady() {
+        return typeof window.db !== 'undefined' && window.db
+            && typeof window.auth !== 'undefined' && window.auth && window.auth.currentUser;
+    }
+
+    function persistLocal() {
+        try {
+            localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
+        } catch (e) {
+            console.warn('⚠️ Не удалось сохранить ремонты локально:', e.message);
         }
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate(degrees * Math.PI / 180);
-        ctx.drawImage(img, -img.width / 2, -img.height / 2);
-        const rotatedDataUrl = canvas.toDataURL('image/jpeg', 0.92);
-
-        if (isNewPhoto) {
-            photoData.preview = rotatedDataUrl;
-            fetch(rotatedDataUrl).then(res => res.blob()).then(blob => {
-                photoData.file = new File([blob], `rotated_${Date.now()}.jpg`, { type: 'image/jpeg' });
-                updateRepairModalPhotoPreview(photoType);
-                safeShowToast('Повёрнуто', 'Фото повёрнуто. Не забудьте сохранить.', 'info', 2000);
-            }).catch(err => { console.error('Ошибка конвертации:', err); updateRepairModalPhotoPreview(photoType); });
-        } else {
-            fetch(rotatedDataUrl).then(res => res.blob()).then(blob => {
-                repairModalPhotos[photoType] = { file: new File([blob], `rotated_${Date.now()}.jpg`, { type: 'image/jpeg' }), preview: rotatedDataUrl };
-                updateRepairModalPhotoPreview(photoType);
-                safeShowToast('Повёрнуто', 'Фото повёрнуто. Не забудьте сохранить.', 'info', 2000);
-            }).catch(err => { console.error('Ошибка конвертации:', err); });
-        }
-    };
-    img.onerror = () => { safeShowToast('Ошибка', 'Не удалось повернуть фото', 'danger'); };
-    img.src = sourceDataUrl;
-}
-
-async function uploadRepairModalPhoto(photoType) {
-    const photoData = repairModalPhotos[photoType];
-    if (!photoData || !photoData.file) return repairModalExistingPhotos[photoType] || null;
-    try {
-        const base64DataUrl = await compressImageForUpload(photoData.file);
-        console.log(`✅ Фото ${photoType} в модалке сжато (base64)`);
-        return base64DataUrl;
-    } catch (error) {
-        console.error(`❌ Ошибка сжатия фото ${photoType} в модалке:`, error);
-        return repairModalExistingPhotos[photoType] || null;
     }
-}
 
-async function submitRepairModal() {
-    const date = document.getElementById('repair-modal-date')?.value;
-    const mileage = parseInt(document.getElementById('repair-modal-mileage')?.value);
-    const category = document.getElementById('repair-modal-category')?.value;
-    const description = document.getElementById('repair-modal-description')?.value.trim();
-    const comment = document.getElementById('repair-modal-comment')?.value.trim();
-    const vehicleSelect = document.getElementById('repair-modal-vehicle-select');
-    const vehicleId = vehicleSelect ? vehicleSelect.value : 'default';
-    
-    // Загружаем фото (сжимаем перед отправкой)
-    safeShowLoading('Обработка фото...');
-    let receiptPhotoUrl = repairModalExistingPhotos.receipt || null;
-    let documentPhotoUrl = repairModalExistingPhotos.document || null;
+    function genId() {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) return 'repair_' + crypto.randomUUID();
+        return 'repair_' + Date.now() + '_' + Math.random().toString(36).slice(2, 11);
+    }
 
-    if (repairModalPhotos.receipt) {
-        const newUrl = await uploadRepairModalPhoto('receipt');
-        if (newUrl) receiptPhotoUrl = newUrl;
-        else safeShowToast('Внимание', 'Не удалось обработать фото чека.', 'warning');
+    function deepClone(obj) {
+        try { return JSON.parse(JSON.stringify(obj)); }
+        catch (e) { return { ...obj }; }
     }
-    if (repairModalPhotos.document) {
-        const newUrl = await uploadRepairModalPhoto('document');
-        if (newUrl) documentPhotoUrl = newUrl;
-        else safeShowToast('Внимание', 'Не удалось обработать фото документа.', 'warning');
-    }
-    safeShowLoading('Сохранение...');
-    
-    if (!date || !mileage || mileage <= 0 || !category) {
-        safeShowToast('Внимание', 'Заполните дату, пробег и категорию!', 'warning');
-        safeHideLoading();
-        return;
-    }
-    
-    const parts = [];
-    document.querySelectorAll('#repair-modal-parts-list .dynamic-item').forEach(item => {
-        const name = item.querySelector('.repair-modal-part-name')?.value?.trim();
-        const cost = parseFloat(item.querySelector('.repair-modal-part-cost')?.value) || 0;
-        if (name) parts.push({ name, cost });
-    });
-    
-    const works = [];
-    document.querySelectorAll('#repair-modal-works-list .dynamic-item').forEach(item => {
-        const name = item.querySelector('.repair-modal-work-name')?.value?.trim();
-        const cost = parseFloat(item.querySelector('.repair-modal-work-cost')?.value) || 0;
-        if (name) works.push({ name, cost });
-    });
-    
-    const partsTotal = parts.reduce((sum, p) => sum + p.cost, 0);
-    const worksTotal = works.reduce((sum, w) => sum + w.cost, 0);
-    const total = partsTotal + worksTotal;
-    
-    try {
-        const repairData = {
-            date, mileage, category,
-            description: description || getCategoryLabel(category),
-            comment: comment || '',
-            parts, works, partsTotal, worksTotal, total,
-            vehicleId,
-            receiptPhotoUrl: receiptPhotoUrl || null,
-            documentPhotoUrl: documentPhotoUrl || null,
-            updatedAt: new Date().toISOString()
+
+    // ============================================
+    // КАТЕГОРИИ
+    // ============================================
+    function getCategoryLabel(category) {
+        const labels = {
+            engine: 'Двигатель', transmission: 'Трансмиссия',
+            brakes: 'Тормозная система', suspension: 'Подвеска',
+            electrics: 'Электрика', body: 'Кузов',
+            tires: 'Шины/Диски', oil: 'Масло/Жидкости',
+            cooling: 'Охлаждение', exhaust: 'Выхлопная система',
+            other: 'Прочее'
         };
-
-        if (editingRepairModalId) {
-            const index = repairRecords.findIndex(r => r.id === editingRepairModalId);
-            if (index !== -1) {
-                repairRecords[index] = { ...repairRecords[index], ...repairData };
-                await syncRepairToFirebase(repairRecords[index]);
-            }
-        } else {
-            const newRecord = {
-                id: generateRecordId(),
-                userId: typeof auth !== 'undefined' && auth.currentUser ? auth.currentUser.uid : null,
-                ...repairData,
-                createdAt: new Date().toISOString()
-            };
-            repairRecords.push(newRecord);
-            await syncRepairToFirebase(newRecord);
-        }
-        
-        saveRepairLocal();
-        renderRepairList();
-        updateRepairStats();
-        updateRepairCharts();
-        syncRepairToMainRecords();
-        
-        safeHideLoading();
-        safeShowToast('Успех', editingRepairModalId ? 'Ремонт обновлён!' : 'Ремонт добавлен!', 'success');
-        closeRepairModal();
-        
-    } catch (error) {
-        console.error('❌ Ошибка сохранения:', error);
-        safeHideLoading();
-        safeShowToast('Ошибка', 'Не удалось сохранить ремонт', 'danger');
+        return labels[category] || category || 'Другое';
     }
-}
+    function getCategoryIcon(category) {
+        const icons = {
+            engine: 'cog-outline', transmission: 'settings-outline',
+            brakes: 'alert-circle-outline', suspension: 'bicycle-outline',
+            electrics: 'flash-outline', body: 'car-outline',
+            tires: 'disc-outline', oil: 'water-outline',
+            cooling: 'thermometer-outline', exhaust: 'leaf-outline',
+            other: 'construct-outline'
+        };
+        return icons[category] || 'construct-outline';
+    }
+    function getCategoryColor(category) {
+        const colors = {
+            engine: '#FF3B30', transmission: '#FF9500',
+            brakes: '#FF2D55', suspension: '#AF52DE',
+            electrics: '#007AFF', body: '#34C759',
+            tires: '#5856D6', oil: '#5AC8FA',
+            cooling: '#64D2FF', exhaust: '#8E8E93',
+            other: '#636366'
+        };
+        return colors[category] || '#636366';
+    }
 
-// Перенаправляем старую функцию редактирования на модалку
-const _origEditRepairRecord = window.editRepairRecord;
-window.editRepairRecord = function(id) {
-    openRepairModal(id);
-};
+    // ============================================
+    // СЖАТИЕ ФОТО
+    // ============================================
+    function calculatePhotoBudget() {
+        const hasReceipt = !!(repairPhotos.receipt || repairModalPhotos.receipt);
+        const hasDocument = !!(repairPhotos.document || repairModalPhotos.document);
+        const total = (hasReceipt ? 1 : 0) + (hasDocument ? 1 : 0);
+        const BUDGET = 990;
+        if (total === 0) return 0;
+        if (total === 1) return BUDGET - 30;
+        return Math.floor((BUDGET - 30) / total);
+    }
 
-// Делегирование для авторасчёта в модалке
-document.addEventListener('input', function(e) {
-    if (e.target.classList.contains('repair-modal-part-cost') || 
-        e.target.classList.contains('repair-modal-work-cost')) {
+    async function compressImageForUpload(file, maxWidth = 1400, initialQuality = 0.85) {
+        try {
+            let bitmap;
+            try {
+                bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+            } catch (e) {
+                bitmap = await createImageBitmap(file);
+            }
+            let width = bitmap.width;
+            let height = bitmap.height;
+            if (width > maxWidth) {
+                height = Math.round(height * maxWidth / width);
+                width = maxWidth;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(bitmap, 0, 0, width, height);
+            if (bitmap.close) bitmap.close();
+
+            const budgetKB = calculatePhotoBudget() || 800;
+            let quality = initialQuality;
+            let dataUrl = canvas.toDataURL('image/jpeg', quality);
+            const maxSize = budgetKB * 1024;
+
+            while (dataUrl.length > maxSize && quality > 0.3) {
+                quality -= 0.05;
+                dataUrl = canvas.toDataURL('image/jpeg', quality);
+            }
+            if (dataUrl.length > maxSize) {
+                const scale = Math.sqrt(maxSize / dataUrl.length) * 0.95;
+                canvas.width = Math.round(width * scale);
+                canvas.height = Math.round(height * scale);
+                ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+                dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            }
+            return dataUrl;
+        } catch (error) {
+            console.error('❌ Ошибка сжатия, fallback:', error);
+            return compressImageFallback(file, maxWidth, initialQuality);
+        }
+    }
+
+    function compressImageFallback(file, maxWidth, initialQuality) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > maxWidth) {
+                        height = Math.round(height * maxWidth / width);
+                        width = maxWidth;
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const budgetKB = calculatePhotoBudget() || 800;
+                    let quality = initialQuality;
+                    let dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    const maxSize = budgetKB * 1024;
+                    while (dataUrl.length > maxSize && quality > 0.3) {
+                        quality -= 0.05;
+                        dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    }
+                    resolve(dataUrl);
+                };
+                img.onerror = reject;
+                img.src = event.target.result;
+            };
+            reader.onerror = reject;
+        });
+    }
+
+    // ============================================
+    // ФОТО (СТАРАЯ ФОРМА НА ВКЛАДКЕ)
+    // ============================================
+    function handlePhotoSelect(event, photoType) {
+        const file = event.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) { toast('❌ Пожалуйста, выберите изображение'); return; }
+        if (file.size > 5 * 1024 * 1024) { toast('❌ Файл больше 5MB'); return; }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            repairPhotos[photoType] = { file: file, preview: e.target.result };
+            updatePhotoPreview(photoType);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function updatePhotoPreview(photoType) {
+        const previewEl = document.getElementById(`repair-${photoType}-preview`);
+        const rotateControls = document.getElementById(`repair-${photoType}-rotate`);
+        if (!previewEl) return;
+        const photoData = repairPhotos[photoType];
+        const existingUrl = existingPhotos[photoType];
+        let hasPhoto = false;
+
+        if (photoData && photoData.preview) {
+            previewEl.innerHTML = `<img src="${photoData.preview}" alt="Preview"><button type="button" class="remove-photo-btn" onclick="removePhoto('${photoType}')"><ion-icon name="close-outline"></ion-icon></button>`;
+            previewEl.classList.add('has-image');
+            hasPhoto = true;
+        } else if (existingUrl) {
+            previewEl.innerHTML = `<img src="${existingUrl}" alt="Existing"><button type="button" class="remove-photo-btn" onclick="removePhoto('${photoType}')"><ion-icon name="close-outline"></ion-icon></button>`;
+            previewEl.classList.add('has-image');
+            hasPhoto = true;
+        } else {
+            previewEl.innerHTML = `<ion-icon name="image-outline"></ion-icon><span>Нет фото</span>`;
+            previewEl.classList.remove('has-image');
+        }
+        if (rotateControls) rotateControls.style.display = hasPhoto ? 'flex' : 'none';
+    }
+
+    function removePhoto(photoType) {
+        repairPhotos[photoType] = null;
+        existingPhotos[photoType] = null;
+        updatePhotoPreview(photoType);
+        const inputEl = document.getElementById(`repair-${photoType}-upload`);
+        if (inputEl) inputEl.value = '';
+    }
+
+    function rotatePhoto(photoType, degrees) {
+        const photoData = repairPhotos[photoType];
+        const existingUrl = existingPhotos[photoType];
+        let sourceDataUrl = null;
+        let isNewPhoto = false;
+
+        if (photoData && photoData.preview) { sourceDataUrl = photoData.preview; isNewPhoto = true; }
+        else if (existingUrl) { sourceDataUrl = existingUrl; isNewPhoto = false; }
+        else return;
+
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (degrees === 90 || degrees === -90) { canvas.width = img.height; canvas.height = img.width; }
+            else { canvas.width = img.width; canvas.height = img.height; }
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(degrees * Math.PI / 180);
+            ctx.drawImage(img, -img.width / 2, -img.height / 2);
+            const rotated = canvas.toDataURL('image/jpeg', 0.92);
+
+            if (isNewPhoto) {
+                photoData.preview = rotated;
+                fetch(rotated).then(r => r.blob()).then(blob => {
+                    photoData.file = new File([blob], `rotated_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                    updatePhotoPreview(photoType);
+                    toast('Фото повёрнуто');
+                });
+            } else {
+                fetch(rotated).then(r => r.blob()).then(blob => {
+                    repairPhotos[photoType] = { file: new File([blob], `rotated_${Date.now()}.jpg`, { type: 'image/jpeg' }), preview: rotated };
+                    updatePhotoPreview(photoType);
+                    toast('Фото повёрнуто');
+                });
+            }
+        };
+        img.onerror = () => toast('❌ Не удалось повернуть фото');
+        img.src = sourceDataUrl;
+    }
+
+    async function uploadPhotoToStorage(file) {
+        try {
+            return await compressImageForUpload(file);
+        } catch (e) {
+            console.error('❌ Ошибка сжатия фото:', e);
+            return null;
+        }
+    }
+
+    // ============================================
+    // ФОТО (МОДАЛКА)
+    // ============================================
+    function handleRepairModalPhotoSelect(event, photoType) {
+        const file = event.target.files[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) { toast('❌ Выберите изображение'); return; }
+        if (file.size > 5 * 1024 * 1024) { toast('❌ Файл больше 5MB'); return; }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            repairModalPhotos[photoType] = { file: file, preview: e.target.result };
+            updateRepairModalPhotoPreview(photoType);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function updateRepairModalPhotoPreview(photoType) {
+        const previewEl = document.getElementById(`repair-modal-${photoType}-preview`);
+        const rotateControls = document.getElementById(`repair-modal-${photoType}-rotate`);
+        if (!previewEl) return;
+        const photoData = repairModalPhotos[photoType];
+        const existingUrl = repairModalExistingPhotos[photoType];
+        let hasPhoto = false;
+
+        if (photoData && photoData.preview) {
+            previewEl.innerHTML = `<img src="${photoData.preview}" alt="Preview"><button type="button" class="remove-photo-btn" onclick="removeRepairModalPhoto('${photoType}')"><ion-icon name="close-outline"></ion-icon></button>`;
+            previewEl.classList.add('has-image');
+            hasPhoto = true;
+        } else if (existingUrl) {
+            previewEl.innerHTML = `<img src="${existingUrl}" alt="Existing"><button type="button" class="remove-photo-btn" onclick="removeRepairModalPhoto('${photoType}')"><ion-icon name="close-outline"></ion-icon></button>`;
+            previewEl.classList.add('has-image');
+            hasPhoto = true;
+        } else {
+            previewEl.innerHTML = `<ion-icon name="image-outline"></ion-icon><span>Нет фото</span>`;
+            previewEl.classList.remove('has-image');
+        }
+        if (rotateControls) rotateControls.style.display = hasPhoto ? 'flex' : 'none';
+    }
+
+    function removeRepairModalPhoto(photoType) {
+        repairModalPhotos[photoType] = null;
+        repairModalExistingPhotos[photoType] = null;
+        updateRepairModalPhotoPreview(photoType);
+        const inputEl = document.getElementById(`repair-modal-${photoType}-upload`);
+        if (inputEl) inputEl.value = '';
+    }
+
+    function rotateRepairModalPhoto(photoType, degrees) {
+        const photoData = repairModalPhotos[photoType];
+        const existingUrl = repairModalExistingPhotos[photoType];
+        let sourceDataUrl = null;
+        let isNew = false;
+
+        if (photoData && photoData.preview) { sourceDataUrl = photoData.preview; isNew = true; }
+        else if (existingUrl) { sourceDataUrl = existingUrl; isNew = false; }
+        else return;
+
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (degrees === 90 || degrees === -90) { canvas.width = img.height; canvas.height = img.width; }
+            else { canvas.width = img.width; canvas.height = img.height; }
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(degrees * Math.PI / 180);
+            ctx.drawImage(img, -img.width / 2, -img.height / 2);
+            const rotated = canvas.toDataURL('image/jpeg', 0.92);
+
+            if (isNew) {
+                photoData.preview = rotated;
+                fetch(rotated).then(r => r.blob()).then(blob => {
+                    photoData.file = new File([blob], `rotated_${Date.now()}.jpg`, { type: 'image/jpeg' });
+                    updateRepairModalPhotoPreview(photoType);
+                    toast('Фото повёрнуто');
+                });
+            } else {
+                fetch(rotated).then(r => r.blob()).then(blob => {
+                    repairModalPhotos[photoType] = { file: new File([blob], `rotated_${Date.now()}.jpg`, { type: 'image/jpeg' }), preview: rotated };
+                    updateRepairModalPhotoPreview(photoType);
+                    toast('Фото повёрнуто');
+                });
+            }
+        };
+        img.onerror = () => toast('❌ Не удалось повернуть фото');
+        img.src = sourceDataUrl;
+    }
+
+    async function uploadRepairModalPhoto(photoType) {
+        const photoData = repairModalPhotos[photoType];
+        if (!photoData || !photoData.file) return repairModalExistingPhotos[photoType] || null;
+        try {
+            return await compressImageForUpload(photoData.file);
+        } catch (e) {
+            console.error(`❌ Ошибка сжатия ${photoType}:`, e);
+            return repairModalExistingPhotos[photoType] || null;
+        }
+    }
+
+    // ============================================
+    // МОДАЛКА РЕМОНТА
+    // ============================================
+    function populateRepairModalVehicleSelect() {
+        const select = document.getElementById('repair-modal-vehicle-select');
+        if (!select) return;
+        select.innerHTML = '';
+        const list = getAllVehicles();
+        if (list && list.length > 0) {
+            list.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v.id;
+                opt.textContent = v.name || `${v.brand || ''} ${v.model || ''}`.trim() || 'Автомобиль';
+                select.appendChild(opt);
+            });
+        } else {
+            const opt = document.createElement('option');
+            opt.value = 'default';
+            opt.textContent = 'Автомобиль по умолчанию';
+            select.appendChild(opt);
+        }
+        select.value = getVId();
+    }
+
+    function openRepairModal(editId) {
+        const overlay = document.getElementById('repair-modal-overlay');
+        if (!overlay) { console.error('❌ #repair-modal-overlay не найден'); return; }
+
+        editingRepairModalId = editId || null;
+
+        if (editId) {
+            fillRepairModalFromRecord(editId);
+            const t = document.getElementById('repair-modal-title-text');
+            if (t) t.textContent = 'Редактировать ремонт';
+            const s = document.getElementById('repair-modal-submit-text');
+            if (s) s.textContent = 'Обновить ремонт';
+        } else {
+            resetRepairModalForm();
+            const t = document.getElementById('repair-modal-title-text');
+            if (t) t.textContent = 'Добавить ремонт';
+            const s = document.getElementById('repair-modal-submit-text');
+            if (s) s.textContent = 'Сохранить';
+        }
+
+        populateRepairModalVehicleSelect();
+        overlay.style.display = 'flex';
+        requestAnimationFrame(() => overlay.classList.add('visible'));
+        document.body.style.overflow = 'hidden';
+
+        setTimeout(() => {
+            const dateEl = document.getElementById('repair-modal-date');
+            if (dateEl && !dateEl.value) dateEl.valueAsDate = new Date();
+        }, 100);
+
         calculateRepairModalTotal();
     }
-});
 
-// Закрытие по клику на оверлей и Escape
-document.addEventListener('click', function(e) {
-    const overlay = document.getElementById('repair-modal-overlay');
-    if (overlay && e.target === overlay) closeRepairModal();
-});
-
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
+    function closeRepairModal() {
         const overlay = document.getElementById('repair-modal-overlay');
-        if (overlay && overlay.classList.contains('visible')) closeRepairModal();
-    }
-});
-
-// ===== 6. ДИНАМИЧЕСКИЕ СПИСКИ (для старой формы на вкладке) =====
-function addRepairPart() {
-    const container = document.getElementById('repair-parts-list');
-    if (!container) return;
-    const item = document.createElement('div');
-    item.className = 'dynamic-item';
-    item.innerHTML = `
-        <input type="text" class="repair-part-name" placeholder="Название детали">
-        <input type="number" class="repair-part-cost" placeholder="Стоимость" step="0.01" min="0">
-        <button type="button" class="btn-remove" data-action="remove-part">
-            <ion-icon name="trash-outline"></ion-icon>
-        </button>
-    `;
-    container.appendChild(item);
-    calculateRepairTotal();
-}
-
-function addRepairWork() {
-    const container = document.getElementById('repair-works-list');
-    if (!container) return;
-    const item = document.createElement('div');
-    item.className = 'dynamic-item';
-    item.innerHTML = `
-        <input type="text" class="repair-work-name" placeholder="Название работы">
-        <input type="number" class="repair-work-cost" placeholder="Стоимость" step="0.01" min="0">
-        <button type="button" class="btn-remove" data-action="remove-work">
-            <ion-icon name="trash-outline"></ion-icon>
-        </button>
-    `;
-    container.appendChild(item);
-    calculateRepairTotal();
-}
-
-function setupDynamicListDelegation() {
-    const partsContainer = document.getElementById('repair-parts-list');
-    const worksContainer = document.getElementById('repair-works-list');
-    const handleEvent = (e) => {
-        if (e.target.closest('[data-action^="remove-"]')) {
-            const item = e.target.closest('.dynamic-item');
-            if (item) {
-                item.remove();
-                calculateRepairTotal();
-            }
-            return;
-        }
-        if (e.target.classList.contains('repair-part-cost') || e.target.classList.contains('repair-work-cost')) {
-            calculateRepairTotal();
-        }
-    };
-    [partsContainer, worksContainer].forEach(c => {
-        if (!c || c._delegationBound) return;
-        c._delegationBound = true;
-        c.addEventListener('input', handleEvent);
-        c.addEventListener('click', handleEvent);
-    });
-}
-
-function calculateRepairTotal() {
-    let partsTotal = 0, worksTotal = 0;
-    document.querySelectorAll('.repair-part-cost').forEach(el => { partsTotal += parseFloat(el.value) || 0; });
-    document.querySelectorAll('.repair-work-cost').forEach(el => { worksTotal += parseFloat(el.value) || 0; });
-    const total = partsTotal + worksTotal;
-    const el1 = document.getElementById('repair-parts-total');
-    const el2 = document.getElementById('repair-works-total');
-    const el3 = document.getElementById('repair-total-cost');
-    if (el1) el1.textContent = safeFormatMoney(partsTotal);
-    if (el2) el2.textContent = safeFormatMoney(worksTotal);
-    if (el3) el3.textContent = safeFormatMoney(total);
-}
-
-// ===== 7. ФУНКЦИИ ДЛЯ РАБОТЫ С ФОТО =====
-function handlePhotoSelect(event, photoType) {
-    const file = event.target.files[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-        safeShowToast('Ошибка', 'Пожалуйста, выберите изображение', 'danger');
-        return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-        safeShowToast('Ошибка', 'Файл слишком большой. Максимум 5MB.', 'danger');
-        return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        repairPhotos[photoType] = { file: file, preview: e.target.result };
-        updatePhotoPreview(photoType);
-    };
-    reader.readAsDataURL(file);
-}
-
-function updatePhotoPreview(photoType) {
-    const previewEl = document.getElementById(`repair-${photoType}-preview`);
-    const rotateControls = document.getElementById(`repair-${photoType}-rotate`);
-    if (!previewEl) return;
-    const photoData = repairPhotos[photoType];
-    const existingUrl = existingPhotos[photoType];
-    let hasPhoto = false;
-
-    if (photoData && photoData.preview) {
-        previewEl.innerHTML = `<img src="${photoData.preview}" alt="Preview"><button type="button" class="remove-photo-btn" onclick="removePhoto('${photoType}')"><ion-icon name="close-outline"></ion-icon></button>`;
-        previewEl.classList.add('has-image');
-        hasPhoto = true;
-    } else if (existingUrl) {
-        previewEl.innerHTML = `<img src="${existingUrl}" alt="Existing"><button type="button" class="remove-photo-btn" onclick="removePhoto('${photoType}')"><ion-icon name="close-outline"></ion-icon></button>`;
-        previewEl.classList.add('has-image');
-        hasPhoto = true;
-    } else {
-        previewEl.innerHTML = `<ion-icon name="image-outline"></ion-icon><span>Нет фото</span>`;
-        previewEl.classList.remove('has-image');
-        hasPhoto = false;
-    }
-    if (rotateControls) {
-        rotateControls.style.display = hasPhoto ? 'flex' : 'none';
-    }
-}
-
-function removePhoto(photoType) {
-    repairPhotos[photoType] = null;
-    existingPhotos[photoType] = null;
-    updatePhotoPreview(photoType);
-    const inputEl = document.getElementById(`repair-${photoType}-upload`);
-    if (inputEl) inputEl.value = '';
-}
-
-function rotatePhoto(photoType, degrees) {
-    const photoData = repairPhotos[photoType];
-    const existingUrl = existingPhotos[photoType];
-    let sourceDataUrl = null;
-    let isNewPhoto = false;
-
-    if (photoData && photoData.preview) {
-        sourceDataUrl = photoData.preview;
-        isNewPhoto = true;
-    } else if (existingUrl) {
-        sourceDataUrl = existingUrl;
-        isNewPhoto = false;
-    } else {
-        return;
+        if (!overlay) return;
+        overlay.classList.remove('visible');
+        setTimeout(() => { overlay.style.display = 'none'; resetRepairModalForm(); }, 300);
+        document.body.style.overflow = '';
+        editingRepairModalId = null;
     }
 
-    const img = new Image();
-    img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (degrees === 90 || degrees === -90) {
-            canvas.width = img.height;
-            canvas.height = img.width;
-        } else {
-            canvas.width = img.width;
-            canvas.height = img.height;
-        }
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate(degrees * Math.PI / 180);
-        ctx.drawImage(img, -img.width / 2, -img.height / 2);
-        const rotatedDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    function resetRepairModalForm() {
+        const form = document.getElementById('repair-modal-form');
+        if (form) form.reset();
+        const dateEl = document.getElementById('repair-modal-date');
+        if (dateEl) dateEl.valueAsDate = new Date();
 
-        if (isNewPhoto) {
-            photoData.preview = rotatedDataUrl;
-            fetch(rotatedDataUrl).then(res => res.blob()).then(blob => {
-                photoData.file = new File([blob], `rotated_${Date.now()}.jpg`, { type: 'image/jpeg' });
-                updatePhotoPreview(photoType);
-                safeShowToast('Повёрнуто', 'Фото повёрнуто. Не забудьте сохранить.', 'info', 2000);
-            }).catch(err => { console.error('Ошибка конвертации:', err); updatePhotoPreview(photoType); });
-        } else {
-            fetch(rotatedDataUrl).then(res => res.blob()).then(blob => {
-                repairPhotos[photoType] = { file: new File([blob], `rotated_${Date.now()}.jpg`, { type: 'image/jpeg' }), preview: rotatedDataUrl };
-                updatePhotoPreview(photoType);
-                safeShowToast('Повёрнуто', 'Фото повёрнуто. Не забудьте сохранить.', 'info', 2000);
-            }).catch(err => { console.error('Ошибка конвертации:', err); });
-        }
-    };
-    img.onerror = () => { safeShowToast('Ошибка', 'Не удалось повернуть фото', 'danger'); };
-    img.src = sourceDataUrl;
-}
+        const partsList = document.getElementById('repair-modal-parts-list');
+        if (partsList) partsList.innerHTML = '';
+        const worksList = document.getElementById('repair-modal-works-list');
+        if (worksList) worksList.innerHTML = '';
 
-async function compressImageForUpload(file, maxWidth = 1400, initialQuality = 0.85) {
-    try {
-        let bitmap;
-        try {
-            bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-        } catch (e) {
-            console.warn('⚠️ createImageBitmap не поддерживает imageOrientation, используем fallback');
-            bitmap = await createImageBitmap(file);
-        }
-        let width = bitmap.width;
-        let height = bitmap.height;
-        if (width > maxWidth) {
-            height = Math.round((height * maxWidth) / width);
-            width = maxWidth;
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(bitmap, 0, 0, width, height);
-        if (bitmap.close) bitmap.close();
+        addRepairModalPart();
+        addRepairModalWork();
+        calculateRepairModalTotal();
+        editingRepairModalId = null;
 
-        const photoBudgetKB = calculatePhotoBudget();
-        let quality = initialQuality;
-        let dataUrl = canvas.toDataURL('image/jpeg', quality);
-        const MAX_SIZE = photoBudgetKB * 1024;
-
-        while (dataUrl.length > MAX_SIZE && quality > 0.3) {
-            quality -= 0.05;
-            dataUrl = canvas.toDataURL('image/jpeg', quality);
-        }
-        if (dataUrl.length > MAX_SIZE) {
-            const scale = Math.sqrt(MAX_SIZE / dataUrl.length) * 0.95;
-            canvas.width = Math.round(width * scale);
-            canvas.height = Math.round(height * scale);
-            ctx.imageSmoothingQuality = 'high';
-            ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-            dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-        }
-        const finalKB = (dataUrl.length * 0.75 / 1024).toFixed(0);
-        console.log(`📸 Сжатие: ${(file.size / 1024).toFixed(0)} KB → ${finalKB} KB`);
-        return dataUrl;
-    } catch (error) {
-        console.error('❌ Ошибка createImageBitmap, fallback на canvas:', error);
-        return compressImageFallback(file, maxWidth, initialQuality);
+        repairModalPhotos = { receipt: null, document: null };
+        repairModalExistingPhotos = { receipt: null, document: null };
+        updateRepairModalPhotoPreview('receipt');
+        updateRepairModalPhotoPreview('document');
+        const r = document.getElementById('repair-modal-receipt-upload');
+        const d = document.getElementById('repair-modal-document-upload');
+        if (r) r.value = '';
+        if (d) d.value = '';
     }
-}
 
-function compressImageFallback(file, maxWidth, initialQuality) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image();
-            img.src = event.target.result;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-                if (width > maxWidth) {
-                    height = Math.round((height * maxWidth) / width);
-                    width = maxWidth;
-                }
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.imageSmoothingEnabled = true;
-                ctx.imageSmoothingQuality = 'high';
-                ctx.drawImage(img, 0, 0, width, height);
+    function fillRepairModalFromRecord(id) {
+        const rec = repairRecords.find(r => r.id === id);
+        if (!rec) return;
 
-                const photoBudgetKB = calculatePhotoBudget();
-                let quality = initialQuality;
-                let dataUrl = canvas.toDataURL('image/jpeg', quality);
-                const MAX_SIZE = photoBudgetKB * 1024;
-                while (dataUrl.length > MAX_SIZE && quality > 0.3) {
-                    quality -= 0.05;
-                    dataUrl = canvas.toDataURL('image/jpeg', quality);
-                }
-                resolve(dataUrl);
-            };
-            img.onerror = reject;
+        const set = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val != null ? val : ''; };
+        set('repair-modal-date', rec.date);
+        set('repair-modal-mileage', rec.mileage);
+        set('repair-modal-category', rec.category);
+        set('repair-modal-description', rec.description || '');
+        set('repair-modal-comment', rec.comment || '');
+
+        const v = document.getElementById('repair-modal-vehicle-select');
+        if (v) v.value = rec.vehicleId || 'default';
+
+        const partsList = document.getElementById('repair-modal-parts-list');
+        if (partsList) {
+            partsList.innerHTML = '';
+            (rec.parts || []).forEach(p => {
+                const item = document.createElement('div');
+                item.className = 'dynamic-item';
+                item.innerHTML = `<input type="text" class="repair-modal-part-name" placeholder="Название" value="${esc(p.name)}">
+                    <input type="number" class="repair-modal-part-cost" placeholder="Стоимость" step="0.01" min="0" value="${p.cost || 0}">
+                    <button type="button" class="btn-remove" onclick="this.parentElement.remove(); calculateRepairModalTotal();"><ion-icon name="trash-outline"></ion-icon></button>`;
+                partsList.appendChild(item);
+            });
+        }
+
+        const worksList = document.getElementById('repair-modal-works-list');
+        if (worksList) {
+            worksList.innerHTML = '';
+            (rec.works || []).forEach(w => {
+                const item = document.createElement('div');
+                item.className = 'dynamic-item';
+                item.innerHTML = `<input type="text" class="repair-modal-work-name" placeholder="Название" value="${esc(w.name)}">
+                    <input type="number" class="repair-modal-work-cost" placeholder="Стоимость" step="0.01" min="0" value="${w.cost || 0}">
+                    <button type="button" class="btn-remove" onclick="this.parentElement.remove(); calculateRepairModalTotal();"><ion-icon name="trash-outline"></ion-icon></button>`;
+                worksList.appendChild(item);
+            });
+        }
+
+        repairModalPhotos = { receipt: null, document: null };
+        repairModalExistingPhotos = {
+            receipt: rec.receiptPhotoUrl || null,
+            document: rec.documentPhotoUrl || null
         };
-        reader.onerror = reject;
-    });
-}
+        updateRepairModalPhotoPreview('receipt');
+        updateRepairModalPhotoPreview('document');
 
-function calculatePhotoBudget() {
-    const hasReceipt = repairPhotos.receipt !== null;
-    const hasDocument = repairPhotos.document !== null;
-    const totalPhotos = (hasReceipt ? 1 : 0) + (hasDocument ? 1 : 0);
-    const SAFE_BUDGET_KB = 990;
-    if (totalPhotos === 0) return 0;
-    if (totalPhotos === 1) return SAFE_BUDGET_KB - 30;
-    if (totalPhotos === 2) return Math.floor((SAFE_BUDGET_KB - 30) / 2);
-    return Math.floor((SAFE_BUDGET_KB - 30) / totalPhotos);
-}
-
-async function uploadPhotoToStorage(file, recordId, photoType) {
-    try {
-        const base64DataUrl = await compressImageForUpload(file);
-        console.log(`✅ Фото ${photoType} сжато и готово к сохранению (base64)`);
-        return base64DataUrl;
-    } catch (error) {
-        console.error(`❌ Ошибка сжатия фото ${photoType}:`, error);
-        return null;
+        const r = document.getElementById('repair-modal-receipt-upload');
+        const d = document.getElementById('repair-modal-document-upload');
+        if (r) r.value = '';
+        if (d) d.value = '';
     }
-}
 
-async function deletePhotoFromStorage(photoUrl) {
-    console.log('ℹ️ Удаление не требуется (base64 в Firestore)');
-}
+    function addRepairModalPart() {
+        const c = document.getElementById('repair-modal-parts-list');
+        if (!c) return;
+        const item = document.createElement('div');
+        item.className = 'dynamic-item';
+        item.innerHTML = `<input type="text" class="repair-modal-part-name" placeholder="Название детали">
+            <input type="number" class="repair-modal-part-cost" placeholder="Стоимость" step="0.01" min="0">
+            <button type="button" class="btn-remove" onclick="this.parentElement.remove(); calculateRepairModalTotal();"><ion-icon name="trash-outline"></ion-icon></button>`;
+        c.appendChild(item);
+        calculateRepairModalTotal();
+    }
 
-// ===== 8. ЗАГРУЗКА ДАННЫХ И REAL-TIME СЛУШАТЕЛЬ =====
-let repairUnsubscribe = null;
+    function addRepairModalWork() {
+        const c = document.getElementById('repair-modal-works-list');
+        if (!c) return;
+        const item = document.createElement('div');
+        item.className = 'dynamic-item';
+        item.innerHTML = `<input type="text" class="repair-modal-work-name" placeholder="Название работы">
+            <input type="number" class="repair-modal-work-cost" placeholder="Стоимость" step="0.01" min="0">
+            <button type="button" class="btn-remove" onclick="this.parentElement.remove(); calculateRepairModalTotal();"><ion-icon name="trash-outline"></ion-icon></button>`;
+        c.appendChild(item);
+        calculateRepairModalTotal();
+    }
 
-async function loadRepairRecords() {
-    console.log('🔧 Инициализация модуля ремонта...');
-    try {
-        const saved = localStorage.getItem(REPAIR_STORAGE_KEY);
-        if (saved) {
-            repairRecords = JSON.parse(saved);
-        }
+    function calculateRepairModalTotal() {
+        let pT = 0, wT = 0;
+        document.querySelectorAll('.repair-modal-part-cost').forEach(el => { pT += parseFloat(el.value) || 0; });
+        document.querySelectorAll('.repair-modal-work-cost').forEach(el => { wT += parseFloat(el.value) || 0; });
+        const total = pT + wT;
+        const el1 = document.getElementById('repair-modal-parts-total');
+        const el2 = document.getElementById('repair-modal-works-total');
+        const el3 = document.getElementById('repair-modal-total-cost');
+        if (el1) el1.textContent = fmtMoney(pT);
+        if (el2) el2.textContent = fmtMoney(wT);
+        if (el3) el3.textContent = fmtMoney(total);
+    }
 
-        if (typeof connectionMode !== 'undefined' && connectionMode === 'firebase' && typeof auth !== 'undefined' && auth.currentUser) {
-            console.log('☁️ Подключение real-time слушателя ремонтов...');
-            if (typeof repairUnsubscribe === 'function') repairUnsubscribe();
+    function clearRepairModalForm() {
+        const form = document.getElementById('repair-modal-form');
+        if (form) form.reset();
+        const dateEl = document.getElementById('repair-modal-date');
+        if (dateEl) dateEl.valueAsDate = new Date();
 
-            repairUnsubscribe = db.collection('users')
-                .doc(auth.currentUser.uid)
-                .collection(COLLECTION_REPAIR)
-                .orderBy('date', 'desc')
-                .onSnapshot((snapshot) => {
-                    let fbData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    fbData.sort((a, b) => {
-                        const dateA = parseLocalDate(a.date) || 0;
-                        const dateB = parseLocalDate(b.date) || 0;
-                        return dateB - dateA;
-                    });
+        const partsList = document.getElementById('repair-modal-parts-list');
+        if (partsList) partsList.innerHTML = '';
+        const worksList = document.getElementById('repair-modal-works-list');
+        if (worksList) worksList.innerHTML = '';
 
-                    repairRecords = fbData;
-                    saveRepairLocal();
-                    
-                    renderRepairList();
-                    updateRepairStats();
-                    updateRepairCharts();
-                    syncRepairToMainRecords();
-                }, (error) => {
-                    console.error('❌ Ошибка слушателя ремонтов:', error);
+        addRepairModalPart();
+        addRepairModalWork();
+        calculateRepairModalTotal();
+
+        const s = document.getElementById('repair-modal-submit-text');
+        if (s) s.textContent = 'Сохранить';
+        const t = document.getElementById('repair-modal-title-text');
+        if (t) t.textContent = 'Добавить ремонт';
+        editingRepairModalId = null;
+
+        repairModalPhotos = { receipt: null, document: null };
+        repairModalExistingPhotos = { receipt: null, document: null };
+        updateRepairModalPhotoPreview('receipt');
+        updateRepairModalPhotoPreview('document');
+        const r = document.getElementById('repair-modal-receipt-upload');
+        const d = document.getElementById('repair-modal-document-upload');
+        if (r) r.value = '';
+        if (d) d.value = '';
+
+        toast('🗑️ Форма очищена');
+    }
+
+    // ============================================
+    // СОХРАНЕНИЕ / УДАЛЕНИЕ
+    // ============================================
+    async function syncRepairToFirebase(record) {
+        if (!isFirebaseReady()) return false;
+        try {
+            const payload = deepClone(record);
+            delete payload.id;
+            await window.db.collection('users').doc(window.auth.currentUser.uid)
+                .collection(COLLECTION_REPAIR).doc(record.id).set({
+                    ...payload,
+                    userId: window.auth.currentUser.uid,
+                    updatedAt: new Date().toISOString()
                 });
-        } else {
-            renderRepairList();
-            updateRepairStats();
-            updateRepairCharts();
-        }
-    } catch (error) {
-        console.error('❌ Критическая ошибка загрузки:', error);
-        const saved = localStorage.getItem(REPAIR_STORAGE_KEY);
-        if (saved) {
-            repairRecords = JSON.parse(saved);
-            saveRepairLocal();
-            renderRepairList();
-            updateRepairStats();
-            updateRepairCharts();
-        }
-    }
-}
-
-// ===== 9. СОХРАНЕНИЕ =====
-function saveRepairLocal() {
-    try {
-        localStorage.setItem(REPAIR_STORAGE_KEY, JSON.stringify(repairRecords));
-    } catch (e) {
-        console.warn('⚠️ Не удалось сохранить в localStorage:', e.message);
-    }
-}
-
-async function syncRepairToFirebase(record) {
-    if (typeof connectionMode === 'undefined' || connectionMode !== 'firebase' || typeof auth === 'undefined' || !auth.currentUser) return false;
-    try {
-        const recordToSave = deepClone(record);
-        delete recordToSave.id;
-        await db.collection('users').doc(auth.currentUser.uid).collection(COLLECTION_REPAIR).doc(record.id).set({
-            ...recordToSave,
-            userId: auth.currentUser.uid,
-            updatedAt: new Date().toISOString()
-        });
             if (typeof window.remindersMarkAsSynced === 'function') window.remindersMarkAsSynced();
             return true;
         } catch (error) {
-        console.error('❌ Ошибка сохранения в Firebase:', error);
-        if (error.message && error.message.includes('maximum size')) {
-            safeShowToast('Ошибка', 'Документ слишком большой. Попробуйте фото меньшего размера.', 'danger');
-        }
-        return false;
-    }
-}
-
-async function deleteRepairFromFirebase(id) {
-    if (typeof connectionMode === 'undefined' || connectionMode !== 'firebase' || typeof auth === 'undefined' || !auth.currentUser) return false;
-    try {
-        await db.collection('users').doc(auth.currentUser.uid).collection(COLLECTION_REPAIR).doc(id).delete();
-        if (typeof window.remindersMarkAsSynced === 'function') window.remindersMarkAsSynced();
-        return true;
-    } catch (error) {
-        console.error('❌ Ошибка удаления из Firebase:', error);
-        return false;
-    }
-}
-
-// ===== 10. ОБРАБОТЧИК ФОРМЫ (для старой формы на вкладке) =====
-async function handleRepairSubmit(e) {
-    e.preventDefault();
-    safeShowLoading('Сохранение ремонта...');
-
-    const date = document.getElementById('repair-date')?.value;
-    const mileage = parseInt(document.getElementById('repair-mileage')?.value);
-    const category = document.getElementById('repair-category')?.value;
-    const description = document.getElementById('repair-description')?.value.trim();
-    const comment = document.getElementById('repair-comment')?.value.trim();
-    const vehicleId = document.getElementById('repair-vehicle-select')?.value || 'default';
-    const isEditing = !!editingRepairId;
-
-    if (!date || !mileage || mileage <= 0 || !category) {
-        safeHideLoading();
-        safeShowToast('Внимание', 'Заполните дату, пробег и категорию!', 'warning');
-        return;
-    }
-
-    const parts = [];
-    document.querySelectorAll('#repair-parts-list .dynamic-item').forEach(item => {
-        const name = item.querySelector('.repair-part-name')?.value?.trim();
-        const cost = parseFloat(item.querySelector('.repair-part-cost')?.value) || 0;
-        if (name) parts.push({ name, cost });
-    });
-
-    const works = [];
-    document.querySelectorAll('#repair-works-list .dynamic-item').forEach(item => {
-        const name = item.querySelector('.repair-work-name')?.value?.trim();
-        const cost = parseFloat(item.querySelector('.repair-work-cost')?.value) || 0;
-        if (name) works.push({ name, cost });
-    });
-
-    const partsTotal = parts.reduce((sum, p) => sum + p.cost, 0);
-    const worksTotal = works.reduce((sum, w) => sum + w.cost, 0);
-    const total = partsTotal + worksTotal;
-
-    const serviceItems = [];
-    document.querySelectorAll('#repair-service-items input[type="checkbox"]:checked').forEach(cb => {
-        serviceItems.push(cb.value);
-    });
-
-    let receiptPhotoUrl = existingPhotos.receipt;
-    let documentPhotoUrl = existingPhotos.document;
-    const recordId = isEditing ? editingRepairId : generateRecordId();
-
-    if (repairPhotos.receipt) {
-        const newUrl = await uploadPhotoToStorage(repairPhotos.receipt.file, recordId, 'receipt');
-        if (newUrl) receiptPhotoUrl = newUrl;
-        else safeShowToast('Внимание', 'Не удалось обработать фото чека. Старое фото сохранено.', 'warning');
-    }
-    if (repairPhotos.document) {
-        const newUrl = await uploadPhotoToStorage(repairPhotos.document.file, recordId, 'document');
-        if (newUrl) documentPhotoUrl = newUrl;
-        else safeShowToast('Внимание', 'Не удалось обработать фото документа. Старое фото сохранено.', 'warning');
-    }
-
-    const repairData = {
-        date, mileage, category,
-        description: description || getCategoryLabel(category),
-        comment: comment || '',
-        parts, works, partsTotal, worksTotal, total, serviceItems,
-        receiptPhotoUrl: receiptPhotoUrl || null,
-        documentPhotoUrl: documentPhotoUrl || null,
-        updatedAt: new Date().toISOString()
-    };
-
-    try {
-        if (isEditing) {
-            const index = repairRecords.findIndex(r => r.id === editingRepairId);
-            if (index !== -1) {
-                repairRecords[index] = { ...repairRecords[index], ...repairData, vehicleId };
-                await syncRepairToFirebase(repairRecords[index]);
+            console.error('❌ Ошибка сохранения ремонта в Firebase:', error);
+            if (error.message && error.message.includes('maximum size')) {
+                toast('❌ Документ слишком большой. Уменьшите фото.');
             }
-        } else {
-            const newRecord = {
-                id: recordId,
-                vehicleId,
-                userId: typeof auth !== 'undefined' && auth.currentUser ? auth.currentUser.uid : null,
-                ...repairData,
-                createdAt: new Date().toISOString()
-            };
-            repairRecords.push(newRecord);
-            await syncRepairToFirebase(newRecord);
+            return false;
+        }
+    }
+
+    async function deleteRepairFromFirebase(id) {
+        if (!isFirebaseReady()) return false;
+        try {
+            await window.db.collection('users').doc(window.auth.currentUser.uid)
+                .collection(COLLECTION_REPAIR).doc(id).delete();
+            if (typeof window.remindersMarkAsSynced === 'function') window.remindersMarkAsSynced();
+            return true;
+        } catch (error) {
+            console.error('❌ Ошибка удаления ремонта из Firebase:', error);
+            return false;
+        }
+    }
+
+    async function submitRepairModal() {
+        const date = document.getElementById('repair-modal-date')?.value;
+        const mileage = parseInt(document.getElementById('repair-modal-mileage')?.value);
+        const category = document.getElementById('repair-modal-category')?.value;
+        const description = document.getElementById('repair-modal-description')?.value.trim();
+        const comment = document.getElementById('repair-modal-comment')?.value.trim();
+        const vehicleSelect = document.getElementById('repair-modal-vehicle-select');
+        const vehicleId = vehicleSelect ? vehicleSelect.value : 'default';
+
+        if (!date || !mileage || mileage <= 0 || !category) {
+            toast('⚠️ Заполните дату, пробег и категорию');
+            return;
         }
 
-        saveRepairLocal();
-        clearRepairForm();
-        renderRepairList();
-        updateRepairStats();
-        updateRepairCharts();
-        syncRepairToMainRecords();
+        toast('⏳ Обработка фото...');
+        let receiptUrl = repairModalExistingPhotos.receipt || null;
+        let documentUrl = repairModalExistingPhotos.document || null;
+        if (repairModalPhotos.receipt) {
+            const u = await uploadRepairModalPhoto('receipt');
+            if (u) receiptUrl = u;
+        }
+        if (repairModalPhotos.document) {
+            const u = await uploadRepairModalPhoto('document');
+            if (u) documentUrl = u;
+        }
+        toast('⏳ Сохранение...');
 
-        safeHideLoading();
-        safeShowToast('Успех', isEditing ? 'Ремонт обновлен!' : 'Ремонт добавлен!', 'success');
-    } catch (error) {
-        console.error('❌ Ошибка сохранения:', error);
-        safeHideLoading();
-        safeShowToast('Ошибка', 'Не удалось сохранить ремонт', 'danger');
+        const parts = [];
+        document.querySelectorAll('#repair-modal-parts-list .dynamic-item').forEach(item => {
+            const name = item.querySelector('.repair-modal-part-name')?.value?.trim();
+            const cost = parseFloat(item.querySelector('.repair-modal-part-cost')?.value) || 0;
+            if (name) parts.push({ name, cost });
+        });
+        const works = [];
+        document.querySelectorAll('#repair-modal-works-list .dynamic-item').forEach(item => {
+            const name = item.querySelector('.repair-modal-work-name')?.value?.trim();
+            const cost = parseFloat(item.querySelector('.repair-modal-work-cost')?.value) || 0;
+            if (name) works.push({ name, cost });
+        });
+        const partsTotal = parts.reduce((s, p) => s + p.cost, 0);
+        const worksTotal = works.reduce((s, w) => s + w.cost, 0);
+        const total = partsTotal + worksTotal;
+
+        try {
+            const data = {
+                date, mileage, category,
+                description: description || getCategoryLabel(category),
+                comment: comment || '',
+                parts, works, partsTotal, worksTotal, total,
+                vehicleId,
+                receiptPhotoUrl: receiptUrl,
+                documentPhotoUrl: documentUrl,
+                updatedAt: new Date().toISOString()
+            };
+
+            if (editingRepairModalId) {
+                const idx = repairRecords.findIndex(r => r.id === editingRepairModalId);
+                if (idx !== -1) {
+                    repairRecords[idx] = { ...repairRecords[idx], ...data };
+                    await syncRepairToFirebase(repairRecords[idx]);
+                }
+            } else {
+                const newRecord = {
+                    id: genId(),
+                    userId: window.auth && window.auth.currentUser ? window.auth.currentUser.uid : null,
+                    ...data,
+                    createdAt: new Date().toISOString()
+                };
+                repairRecords.push(newRecord);
+                await syncRepairToFirebase(newRecord);
+            }
+
+            persistLocal();
+            renderRepairList();
+            updateRepairStats();
+            updateRepairCharts();
+            await syncRepairToMainRecords();
+
+            toast(editingRepairModalId ? '✅ Ремонт обновлён' : '✅ Ремонт добавлен');
+            closeRepairModal();
+        } catch (error) {
+            console.error('❌ Ошибка сохранения:', error);
+            toast('❌ Не удалось сохранить ремонт');
+        }
     }
-}
 
-// ===== 11. РЕДАКТИРОВАНИЕ (для старой формы на вкладке) =====
-function editRepairRecordTab(id) {
-    const record = repairRecords.find(r => r.id === id);
-    if (!record) return;
-    editingRepairId = id;
+    async function deleteRepairRecord(id) {
+        if (!confirm('Удалить эту запись о ремонте?')) return;
+        toast('⏳ Удаление...');
+        try {
+            repairRecords = repairRecords.filter(r => r.id !== id);
+            persistLocal();
+            await deleteRepairFromFirebase(id);
+            renderRepairList();
+            updateRepairStats();
+            updateRepairCharts();
+            await syncRepairToMainRecords();
+            toast('✅ Запись удалена');
+        } catch (error) {
+            console.error('❌ Ошибка удаления:', error);
+            toast('❌ Не удалось удалить запись');
+        }
+    }
 
-    document.getElementById('repair-date').value = record.date;
-    document.getElementById('repair-mileage').value = record.mileage;
-    document.getElementById('repair-category').value = record.category;
-    document.getElementById('repair-description').value = record.description || '';
-    document.getElementById('repair-comment').value = record.comment || '';
+    // ============================================
+    // СТАРАЯ ФОРМА НА ВКЛАДКЕ
+    // ============================================
+    function addRepairPart() {
+        const c = document.getElementById('repair-parts-list');
+        if (!c) return;
+        const item = document.createElement('div');
+        item.className = 'dynamic-item';
+        item.innerHTML = `<input type="text" class="repair-part-name" placeholder="Название детали">
+            <input type="number" class="repair-part-cost" placeholder="Стоимость" step="0.01" min="0">
+            <button type="button" class="btn-remove" data-action="remove-part"><ion-icon name="trash-outline"></ion-icon></button>`;
+        c.appendChild(item);
+        calculateRepairTotal();
+    }
 
-    const vehicleSelect = document.getElementById('repair-vehicle-select');
-    if (vehicleSelect) vehicleSelect.value = record.vehicleId || 'default';
+    function addRepairWork() {
+        const c = document.getElementById('repair-works-list');
+        if (!c) return;
+        const item = document.createElement('div');
+        item.className = 'dynamic-item';
+        item.innerHTML = `<input type="text" class="repair-work-name" placeholder="Название работы">
+            <input type="number" class="repair-work-cost" placeholder="Стоимость" step="0.01" min="0">
+            <button type="button" class="btn-remove" data-action="remove-work"><ion-icon name="trash-outline"></ion-icon></button>`;
+        c.appendChild(item);
+        calculateRepairTotal();
+    }
 
-    const serviceItems = record.serviceItems || [];
-    document.querySelectorAll('#repair-service-items input[type="checkbox"]').forEach(cb => {
-        cb.checked = serviceItems.includes(cb.value);
-    });
-
-    const partsContainer = document.getElementById('repair-parts-list');
-    if (partsContainer) {
-        partsContainer.innerHTML = '';
-        (record.parts || []).forEach(p => {
-            const item = document.createElement('div');
-            item.className = 'dynamic-item';
-            item.innerHTML = `<input type="text" class="repair-part-name" placeholder="Название детали" value="${safeEscapeHtml(p.name)}"><input type="number" class="repair-part-cost" placeholder="Стоимость" step="0.01" min="0" value="${p.cost}"><button type="button" class="btn-remove" data-action="remove-part"><ion-icon name="trash-outline"></ion-icon></button>`;
-            partsContainer.appendChild(item);
+    function setupDynamicListDelegation() {
+        const p = document.getElementById('repair-parts-list');
+        const w = document.getElementById('repair-works-list');
+        const handler = (e) => {
+            if (e.target.closest('[data-action^="remove-"]')) {
+                const it = e.target.closest('.dynamic-item');
+                if (it) { it.remove(); calculateRepairTotal(); }
+                return;
+            }
+            if (e.target.classList.contains('repair-part-cost') || e.target.classList.contains('repair-work-cost')) {
+                calculateRepairTotal();
+            }
+        };
+        [p, w].forEach(c => {
+            if (!c || c._delegationBound) return;
+            c._delegationBound = true;
+            c.addEventListener('input', handler);
+            c.addEventListener('click', handler);
         });
     }
 
-    const worksContainer = document.getElementById('repair-works-list');
-    if (worksContainer) {
-        worksContainer.innerHTML = '';
-        (record.works || []).forEach(w => {
-            const item = document.createElement('div');
-            item.className = 'dynamic-item';
-            item.innerHTML = `<input type="text" class="repair-work-name" placeholder="Название работы" value="${safeEscapeHtml(w.name)}"><input type="number" class="repair-work-cost" placeholder="Стоимость" step="0.01" min="0" value="${w.cost}"><button type="button" class="btn-remove" data-action="remove-work"><ion-icon name="trash-outline"></ion-icon></button>`;
-            worksContainer.appendChild(item);
+    function calculateRepairTotal() {
+        let pT = 0, wT = 0;
+        document.querySelectorAll('.repair-part-cost').forEach(el => { pT += parseFloat(el.value) || 0; });
+        document.querySelectorAll('.repair-work-cost').forEach(el => { wT += parseFloat(el.value) || 0; });
+        const total = pT + wT;
+        const e1 = document.getElementById('repair-parts-total');
+        const e2 = document.getElementById('repair-works-total');
+        const e3 = document.getElementById('repair-total-cost');
+        if (e1) e1.textContent = fmtMoney(pT);
+        if (e2) e2.textContent = fmtMoney(wT);
+        if (e3) e3.textContent = fmtMoney(total);
+    }
+
+    async function handleRepairSubmit(e) {
+        if (e) e.preventDefault();
+        toast('⏳ Сохранение ремонта...');
+
+        const date = document.getElementById('repair-date')?.value;
+        const mileage = parseInt(document.getElementById('repair-mileage')?.value);
+        const category = document.getElementById('repair-category')?.value;
+        const description = document.getElementById('repair-description')?.value.trim();
+        const comment = document.getElementById('repair-comment')?.value.trim();
+        const vehicleId = document.getElementById('repair-vehicle-select')?.value || 'default';
+        const isEditing = !!editingRepairId;
+
+        if (!date || !mileage || mileage <= 0 || !category) {
+            toast('⚠️ Заполните дату, пробег и категорию');
+            return;
+        }
+
+        const parts = [];
+        document.querySelectorAll('#repair-parts-list .dynamic-item').forEach(item => {
+            const name = item.querySelector('.repair-part-name')?.value?.trim();
+            const cost = parseFloat(item.querySelector('.repair-part-cost')?.value) || 0;
+            if (name) parts.push({ name, cost });
         });
+        const works = [];
+        document.querySelectorAll('#repair-works-list .dynamic-item').forEach(item => {
+            const name = item.querySelector('.repair-work-name')?.value?.trim();
+            const cost = parseFloat(item.querySelector('.repair-work-cost')?.value) || 0;
+            if (name) works.push({ name, cost });
+        });
+        const pT = parts.reduce((s, p) => s + p.cost, 0);
+        const wT = works.reduce((s, w) => s + w.cost, 0);
+        const total = pT + wT;
+
+        const serviceItems = [];
+        document.querySelectorAll('#repair-service-items input[type="checkbox"]:checked').forEach(cb => {
+            serviceItems.push(cb.value);
+        });
+
+        let receiptUrl = existingPhotos.receipt;
+        let documentUrl = existingPhotos.document;
+        const recordId = isEditing ? editingRepairId : genId();
+
+        if (repairPhotos.receipt) {
+            const u = await uploadPhotoToStorage(repairPhotos.receipt.file);
+            if (u) receiptUrl = u;
+        }
+        if (repairPhotos.document) {
+            const u = await uploadPhotoToStorage(repairPhotos.document.file);
+            if (u) documentUrl = u;
+        }
+
+        const data = {
+            date, mileage, category,
+            description: description || getCategoryLabel(category),
+            comment: comment || '',
+            parts, works, partsTotal: pT, worksTotal: wT, total, serviceItems,
+            receiptPhotoUrl: receiptUrl || null,
+            documentPhotoUrl: documentUrl || null,
+            updatedAt: new Date().toISOString()
+        };
+
+        try {
+            if (isEditing) {
+                const idx = repairRecords.findIndex(r => r.id === editingRepairId);
+                if (idx !== -1) {
+                    repairRecords[idx] = { ...repairRecords[idx], ...data, vehicleId };
+                    await syncRepairToFirebase(repairRecords[idx]);
+                }
+            } else {
+                const newRecord = {
+                    id: recordId,
+                    vehicleId,
+                    userId: window.auth && window.auth.currentUser ? window.auth.currentUser.uid : null,
+                    ...data,
+                    createdAt: new Date().toISOString()
+                };
+                repairRecords.push(newRecord);
+                await syncRepairToFirebase(newRecord);
+            }
+
+            persistLocal();
+            clearRepairForm();
+            renderRepairList();
+            updateRepairStats();
+            updateRepairCharts();
+            await syncRepairToMainRecords();
+
+            toast(isEditing ? '✅ Ремонт обновлён' : '✅ Ремонт добавлен');
+        } catch (error) {
+            console.error('❌ Ошибка сохранения:', error);
+            toast('❌ Не удалось сохранить ремонт');
+        }
     }
 
-    existingPhotos.receipt = record.receiptPhotoUrl || null;
-    existingPhotos.document = record.documentPhotoUrl || null;
-    repairPhotos.receipt = null;
-    repairPhotos.document = null;
+    function editRepairRecordTab(id) {
+        const rec = repairRecords.find(r => r.id === id);
+        if (!rec) return;
+        editingRepairId = id;
 
-    const receiptInput = document.getElementById('repair-receipt-upload');
-    const documentInput = document.getElementById('repair-document-upload');
-    if (receiptInput) receiptInput.value = '';
-    if (documentInput) documentInput.value = '';
+        const set = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val != null ? val : ''; };
+        set('repair-date', rec.date);
+        set('repair-mileage', rec.mileage);
+        set('repair-category', rec.category);
+        set('repair-description', rec.description || '');
+        set('repair-comment', rec.comment || '');
 
-    updatePhotoPreview('receipt');
-    updatePhotoPreview('document');
-    calculateRepairTotal();
+        const v = document.getElementById('repair-vehicle-select');
+        if (v) v.value = rec.vehicleId || 'default';
 
-    const submitBtn = document.querySelector('#repair-form button[type="submit"]');
-    if (submitBtn) {
-        submitBtn.innerHTML = '<ion-icon name="checkmark-circle-outline"></ion-icon> Обновить ремонт';
-        submitBtn.classList.remove('btn-success');
-        submitBtn.classList.add('btn-primary');
+        const serviceItems = rec.serviceItems || [];
+        document.querySelectorAll('#repair-service-items input[type="checkbox"]').forEach(cb => {
+            cb.checked = serviceItems.includes(cb.value);
+        });
+
+        const pC = document.getElementById('repair-parts-list');
+        if (pC) {
+            pC.innerHTML = '';
+            (rec.parts || []).forEach(p => {
+                const item = document.createElement('div');
+                item.className = 'dynamic-item';
+                item.innerHTML = `<input type="text" class="repair-part-name" value="${esc(p.name)}"><input type="number" class="repair-part-cost" step="0.01" min="0" value="${p.cost}"><button type="button" class="btn-remove" data-action="remove-part"><ion-icon name="trash-outline"></ion-icon></button>`;
+                pC.appendChild(item);
+            });
+        }
+        const wC = document.getElementById('repair-works-list');
+        if (wC) {
+            wC.innerHTML = '';
+            (rec.works || []).forEach(w => {
+                const item = document.createElement('div');
+                item.className = 'dynamic-item';
+                item.innerHTML = `<input type="text" class="repair-work-name" value="${esc(w.name)}"><input type="number" class="repair-work-cost" step="0.01" min="0" value="${w.cost}"><button type="button" class="btn-remove" data-action="remove-work"><ion-icon name="trash-outline"></ion-icon></button>`;
+                wC.appendChild(item);
+            });
+        }
+
+        existingPhotos.receipt = rec.receiptPhotoUrl || null;
+        existingPhotos.document = rec.documentPhotoUrl || null;
+        repairPhotos.receipt = null;
+        repairPhotos.document = null;
+
+        const r = document.getElementById('repair-receipt-upload');
+        const d = document.getElementById('repair-document-upload');
+        if (r) r.value = '';
+        if (d) d.value = '';
+
+        updatePhotoPreview('receipt');
+        updatePhotoPreview('document');
+        calculateRepairTotal();
+
+        const s = document.querySelector('#repair-form button[type="submit"]');
+        if (s) {
+            s.innerHTML = '<ion-icon name="checkmark-circle-outline"></ion-icon> Обновить ремонт';
+            s.classList.remove('btn-success');
+            s.classList.add('btn-primary');
+        }
+        const form = document.getElementById('repair-form');
+        if (form) form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        toast('✏️ Редактирование ремонта');
     }
-    document.getElementById('repair-form').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    safeShowToast('✏️', 'Редактирование ремонта', 'info', 2000);
-}
 
-// ===== 12. УДАЛЕНИЕ =====
-async function deleteRepairRecord(id) {
-    if (!await safeShowConfirm('Удаление ремонта', 'Вы уверены, что хотите удалить эту запись?', 'Удалить', 'Отмена', 'danger')) return;
-    safeShowLoading('Удаление...');
+    function clearRepairForm() {
+        const today = new Date().toISOString().split('T')[0];
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+        set('repair-date', today);
+        set('repair-mileage', '');
+        set('repair-category', 'engine');
+        set('repair-description', '');
+        set('repair-comment', '');
+        document.querySelectorAll('#repair-service-items input[type="checkbox"]').forEach(cb => cb.checked = false);
+
+        const pC = document.getElementById('repair-parts-list');
+        if (pC) pC.innerHTML = '';
+        const wC = document.getElementById('repair-works-list');
+        if (wC) wC.innerHTML = '';
+
+        addRepairPart();
+        addRepairWork();
+        calculateRepairTotal();
+
+        repairPhotos.receipt = null;
+        repairPhotos.document = null;
+        existingPhotos.receipt = null;
+        existingPhotos.document = null;
+        const r = document.getElementById('repair-receipt-upload');
+        const d = document.getElementById('repair-document-upload');
+        if (r) r.value = '';
+        if (d) d.value = '';
+        updatePhotoPreview('receipt');
+        updatePhotoPreview('document');
+
+        editingRepairId = null;
+        const s = document.querySelector('#repair-form button[type="submit"]');
+        if (s) {
+            s.innerHTML = '<ion-icon name="checkmark-circle-outline"></ion-icon> Сохранить';
+            s.classList.remove('btn-primary');
+            s.classList.add('btn-success');
+        }
+    }
+
+    // ============================================
+    // ЗАГРУЗКА (ОДНОРАЗОВАЯ, БЕЗ onSnapshot)
+    // ============================================
+    let isRepairLoaded = false; // ⭐ ДОБАВИТЬ В САМОЕ НАЧАЛО IIFE
+
+async function loadRepairRecords(force = false) { // ⭐ добавили force
     try {
-        repairRecords = repairRecords.filter(r => r.id !== id);
-        saveRepairLocal();
-        await deleteRepairFromFirebase(id);
+        const saved = localStorage.getItem(REPAIR_STORAGE_KEY);
+        if (saved) {
+            try { repairRecords = JSON.parse(saved); } catch (e) { repairRecords = []; }
+        }
+        
+        // ⭐ ЗАЩИТА
+        if (isRepairLoaded && !force) {
+            console.log('ℹ️ Ремонты уже в памяти, пропускаем Firebase');
+            renderRepairList();
+            updateRepairStats();
+            updateRepairCharts();
+            return;
+        }
+        
+        if (isFirebaseReady()) {
+            console.log('☁️ Загрузка ремонтов из Firebase (1 раз)...');
+            const snap = await window.db.collection('users').doc(window.auth.currentUser.uid)
+                .collection(COLLECTION_REPAIR)
+                .orderBy('date', 'desc')
+                .get();
+            
+            if (!snap.empty) {
+                const fb = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                fb.sort((a, b) => (parseDate(b.date) || 0) - (parseDate(a.date) || 0));
+                repairRecords = fb;
+                persistLocal();
+                console.log('✅ Ремонты загружены из Firebase:', repairRecords.length);
+            }
+            isRepairLoaded = true; // ⭐ ставим флаг
+        }
+        
         renderRepairList();
         updateRepairStats();
         updateRepairCharts();
-        syncRepairToMainRecords();
-        safeHideLoading();
-        safeShowToast('Успех', 'Запись удалена!', 'success');
+        await syncRepairToMainRecords();
     } catch (error) {
-        console.error('❌ Ошибка удаления:', error);
-        safeHideLoading();
-        safeShowToast('Ошибка', 'Не удалось удалить запись', 'danger');
+        console.error('❌ Ошибка загрузки ремонтов:', error);
+        renderRepairList();
+        updateRepairStats();
+        updateRepairCharts();
     }
 }
 
-// ===== 13. ОЧИСТКА ФОРМЫ =====
-function clearRepairForm() {
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('repair-date').value = today;
-    document.getElementById('repair-mileage').value = '';
-    document.getElementById('repair-category').value = 'engine';
-    document.getElementById('repair-description').value = '';
-    document.getElementById('repair-comment').value = '';
-    document.querySelectorAll('#repair-service-items input[type="checkbox"]').forEach(cb => cb.checked = false);
+    // ============================================
+    // ФИЛЬТРАЦИЯ / РЕНДЕР
+    // ============================================
+    function getFilteredRepairs() {
+        const period = document.getElementById('repair-filter-period')?.value || 'all';
+        const category = document.getElementById('repair-filter-category')?.value || 'all';
+        const search = (document.getElementById('repair-filter-search')?.value || '').toLowerCase();
+        const vId = getVId();
 
-    const partsContainer = document.getElementById('repair-parts-list');
-    if (partsContainer) partsContainer.innerHTML = '';
-    const worksContainer = document.getElementById('repair-works-list');
-    if (worksContainer) worksContainer.innerHTML = '';
+        let list = repairRecords.filter(r => (r.vehicleId || 'default') === vId);
 
-    addRepairPart();
-    addRepairWork();
-    calculateRepairTotal();
-
-    repairPhotos.receipt = null;
-    repairPhotos.document = null;
-    existingPhotos.receipt = null;
-    existingPhotos.document = null;
-    const receiptInput = document.getElementById('repair-receipt-upload');
-    const documentInput = document.getElementById('repair-document-upload');
-    if (receiptInput) receiptInput.value = '';
-    if (documentInput) documentInput.value = '';
-    updatePhotoPreview('receipt');
-    updatePhotoPreview('document');
-
-    editingRepairId = null;
-    const submitBtn = document.querySelector('#repair-form button[type="submit"]');
-    if (submitBtn) {
-        submitBtn.innerHTML = '<ion-icon name="checkmark-circle-outline"></ion-icon> Сохранить';
-        submitBtn.classList.remove('btn-primary');
-        submitBtn.classList.add('btn-success');
+        if (period !== 'all') {
+            const now = new Date();
+            const cutoff = new Date();
+            if (period === 'month') cutoff.setMonth(now.getMonth() - 1);
+            else if (period === '3months') cutoff.setMonth(now.getMonth() - 3);
+            else if (period === 'year') cutoff.setFullYear(now.getFullYear() - 1);
+            list = list.filter(r => { const d = parseDate(r.date); return d && d >= cutoff; });
+        }
+        if (category !== 'all') list = list.filter(r => r.category === category);
+        if (search) {
+            list = list.filter(r =>
+                (r.description || '').toLowerCase().includes(search) ||
+                (r.comment || '').toLowerCase().includes(search) ||
+                (r.parts || []).some(p => (p.name || '').toLowerCase().includes(search)) ||
+                (r.works || []).some(w => (w.name || '').toLowerCase().includes(search))
+            );
+        }
+        return list.sort((a, b) => (parseDate(b.date) || 0) - (parseDate(a.date) || 0));
     }
-}
 
-// ===== 14. ФИЛЬТРАЦИЯ =====
-function getFilteredRepairs() {
-    const period = document.getElementById('repair-filter-period')?.value || 'all';
-    const category = document.getElementById('repair-filter-category')?.value || 'all';
-    const search = document.getElementById('repair-filter-search')?.value.toLowerCase() || '';
-    
-    const currentVId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
-    let filtered = [...repairRecords].filter(r => (r.vehicleId || 'default') === currentVId);
+    function renderRepairList() {
+        const container = document.getElementById('repair-list');
+        if (!container) return;
+        const filtered = getFilteredRepairs();
 
-    if (period !== 'all') {
-        const now = new Date();
-        const cutoff = new Date();
-        if (period === 'month') cutoff.setMonth(now.getMonth() - 1);
-        else if (period === '3months') cutoff.setMonth(now.getMonth() - 3);
-        else if (period === 'year') cutoff.setFullYear(now.getFullYear() - 1);
-        filtered = filtered.filter(r => {
-            const d = parseLocalDate(r.date);
-            return d && d >= cutoff;
+        if (filtered.length === 0) {
+            container.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text-tertiary,#86868b);">
+                <ion-icon name="construct-outline" style="font-size:48px;display:block;margin:0 auto 12px;"></ion-icon>
+                Нет записей о ремонте для этого авто
+            </div>`;
+            return;
+        }
+
+        const totalAmount = filtered.reduce((s, r) => s + (r.total || 0), 0);
+
+        container.innerHTML = `
+            <div style="margin-bottom:16px;text-align:center;font-weight:600;color:var(--text-secondary,#86868b);">
+                Всего: ${filtered.length} записей на сумму ${fmtMoney(totalAmount)}
+            </div>
+            ${filtered.map(record => {
+                const d = parseDate(record.date);
+                const dateStr = d ? d.toLocaleDateString('ru-RU') : record.date;
+                const catLabel = getCategoryLabel(record.category);
+                const catIcon = getCategoryIcon(record.category);
+                const catColor = getCategoryColor(record.category);
+
+                const partsHTML = (record.parts || []).length
+                    ? `<div style="margin-top:8px;font-size:14px;color:var(--text-secondary,#86868b);"><strong>Запчасти:</strong> ${record.parts.map(p => `${esc(p.name)} (${fmtMoney(p.cost)})`).join(', ')}</div>` : '';
+                const worksHTML = (record.works || []).length
+                    ? `<div style="margin-top:4px;font-size:14px;color:var(--text-secondary,#86868b);"><strong>Работы:</strong> ${record.works.map(w => `${esc(w.name)} (${fmtMoney(w.cost)})`).join(', ')}</div>` : '';
+                const serviceHTML = (record.serviceItems || []).length
+                    ? `<div style="margin-top:4px;font-size:13px;color:var(--text-tertiary,#a1a1a6);"><strong>Выполнено:</strong> ${record.serviceItems.map(it => {
+                        const n = { oil: '🛢️ Масло', oilFilter: '🔵 Масляный фильтр', airFilter: '💨 Воздушный', cabinFilter: '🌬️ Салонный', sparkPlugs: '⚡ Свечи', brakePads: '🔴 Колодки', coolant: '❄️ Охлаждайка', brakeFluid: '💧 Тормозная', transmissionFluid: '⚙️ Трансмиссия', tires: '🛞 Шины', battery: '🔋 АКБ', wipers: '🌧️ Дворники' };
+                        return n[it] || it;
+                    }).join(' · ')}</div>` : '';
+
+                const photosHTML = (record.receiptPhotoUrl || record.documentPhotoUrl) ? `
+                    <div class="repair-photos-indicator" data-record-id="${record.id}">
+                        ${record.receiptPhotoUrl ? `<button type="button" class="repair-photo-thumb" onclick="openPhotoViewer('${record.id}','receipt')" title="Чек"><img src="${record.receiptPhotoUrl}" class="repair-photo-mini" loading="lazy"><span class="repair-photo-label"><ion-icon name="receipt-outline"></ion-icon>Чек</span></button>` : ''}
+                        ${record.documentPhotoUrl ? `<button type="button" class="repair-photo-thumb" onclick="openPhotoViewer('${record.id}','document')" title="Документ"><img src="${record.documentPhotoUrl}" class="repair-photo-mini" loading="lazy"><span class="repair-photo-label"><ion-icon name="document-text-outline"></ion-icon>Документ</span></button>` : ''}
+                    </div>` : '';
+
+                return `
+                    <div class="repair-item" style="background:var(--bg-secondary,#fff);border:1px solid var(--border-light,rgba(0,0,0,.08));border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.04);border-left:4px solid ${catColor};transition:all .2s;">
+                        <div style="display:flex;align-items:flex-start;gap:12px;">
+                            <div style="width:40px;height:40px;border-radius:50%;background:${catColor}20;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${catColor};font-size:20px;">
+                                <ion-icon name="${catIcon}"></ion-icon>
+                            </div>
+                            <div style="flex:1;min-width:0;">
+                                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+                                    <div style="font-weight:600;font-size:16px;color:var(--text-primary,#1d1d1f);">${catLabel} ${record.description ? '— ' + esc(record.description) : ''}</div>
+                                    <div style="font-weight:700;font-size:20px;color:${catColor};">${fmtMoney(record.total || 0)}</div>
+                                </div>
+                                <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:6px;font-size:14px;color:var(--text-secondary,#86868b);">
+                                    <span><ion-icon name="calendar-outline" style="vertical-align:middle;"></ion-icon> ${dateStr}</span>
+                                    <span><ion-icon name="speedometer-outline" style="vertical-align:middle;"></ion-icon> ${(record.mileage || 0).toLocaleString('ru-RU')} км</span>
+                                    ${record.comment ? `<span style="font-style:italic;color:var(--text-tertiary,#a1a1a6);">${esc(record.comment)}</span>` : ''}
+                                </div>
+                                ${partsHTML}${worksHTML}${serviceHTML}${photosHTML}
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+                            <button class="btn btn-secondary btn-small" onclick="openRepairModal('${record.id}')"><ion-icon name="create-outline"></ion-icon> Редактировать</button>
+                            <button class="btn btn-danger btn-small" onclick="deleteRepairRecord('${record.id}')"><ion-icon name="trash-outline"></ion-icon> Удалить</button>
+                        </div>
+                    </div>`;
+            }).join('')}
+        `;
+    }
+
+    function updateRepairStats() {
+        const vId = getVId();
+        const list = repairRecords.filter(r => (r.vehicleId || 'default') === vId);
+        const totalCount = list.length;
+        const totalAmount = list.reduce((s, r) => s + (r.total || 0), 0);
+        const avg = totalCount ? totalAmount / totalCount : 0;
+
+        const byCat = {};
+        list.forEach(r => {
+            const c = r.category || 'other';
+            byCat[c] = (byCat[c] || 0) + 1;
         });
-    }
-    if (category !== 'all') {
-        filtered = filtered.filter(r => r.category === category);
-    }
-    if (search) {
-        filtered = filtered.filter(r =>
-            (r.description || '').toLowerCase().includes(search) ||
-            (r.comment || '').toLowerCase().includes(search) ||
-            (r.parts || []).some(p => p.name.toLowerCase().includes(search)) ||
-            (r.works || []).some(w => w.name.toLowerCase().includes(search))
-        );
-    }
-    return filtered.sort((a, b) => (parseLocalDate(b.date) || 0) - (parseLocalDate(a.date) || 0));
-}
+        let mostCommon = '—', maxC = 0;
+        for (const [c, n] of Object.entries(byCat)) {
+            if (n > maxC) { maxC = n; mostCommon = getCategoryLabel(c); }
+        }
 
-// ===== 15. РЕНДЕР СПИСКА =====
-function renderRepairList() {
-    const container = document.getElementById('repair-list');
-    if (!container) return;
-    const filtered = getFilteredRepairs();
+        const maxM = list.reduce((m, r) => Math.max(m, r.mileage || 0), 0);
+        const minM = list.reduce((m, r) => Math.min(m, r.mileage || 9999999), 0);
+        const diff = maxM - minM;
+        const costPerKm = diff > 0 ? totalAmount / diff : 0;
 
-    if (filtered.length === 0) {
-        container.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--text-tertiary, #86868b);"><ion-icon name="construct-outline" style="font-size: 48px; display: block; margin: 0 auto 12px;"></ion-icon>Нет записей о ремонте для этого авто</div>`;
-        return;
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        set('repair-total-count', totalCount);
+        set('repair-total-amount', fmtMoney(totalAmount));
+        set('repair-avg-amount', fmtMoney(avg));
+        set('repair-most-common', mostCommon);
+        set('repair-total-mileage', diff > 0 ? diff.toFixed(0) + ' км' : '—');
+        set('repair-cost-per-km', costPerKm > 0 ? costPerKm.toFixed(2) + ' ₽/км' : '—');
     }
 
-    const totalAmount = filtered.reduce((sum, r) => sum + (r.total || 0), 0);
-    const formatMoney = safeFormatMoney;
-    const escapeHtml = safeEscapeHtml;
-
-    container.innerHTML = `
-        <div style="margin-bottom: 16px; text-align: center; font-weight: 600; color: var(--text-secondary, #86868b);">
-            Всего: ${filtered.length} записей на сумму ${formatMoney(totalAmount)}
-        </div>
-        ${filtered.map(record => {
-            const d = parseLocalDate(record.date);
-            const dateStr = d ? d.toLocaleDateString('ru-RU') : record.date;
-            const categoryLabel = getCategoryLabel(record.category);
-            const categoryIcon = getCategoryIcon(record.category);
-            const categoryColor = getCategoryColor(record.category);
-
-            const partsHTML = (record.parts || []).length > 0 ? `<div style="margin-top: 8px; font-size: 14px; color: var(--text-secondary, #86868b);"><strong>Запчасти:</strong> ${record.parts.map(p => `${escapeHtml(p.name)} (${formatMoney(p.cost)})`).join(', ')}</div>` : '';
-            const worksHTML = (record.works || []).length > 0 ? `<div style="margin-top: 4px; font-size: 14px; color: var(--text-secondary, #86868b);"><strong>Работы:</strong> ${record.works.map(w => `${escapeHtml(w.name)} (${formatMoney(w.cost)})`).join(', ')}</div>` : '';
-            
-            const serviceItemsHTML = (record.serviceItems || []).length > 0 ? `
-                <div style="margin-top: 4px; font-size: 13px; color: var(--text-tertiary, #a1a1a6);">
-                    <strong>Выполнено:</strong>
-                    ${record.serviceItems.map(item => {
-                        const names = { 'oil': '🛢️ Масло', 'oilFilter': '🔵 Масляный фильтр', 'airFilter': '💨 Воздушный фильтр', 'cabinFilter': '🌬️ Салонный фильтр', 'sparkPlugs': '⚡ Свечи', 'brakePads': '🔴 Колодки', 'coolant': '❄️ Охлаждающая жидкость', 'brakeFluid': '💧 Тормозная жидкость', 'transmissionFluid': '⚙️ Трансмиссионное масло', 'tires': '🛞 Шины/Колёса', 'battery': '🔋 Аккумулятор', 'wipers': '🌧️ Дворники' };
-                        return names[item] || item;
-                    }).join(' · ')}
-                </div>` : '';
-
-            const photosHTML = (record.receiptPhotoUrl || record.documentPhotoUrl) ? `
-                <div class="repair-photos-indicator" data-record-id="${record.id}">
-                    ${record.receiptPhotoUrl ? `<button type="button" class="repair-photo-thumb" onclick="openPhotoViewer('${record.id}', 'receipt')" title="Фото чека"><img src="${record.receiptPhotoUrl}" alt="Чек" class="repair-photo-mini" loading="lazy"><span class="repair-photo-label"><ion-icon name="receipt-outline"></ion-icon>Чек</span></button>` : ''}
-                    ${record.documentPhotoUrl ? `<button type="button" class="repair-photo-thumb" onclick="openPhotoViewer('${record.id}', 'document')" title="Фото документа"><img src="${record.documentPhotoUrl}" alt="Документ" class="repair-photo-mini" loading="lazy"><span class="repair-photo-label"><ion-icon name="document-text-outline"></ion-icon>Документ</span></button>` : ''}
-                </div>` : '';
-
-            return `
-                <div class="repair-item" style="background: var(--bg-secondary, #ffffff); border: 1px solid var(--border-light, rgba(0,0,0,0.08)); border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border-left: 4px solid ${categoryColor}; transition: all 0.2s;">
-                    <div style="display: flex; align-items: flex-start; gap: 12px;">
-                        <div style="width: 40px; height: 40px; border-radius: 50%; background: ${categoryColor}20; display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: ${categoryColor}; font-size: 20px;">
-                            <ion-icon name="${categoryIcon}"></ion-icon>
-                        </div>
-                        <div style="flex: 1; min-width: 0;">
-                            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px;">
-                                <div style="font-weight: 600; font-size: 16px; color: var(--text-primary, #1d1d1f);">${categoryLabel} ${record.description ? `— ${escapeHtml(record.description)}` : ''}</div>
-                                <div style="font-weight: 700; font-size: 20px; color: ${categoryColor};">${formatMoney(record.total || 0)}</div>
-                            </div>
-                            <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; font-size: 14px; color: var(--text-secondary, #86868b);">
-                                <span><ion-icon name="calendar-outline" style="vertical-align: middle;"></ion-icon> ${dateStr}</span>
-                                <span><ion-icon name="speedometer-outline" style="vertical-align: middle;"></ion-icon> ${record.mileage.toLocaleString()} км</span>
-                                ${record.comment ? `<span style="font-style: italic; color: var(--text-tertiary, #a1a1a6);">${escapeHtml(record.comment)}</span>` : ''}
-                            </div>
-                            ${partsHTML} ${worksHTML} ${serviceItemsHTML} ${photosHTML}
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end;">
-                        <button class="btn btn-secondary btn-small" onclick="openRepairModal('${record.id}')"><ion-icon name="create-outline"></ion-icon> Редактировать</button>
-                        <button class="btn btn-danger btn-small" onclick="deleteRepairRecord('${record.id}')"><ion-icon name="trash-outline"></ion-icon> Удалить</button>
-                    </div>
-                </div>`;
-        }).join('')}
-    `;
-}
-
-// ===== 16. СТАТИСТИКА =====
-function updateRepairStats() {
-    const currentVId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
-    const recordsForCurrent = repairRecords.filter(r => (r.vehicleId || 'default') === currentVId);
-
-    const totalCount = recordsForCurrent.length;
-    const totalAmount = recordsForCurrent.reduce((sum, r) => sum + (r.total || 0), 0);
-    const avgAmount = totalCount > 0 ? totalAmount / totalCount : 0;
-
-    const categoryCount = {};
-    recordsForCurrent.forEach(r => {
-        const cat = r.category || 'other';
-        categoryCount[cat] = (categoryCount[cat] || 0) + 1;
-    });
-    let mostCommon = '—', maxCount = 0;
-    for (const [cat, count] of Object.entries(categoryCount)) {
-        if (count > maxCount) { maxCount = count; mostCommon = getCategoryLabel(cat); }
+    function updateRepairCharts() {
+        updateRepairCategoryChart();
+        updateRepairTrendChart();
     }
 
-    const maxMileage = recordsForCurrent.reduce((max, r) => Math.max(max, r.mileage || 0), 0);
-    const minMileage = recordsForCurrent.reduce((min, r) => Math.min(min, r.mileage || 9999999), 0);
-    const totalMileage = maxMileage - minMileage;
-    const costPerKm = totalMileage > 0 ? totalAmount / totalMileage : 0;
+    function updateRepairCategoryChart() {
+        const canvas = document.getElementById('repair-category-chart');
+        if (!canvas) return;
+        if (repairChart) { repairChart.destroy(); repairChart = null; }
 
-    const setEl = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
-    setEl('repair-total-count', totalCount);
-    setEl('repair-total-amount', safeFormatMoney(totalAmount));
-    setEl('repair-avg-amount', safeFormatMoney(avgAmount));
-    setEl('repair-most-common', mostCommon);
-    setEl('repair-total-mileage', totalMileage > 0 ? totalMileage.toFixed(0) + ' км' : '—');
-    setEl('repair-cost-per-km', costPerKm > 0 ? costPerKm.toFixed(2) + ' ₽/км' : '—');
-}
+        const vId = getVId();
+        const list = repairRecords.filter(r => (r.vehicleId || 'default') === vId);
 
-// ===== 17. ГРАФИКИ =====
-function updateRepairCharts() {
-    updateRepairCategoryChart();
-    updateRepairTrendChart();
-}
+        if (list.length === 0) {
+            canvas.style.display = 'none';
+            const em = document.getElementById('repair-chart-empty');
+            if (em) em.style.display = 'block';
+            return;
+        }
+        canvas.style.display = 'block';
+        const em = document.getElementById('repair-chart-empty');
+        if (em) em.style.display = 'none';
 
-function updateRepairCategoryChart() {
-    const canvas = document.getElementById('repair-category-chart');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (repairChart) { repairChart.destroy(); repairChart = null; }
+        const cats = {};
+        list.forEach(r => {
+            const k = r.category || 'other';
+            if (!cats[k]) cats[k] = { total: 0, label: getCategoryLabel(k) };
+            cats[k].total += (r.total || 0);
+        });
+        const keys = Object.keys(cats);
+        const labels = keys.map(k => cats[k].label);
+        const data = keys.map(k => cats[k].total);
+        const colors = keys.map(k => getCategoryColor(k));
 
-    const currentVId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
-    const recordsForCurrent = repairRecords.filter(r => (r.vehicleId || 'default') === currentVId);
-
-    if (recordsForCurrent.length === 0) {
-        canvas.style.display = 'none';
-        const emptyMsg = document.getElementById('repair-chart-empty');
-        if (emptyMsg) emptyMsg.style.display = 'block';
-        return;
-    }
-    canvas.style.display = 'block';
-    const emptyMsg = document.getElementById('repair-chart-empty');
-    if (emptyMsg) emptyMsg.style.display = 'none';
-
-    const categoryData = {};
-    recordsForCurrent.forEach(r => {
-        const catKey = r.category || 'other';
-        if (!categoryData[catKey]) categoryData[catKey] = { total: 0, label: getCategoryLabel(catKey) };
-        categoryData[catKey].total += (r.total || 0);
-    });
-
-    const catKeys = Object.keys(categoryData);
-    const labels = catKeys.map(key => categoryData[key].label);
-    const data = catKeys.map(key => categoryData[key].total);
-    const colors = catKeys.map(key => getCategoryColor(key));
-
-    repairChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels,
-            datasets: [{ data, backgroundColor: colors.map(c => c + 'CC'), borderColor: colors, borderWidth: 2, hoverOffset: 8 }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'bottom', labels: { padding: 12, usePointStyle: true, pointStyle: 'circle', font: { size: 12, weight: '600' }, color: '#3C3C43' } },
-                tooltip: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)', titleColor: '#1d1d1f', bodyColor: '#3C3C43', borderColor: 'rgba(0,0,0,0.1)', borderWidth: 1, padding: 12,
-                    callbacks: { label: function(context) { const total = context.dataset.data.reduce((a, b) => a + b, 0); const pct = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : 0; return `${context.label}: ${safeFormatMoney(context.parsed)} (${pct}%)`; } }
+        repairChart = new Chart(canvas.getContext('2d'), {
+            type: 'doughnut',
+            data: { labels, datasets: [{ data, backgroundColor: colors.map(c => c + 'CC'), borderColor: colors, borderWidth: 2, hoverOffset: 8 }] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { padding: 12, usePointStyle: true, pointStyle: 'circle', font: { size: 12, weight: '600' }, color: '#3C3C43' } },
+                    tooltip: {
+                        backgroundColor: 'rgba(255,255,255,.95)', titleColor: '#1d1d1f', bodyColor: '#3C3C43',
+                        borderColor: 'rgba(0,0,0,.1)', borderWidth: 1, padding: 12,
+                        callbacks: {
+                            label: (ctx) => {
+                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                                const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
+                                return `${ctx.label}: ${fmtMoney(ctx.parsed)} (${pct}%)`;
+                            }
+                        }
+                    }
                 }
             }
-        }
-    });
-}
-
-function updateRepairTrendChart() {
-    const canvas = document.getElementById('repair-trend-chart');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (repairTrendChart) { repairTrendChart.destroy(); repairTrendChart = null; }
-
-    const currentVId = typeof getCurrentVehicleId === 'function' ? getCurrentVehicleId() : 'default';
-    const recordsForCurrent = repairRecords.filter(r => (r.vehicleId || 'default') === currentVId);
-    const sorted = [...recordsForCurrent].sort((a, b) => (parseLocalDate(a.date) || 0) - (parseLocalDate(b.date) || 0));
-
-    if (sorted.length < 2) {
-        canvas.style.display = 'none';
-        const emptyMsg = document.getElementById('repair-trend-empty');
-        if (emptyMsg) emptyMsg.style.display = 'block';
-        return;
-    }
-    canvas.style.display = 'block';
-    const emptyMsg = document.getElementById('repair-trend-empty');
-    if (emptyMsg) emptyMsg.style.display = 'none';
-
-    const labels = sorted.map(r => { const d = parseLocalDate(r.date); return d ? d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : r.date; });
-    const data = sorted.map(r => r.total || 0);
-
-    repairTrendChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels,
-            datasets: [{ label: 'Расходы на ремонт', data, backgroundColor: 'rgba(255, 59, 48, 0.6)', borderColor: '#FF3B30', borderWidth: 2, borderRadius: 4 }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { y: { beginAtZero: true, ticks: { callback: function(value) { return safeFormatMoney(value); } } } }
-        }
-    });
-}
-
-// ===== 18. СИНХРОНИЗАЦИЯ С ОСНОВНОЙ ТАБЛИЦЕЙ =====
-async function syncRepairToMainRecords() {
-    console.log('🔄 Синхронизация ремонтов с основной таблицей...');
-    if (typeof records === 'undefined') return 0;
-
-    let allRepairRecords = [];
-    if (typeof connectionMode !== 'undefined' && connectionMode === 'firebase' && typeof auth !== 'undefined' && auth.currentUser) {
-        try {
-            const snap = await db.collection('users').doc(auth.currentUser.uid).collection(COLLECTION_REPAIR).get();
-            if (!snap.empty) allRepairRecords = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        } catch (error) { console.error('❌ Ошибка загрузки для синхронизации:', error); }
-    } else {
-        const saved = localStorage.getItem(REPAIR_STORAGE_KEY);
-        if (saved) allRepairRecords = JSON.parse(saved);
-    }
-
-    if (allRepairRecords.length === 0) return 0;
-
-    const repairsByDate = {};
-    allRepairRecords.forEach(r => {
-        if (!r.date) return;
-        if (!repairsByDate[r.date]) repairsByDate[r.date] = { totalAmount: 0, count: 0, details: [] };
-        repairsByDate[r.date].totalAmount += r.total || 0;
-        repairsByDate[r.date].count += 1;
-        repairsByDate[r.date].details.push({
-            category: r.category, description: r.description, parts: r.parts || [], works: r.works || [],
-            total: r.total || 0, mileage: r.mileage, comment: r.comment, vehicleId: r.vehicleId || 'default'
         });
-    });
-
-    let updatedCount = 0;
-    let changedDates = [];
-
-    records.forEach(record => {
-        if (!record.date) return;
-        const repairData = repairsByDate[record.date];
-        const oldRepairCost = record.repairCost || 0;
-        const isLinkedToRepairModule = record.repairDetails && Array.isArray(record.repairDetails) && record.repairDetails.length > 0;
-
-        if (repairData) {
-            const newRepairCost = repairData.totalAmount;
-            let needsUpdate = false;
-            if (newRepairCost !== oldRepairCost) needsUpdate = true;
-            else if (!record.repairDetails || record.repairDetails.length !== repairData.count) needsUpdate = true;
-            else if (record.repairDetails && record.repairDetails.length > 0) {
-                const oldDetailsSimple = record.repairDetails.map(d => ({ category: d.category, description: d.description, total: d.total, mileage: d.mileage })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
-                const newDetailsSimple = repairData.details.map(d => ({ category: d.category, description: d.description, total: d.total, mileage: d.mileage })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
-                if (JSON.stringify(oldDetailsSimple) !== JSON.stringify(newDetailsSimple)) needsUpdate = true;
-            }
-
-            if (needsUpdate) {
-                record.repairCost = newRepairCost;
-                record.repairDetails = repairData.details;
-                record.repairLogCount = repairData.count;
-                record.totalExpenses = typeof calcExpenses === 'function' ? calcExpenses(record) : 0;
-                record.netProfit = (typeof calcIncome === 'function' ? calcIncome(record) : 0) - record.totalExpenses;
-                updatedCount++;
-                changedDates.push(record.date);
-            }
-        } else if (isLinkedToRepairModule) {
-            if (oldRepairCost > 0 || record.repairDetails) {
-                record.repairCost = 0;
-                record.repairDetails = [];
-                record.repairLogCount = 0;
-                record.totalExpenses = typeof calcExpenses === 'function' ? calcExpenses(record) : 0;
-                record.netProfit = (typeof calcIncome === 'function' ? calcIncome(record) : 0) - record.totalExpenses;
-                updatedCount++;
-                changedDates.push(record.date);
-            }
-        }
-    });
-
-    if (updatedCount > 0) {
-        if (typeof saveData === 'function') saveData();
-        if (typeof connectionMode !== 'undefined' && connectionMode === 'firebase' && typeof auth !== 'undefined' && auth.currentUser && typeof saveRecordsBatchToFirebase === 'function') {
-            try {
-                const recordsToUpdate = records.filter(r => changedDates.includes(r.date));
-                await saveRecordsBatchToFirebase(recordsToUpdate);
-                if (typeof window.remindersMarkAsSynced === 'function') window.remindersMarkAsSynced();
-            } catch (error) { console.error('❌ Ошибка синхронизации с Firebase:', error); }
-        }
-        if (typeof renderTable === 'function') renderTable();
-        if (typeof updateAnalytics === 'function') updateAnalytics();
     }
-    return updatedCount;
-}
 
-// ===== 19. ЭКСПОРТ =====
-function exportRepairData() {
-    if (repairRecords.length === 0) {
-        safeShowToast('Внимание', 'Нет данных о ремонте для экспорта', 'warning');
-        return;
-    }
-    const data = { repairs: repairRecords, exportDate: new Date().toISOString(), version: '3.0' };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `repairs-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    safeShowToast('Успех', 'Данные о ремонте экспортированы!', 'success');
-}
+    function updateRepairTrendChart() {
+        const canvas = document.getElementById('repair-trend-chart');
+        if (!canvas) return;
+        if (repairTrendChart) { repairTrendChart.destroy(); repairTrendChart = null; }
 
-// ===== 20. ИНИЦИАЛИЗАЦИЯ =====
-document.addEventListener('DOMContentLoaded', function() {
-    // Привязка для старой формы на вкладке (если она ещё используется)
-    const repairForm = document.getElementById('repair-form');
-    if (repairForm) repairForm.addEventListener('submit', handleRepairSubmit);
+        const vId = getVId();
+        const list = repairRecords.filter(r => (r.vehicleId || 'default') === vId);
+        const sorted = [...list].sort((a, b) => (parseDate(a.date) || 0) - (parseDate(b.date) || 0));
 
-    const dateInput = document.getElementById('repair-date');
-    if (dateInput) dateInput.valueAsDate = new Date();
-
-    ['repair-filter-period', 'repair-filter-category', 'repair-filter-search'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('change', renderRepairList);
-            if (id === 'repair-filter-search') el.addEventListener('input', renderRepairList);
+        if (sorted.length < 2) {
+            canvas.style.display = 'none';
+            const em = document.getElementById('repair-trend-empty');
+            if (em) em.style.display = 'block';
+            return;
         }
-    });
+        canvas.style.display = 'block';
+        const em = document.getElementById('repair-trend-empty');
+        if (em) em.style.display = 'none';
 
-    const receiptUpload = document.getElementById('repair-receipt-upload');
-    const documentUpload = document.getElementById('repair-document-upload');
-    if (receiptUpload) receiptUpload.addEventListener('change', (e) => handlePhotoSelect(e, 'receipt'));
-    if (documentUpload) documentUpload.addEventListener('change', (e) => handlePhotoSelect(e, 'document'));
+        const labels = sorted.map(r => {
+            const d = parseDate(r.date);
+            return d ? d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : r.date;
+        });
+        const data = sorted.map(r => r.total || 0);
 
-    setupDynamicListDelegation();
-    addRepairPart();
-    addRepairWork();
-    calculateRepairTotal();
-    loadRepairRecords();
-    console.log('✅ Модуль ремонта инициализирован (v5.0 — с поддержкой модального окна)');
-});
-
-// ===== 21. ЭКСПОРТ В ГЛОБАЛЬНУЮ ОБЛАСТЬ =====
-window.repairRecords = repairRecords;
-window.loadRepairRecords = loadRepairRecords;
-window.handleRepairSubmit = handleRepairSubmit;
-window.editRepairRecordTab = editRepairRecordTab; // Старая функция для вкладки
-window.deleteRepairRecord = deleteRepairRecord;
-window.clearRepairForm = clearRepairForm;
-window.renderRepairList = renderRepairList;
-window.updateRepairStats = updateRepairStats;
-window.updateRepairCharts = updateRepairCharts;
-window.syncRepairToMainRecords = syncRepairToMainRecords;
-window.exportRepairData = exportRepairData;
-window.getCategoryLabel = getCategoryLabel;
-window.getCategoryIcon = getCategoryIcon;
-window.getCategoryColor = getCategoryColor;
-window.addRepairPart = addRepairPart;
-window.addRepairWork = addRepairWork;
-window.calculateRepairTotal = calculateRepairTotal;
-window.handlePhotoSelect = handlePhotoSelect;
-window.removePhoto = removePhoto;
-window.updatePhotoPreview = updatePhotoPreview;
-window.rotatePhoto = rotatePhoto;
-window.compressImageForUpload = compressImageForUpload;
-window.calculatePhotoBudget = calculatePhotoBudget;
-
-// Экспорт функций модалки
-window.openRepairModal = openRepairModal;
-window.closeRepairModal = closeRepairModal;
-window.submitRepairModal = submitRepairModal;
-window.addRepairModalPart = addRepairModalPart;
-window.addRepairModalWork = addRepairModalWork;
-window.calculateRepairModalTotal = calculateRepairModalTotal;
-window.clearRepairModalForm = clearRepairModalForm;
-window.handleRepairModalPhotoSelect = handleRepairModalPhotoSelect;
-window.removeRepairModalPhoto = removeRepairModalPhoto;
-window.rotateRepairModalPhoto = rotateRepairModalPhoto;
-window.updateRepairModalPhotoPreview = updateRepairModalPhotoPreview;
-
-console.log('✅ Модуль ремонта полностью загружен (v5.0)');
-
-// ============================================
-// ПРОСМОТРЩИК ФОТО РЕМОНТОВ (iOS-СТИЛЬ)
-// ============================================
-let photoViewerState = { photos: [], currentIndex: 0 };
-let photoClickTimer = null;
-
-function openPhotoViewer(recordId, startType = 'receipt') {
-    const record = repairRecords.find(r => r.id === recordId);
-    if (!record) { safeShowToast('Ошибка', 'Запись не найдена', 'danger'); return; }
-    const photos = [];
-    if (record.receiptPhotoUrl) photos.push({ url: record.receiptPhotoUrl, label: 'Чек', type: 'receipt' });
-    if (record.documentPhotoUrl) photos.push({ url: record.documentPhotoUrl, label: 'Документ', type: 'document' });
-    if (photos.length === 0) { safeShowToast('Инфо', 'У этой записи нет фото', 'warning'); return; }
-    let startIndex = photos.findIndex(p => p.type === startType);
-    if (startIndex === -1) startIndex = 0;
-    photoViewerState.photos = photos;
-    photoViewerState.currentIndex = startIndex;
-    renderPhotoViewer();
-    openPhotoViewerOverlay();
-}
-
-function renderPhotoViewer() {
-    const track = document.getElementById('photo-viewer-track');
-    const dots = document.getElementById('photo-viewer-dots');
-    const counter = document.getElementById('photo-viewer-counter');
-    if (!track || !dots || !counter) return;
-    const { photos, currentIndex } = photoViewerState;
-    track.innerHTML = photos.map((p, i) => `<div class="photo-viewer-slide" data-label="${p.label}" data-index="${i}"><img src="${p.url}" alt="${p.label}" onclick="handlePhotoClick(event)" ondblclick="handlePhotoDoubleTap(event)"></div>`).join('');
-    if (photos.length > 1) {
-        dots.style.display = 'flex';
-        dots.innerHTML = photos.map((_, i) => `<div class="photo-viewer-dot ${i === currentIndex ? 'active' : ''}" data-index="${i}"></div>`).join('');
-        dots.querySelectorAll('.photo-viewer-dot').forEach(dot => { dot.addEventListener('click', () => scrollToSlide(parseInt(dot.dataset.index))); });
-    } else { dots.style.display = 'none'; }
-    counter.textContent = `${currentIndex + 1} из ${photos.length}`;
-    requestAnimationFrame(() => { const slideWidth = track.clientWidth; track.scrollLeft = currentIndex * slideWidth; });
-    if (!track._photoViewerScrollBound) {
-        track._photoViewerScrollBound = true;
-        track.addEventListener('scroll', handlePhotoViewerScroll, { passive: true });
+        repairTrendChart = new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{ label: 'Расходы на ремонт', data, backgroundColor: 'rgba(255,59,48,.6)', borderColor: '#FF3B30', borderWidth: 2, borderRadius: 4 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { callback: v => fmtMoney(v) } } }
+            }
+        });
     }
-}
 
-function handlePhotoViewerScroll(e) {
-    const track = e.target;
-    const slideWidth = track.clientWidth;
-    if (slideWidth === 0) return;
-    const index = Math.round(track.scrollLeft / slideWidth);
-    if (index === photoViewerState.currentIndex) return;
-    photoViewerState.currentIndex = index;
-    const counter = document.getElementById('photo-viewer-counter');
-    if (counter) counter.textContent = `${index + 1} из ${photoViewerState.photos.length}`;
-    document.querySelectorAll('.photo-viewer-dot').forEach((d, i) => d.classList.toggle('active', i === index));
-}
+    // ============================================
+    // СИНК С ОСНОВНОЙ ТАБЛИЦЕЙ (БЕЗ ЗАПРОСОВ В FIREBASE)
+    // ============================================
+    async function syncRepairToMainRecords() {
+        const records = (typeof window.records !== 'undefined' && Array.isArray(window.records))
+            ? window.records
+            : null;
+        if (!records) return 0;
 
-function scrollToSlide(index) {
-    const track = document.getElementById('photo-viewer-track');
-    if (!track) return;
-    track.scrollTo({ left: index * track.clientWidth, behavior: 'smooth' });
-}
+        // Используем данные из памяти (repairRecords), а не делаем запрос в Firebase!
+        if (repairRecords.length === 0) return 0;
 
-function openPhotoViewerOverlay() {
-    const overlay = document.getElementById('photo-viewer');
-    if (!overlay) { console.error('❌ #photo-viewer не найден в DOM!'); safeShowToast('Ошибка', 'Просмотрщик не найден в HTML', 'danger'); return; }
-    overlay.classList.add('visible');
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', handlePhotoViewerKeydown);
-}
+        const byDate = {};
+        repairRecords.forEach(r => {
+            if (!r.date) return;
+            if (!byDate[r.date]) byDate[r.date] = { totalAmount: 0, count: 0, details: [] };
+            byDate[r.date].totalAmount += r.total || 0;
+            byDate[r.date].count += 1;
+            byDate[r.date].details.push({
+                category: r.category, description: r.description, parts: r.parts || [], works: r.works || [],
+                total: r.total || 0, mileage: r.mileage, comment: r.comment, vehicleId: r.vehicleId || 'default'
+            });
+        });
 
-function closePhotoViewer() {
-    const overlay = document.getElementById('photo-viewer');
-    if (!overlay) return;
-    overlay.classList.remove('visible');
-    document.body.style.overflow = '';
-    document.removeEventListener('keydown', handlePhotoViewerKeydown);
-    setTimeout(() => {
+        let updated = 0;
+        const changedDates = [];
+
+        records.forEach(record => {
+            if (!record.date) return;
+            const data = byDate[record.date];
+            const oldCost = record.repairCost || 0;
+            const linked = record.repairDetails && Array.isArray(record.repairDetails) && record.repairDetails.length > 0;
+
+            if (data) {
+                let need = false;
+                if (data.totalAmount !== oldCost) need = true;
+                else if (!record.repairDetails || record.repairDetails.length !== data.count) need = true;
+                else {
+                    const a = record.repairDetails.map(d => ({ c: d.category, de: d.description, t: d.total, m: d.mileage })).sort((x, y) => JSON.stringify(x).localeCompare(JSON.stringify(y)));
+                    const b = data.details.map(d => ({ c: d.category, de: d.description, t: d.total, m: d.mileage })).sort((x, y) => JSON.stringify(x).localeCompare(JSON.stringify(y)));
+                    if (JSON.stringify(a) !== JSON.stringify(b)) need = true;
+                }
+                if (need) {
+                    record.repairCost = data.totalAmount;
+                    record.repairDetails = data.details;
+                    record.repairLogCount = data.count;
+                    record.totalExpenses = typeof window.calcExpenses === 'function' ? window.calcExpenses(record) : 0;
+                    const inc = typeof window.calcIncome === 'function' ? window.calcIncome(record) : (record.totalIncome || 0);
+                    record.netProfit = inc - record.totalExpenses;
+                    updated++;
+                    changedDates.push(record.date);
+                }
+            } else if (linked) {
+                if (oldCost > 0 || record.repairDetails) {
+                    record.repairCost = 0;
+                    record.repairDetails = [];
+                    record.repairLogCount = 0;
+                    record.totalExpenses = typeof window.calcExpenses === 'function' ? window.calcExpenses(record) : 0;
+                    const inc = typeof window.calcIncome === 'function' ? window.calcIncome(record) : (record.totalIncome || 0);
+                    record.netProfit = inc - record.totalExpenses;
+                    updated++;
+                    changedDates.push(record.date);
+                }
+            }
+        });
+
+        if (updated > 0) {
+            if (typeof window.saveData === 'function') window.saveData();
+            if (isFirebaseReady() && typeof window.saveRecordsBatchToFirebase === 'function') {
+                try {
+                    const toUpdate = records.filter(r => changedDates.includes(r.date));
+                    await window.saveRecordsBatchToFirebase(toUpdate);
+                } catch (e) { console.error('❌ Batch ремонтов в Firebase:', e); }
+            }
+            if (typeof window.renderTable === 'function') window.renderTable();
+            if (typeof window.updateAnalytics === 'function') window.updateAnalytics();
+        }
+        return updated;
+    }
+
+    // ============================================
+    // ПРОСМОТРЩИК ФОТО
+    // ============================================
+    function openPhotoViewer(recordId, startType = 'receipt') {
+        const rec = repairRecords.find(r => r.id === recordId);
+        if (!rec) { toast('❌ Запись не найдена'); return; }
+        const photos = [];
+        if (rec.receiptPhotoUrl) photos.push({ url: rec.receiptPhotoUrl, label: 'Чек', type: 'receipt' });
+        if (rec.documentPhotoUrl) photos.push({ url: rec.documentPhotoUrl, label: 'Документ', type: 'document' });
+        if (photos.length === 0) { toast('ℹ️ Нет фото'); return; }
+        let idx = photos.findIndex(p => p.type === startType);
+        if (idx === -1) idx = 0;
+        photoViewerState.photos = photos;
+        photoViewerState.currentIndex = idx;
+        renderPhotoViewer();
+        openPhotoViewerOverlay();
+    }
+
+    function renderPhotoViewer() {
         const track = document.getElementById('photo-viewer-track');
-        if (track) track.innerHTML = '';
-        photoViewerState.photos = [];
-        photoViewerState.currentIndex = 0;
-    }, 300);
-}
-
-function handlePhotoViewerKeydown(e) {
-    if (e.key === 'Escape') closePhotoViewer();
-    if (e.key === 'ArrowLeft') scrollToSlide(Math.max(0, photoViewerState.currentIndex - 1));
-    if (e.key === 'ArrowRight') scrollToSlide(Math.min(photoViewerState.photos.length - 1, photoViewerState.currentIndex + 1));
-}
-
-function handlePhotoDoubleTap(event) {
-    event.stopPropagation();
-    clearTimeout(photoClickTimer);
-    const img = event.currentTarget;
-    const isZoomed = img.classList.contains('zoomed');
-    if (isZoomed) { img.classList.remove('zoomed'); img.style.transform = 'scale(1)'; }
-    else { img.classList.add('zoomed'); img.style.transform = 'scale(2.5)'; }
-}
-
-function handlePhotoClick(event) {
-    event.stopPropagation();
-    const img = event.currentTarget;
-    if (img.classList.contains('zoomed')) { img.classList.remove('zoomed'); img.style.transform = 'scale(1)'; return; }
-    clearTimeout(photoClickTimer);
-    photoClickTimer = setTimeout(() => closePhotoViewer(), 250);
-}
-
-async function downloadCurrentPhoto() {
-    const { photos, currentIndex } = photoViewerState;
-    if (!photos[currentIndex]) return;
-    const photo = photos[currentIndex];
-    if (photo.url.startsWith('data:')) {
-        const a = document.createElement('a');
-        a.href = photo.url;
-        a.download = `repair_${photo.type}_${Date.now()}.jpg`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        safeShowToast('Успех', `${photo.label} сохранён`, 'success');
-        return;
+        const dots = document.getElementById('photo-viewer-dots');
+        const counter = document.getElementById('photo-viewer-counter');
+        if (!track || !dots || !counter) return;
+        const { photos, currentIndex } = photoViewerState;
+        track.innerHTML = photos.map((p, i) =>
+            `<div class="photo-viewer-slide" data-label="${p.label}" data-index="${i}"><img src="${p.url}" alt="${p.label}" onclick="handlePhotoClick(event)" ondblclick="handlePhotoDoubleTap(event)"></div>`
+        ).join('');
+        if (photos.length > 1) {
+            dots.style.display = 'flex';
+            dots.innerHTML = photos.map((_, i) => `<div class="photo-viewer-dot ${i === currentIndex ? 'active' : ''}" data-index="${i}"></div>`).join('');
+            dots.querySelectorAll('.photo-viewer-dot').forEach(d => {
+                d.addEventListener('click', () => scrollToSlide(parseInt(d.dataset.index)));
+            });
+        } else dots.style.display = 'none';
+        counter.textContent = `${currentIndex + 1} из ${photos.length}`;
+        requestAnimationFrame(() => {
+            const w = track.clientWidth;
+            track.scrollLeft = currentIndex * w;
+        });
+        if (!track._photoScrollBound) {
+            track._photoScrollBound = true;
+            track.addEventListener('scroll', handlePhotoViewerScroll, { passive: true });
+        }
     }
-    try {
-        const response = await fetch(photo.url);
-        const blob = await response.blob();
+
+    function handlePhotoViewerScroll(e) {
+        const track = e.target;
+        const w = track.clientWidth;
+        if (w === 0) return;
+        const idx = Math.round(track.scrollLeft / w);
+        if (idx === photoViewerState.currentIndex) return;
+        photoViewerState.currentIndex = idx;
+        const c = document.getElementById('photo-viewer-counter');
+        if (c) c.textContent = `${idx + 1} из ${photoViewerState.photos.length}`;
+        document.querySelectorAll('.photo-viewer-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+    }
+
+    function scrollToSlide(idx) {
+        const track = document.getElementById('photo-viewer-track');
+        if (!track) return;
+        track.scrollTo({ left: idx * track.clientWidth, behavior: 'smooth' });
+    }
+
+    function openPhotoViewerOverlay() {
+        const overlay = document.getElementById('photo-viewer');
+        if (!overlay) return;
+        overlay.classList.add('visible');
+        document.body.style.overflow = 'hidden';
+        document.addEventListener('keydown', handlePhotoViewerKeydown);
+    }
+
+    function closePhotoViewer() {
+        const overlay = document.getElementById('photo-viewer');
+        if (!overlay) return;
+        overlay.classList.remove('visible');
+        document.body.style.overflow = '';
+        document.removeEventListener('keydown', handlePhotoViewerKeydown);
+        setTimeout(() => {
+            const track = document.getElementById('photo-viewer-track');
+            if (track) track.innerHTML = '';
+            photoViewerState.photos = [];
+            photoViewerState.currentIndex = 0;
+        }, 300);
+    }
+
+    function handlePhotoViewerKeydown(e) {
+        if (e.key === 'Escape') closePhotoViewer();
+        if (e.key === 'ArrowLeft') scrollToSlide(Math.max(0, photoViewerState.currentIndex - 1));
+        if (e.key === 'ArrowRight') scrollToSlide(Math.min(photoViewerState.photos.length - 1, photoViewerState.currentIndex + 1));
+    }
+
+    function handlePhotoClick(event) {
+        event.stopPropagation();
+        const img = event.currentTarget;
+        if (img.classList.contains('zoomed')) { img.classList.remove('zoomed'); img.style.transform = 'scale(1)'; return; }
+        clearTimeout(photoClickTimer);
+        photoClickTimer = setTimeout(() => closePhotoViewer(), 250);
+    }
+
+    function handlePhotoDoubleTap(event) {
+        event.stopPropagation();
+        clearTimeout(photoClickTimer);
+        const img = event.currentTarget;
+        if (img.classList.contains('zoomed')) { img.classList.remove('zoomed'); img.style.transform = 'scale(1)'; }
+        else { img.classList.add('zoomed'); img.style.transform = 'scale(2.5)'; }
+    }
+
+    async function downloadCurrentPhoto() {
+        const { photos, currentIndex } = photoViewerState;
+        if (!photos[currentIndex]) return;
+        const photo = photos[currentIndex];
+        if (photo.url.startsWith('data:')) {
+            const a = document.createElement('a');
+            a.href = photo.url;
+            a.download = `repair_${photo.type}_${Date.now()}.jpg`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            toast(`✅ ${photo.label} сохранён`);
+            return;
+        }
+        try {
+            const r = await fetch(photo.url);
+            const blob = await r.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `repair_${photo.type}_${Date.now()}.jpg`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast(`✅ ${photo.label} сохранён`);
+        } catch (e) {
+            window.open(photo.url, '_blank');
+        }
+    }
+
+    // ============================================
+    // ЭКСПОРТ
+    // ============================================
+    function exportRepairData() {
+        if (repairRecords.length === 0) { toast('⚠️ Нет данных о ремонте'); return; }
+        const data = { repairs: repairRecords, exportDate: new Date().toISOString(), version: '3.0' };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `repair_${photo.type}_${Date.now()}.jpg`;
-        document.body.appendChild(a);
+        a.download = `repairs-${new Date().toISOString().split('T')[0]}.json`;
         a.click();
-        document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        safeShowToast('Успех', `${photo.label} сохранён`, 'success');
-    } catch (error) {
-        console.error('Ошибка скачивания:', error);
-        window.open(photo.url, '_blank');
+        toast('✅ Ремонты экспортированы');
     }
-}
 
-window.openPhotoViewer = openPhotoViewer;
-window.closePhotoViewer = closePhotoViewer;
-window.downloadCurrentPhoto = downloadCurrentPhoto;
-window.handlePhotoClick = handlePhotoClick;
-window.handlePhotoDoubleTap = handlePhotoDoubleTap;
-console.log('✅ Просмотрщик фото инициализирован');
+    // ============================================
+    // ТУЛТИП РЕМОНТА (через общий каркас script.js)
+    // ============================================
+    function buildRepairTooltipHTML(anchor) {
+        let details = [];
+        try {
+            const raw = anchor.getAttribute('data-repair-details') || '[]';
+            details = JSON.parse(raw.replace(/&apos;/g, "'"));
+        } catch (e) { details = []; }
+        const total = parseFloat(anchor.getAttribute('data-repair-total')) || 0;
+        const count = parseFloat(anchor.getAttribute('data-repair-count')) || details.length;
 
-// ============================================
-// TOOLTIP ДЛЯ ДЕТАЛЕЙ РЕМОНТА
-// ============================================
-let repairTooltipElement = null;
-function createRepairTooltip() {
-    if (repairTooltipElement) return repairTooltipElement;
-    repairTooltipElement = document.createElement('div');
-    repairTooltipElement.className = 'repair-tooltip';
-    repairTooltipElement.id = 'repair-tooltip';
-    document.body.appendChild(repairTooltipElement);
-    return repairTooltipElement;
-}
+        const items = details.map(d => {
+            const catLabel = getCategoryLabel(d.category);
+            const title = d.title || d.name || catLabel;
+            const description = d.description || d.desc || '';
+            const amount = parseFloat(d.amount !== undefined ? d.amount : (d.cost !== undefined ? d.cost : d.total)) || 0;
+            const date = d.date ? (typeof window.formatDate === 'function' ? window.formatDate(d.date) : d.date) : '';
+            const mile = parseFloat(d.mileage !== undefined ? d.mileage : (d.odometer !== undefined ? d.odometer : d.km)) || 0;
+            const parts = Array.isArray(d.parts) ? d.parts : [];
+            const works = Array.isArray(d.works) ? d.works : [];
+            const vName = d.vehicleId && typeof window.getVehicleNameById === 'function'
+                ? window.getVehicleNameById(d.vehicleId) : '';
 
-function showRepairTooltip(event, cell) {
-    const details = cell.getAttribute('data-repair-details');
-    const count = cell.getAttribute('data-repair-count');
-    if (!details) return;
-    let repairDetails;
-    try { repairDetails = JSON.parse(details.replace(/&apos;/g, "'")); } catch (e) { console.error('Ошибка парсинга деталей тултипа:', e); return; }
-    const tooltip = createRepairTooltip();
-    let html = `<div class="repair-tooltip-header"><ion-icon name="construct-outline"></ion-icon><h4>Подробности ремонта</h4></div><div class="repair-tooltip-summary"><div class="repair-tooltip-summary-item"><div class="label">Ремонтов</div><div class="value">${count}</div></div><div class="repair-tooltip-summary-item"><div class="label">Всего</div><div class="value">${cell.textContent.trim()}</div></div></div><div class="repair-tooltip-details">`;
-    repairDetails.forEach((detail) => {
-        const categoryLabel = getCategoryLabel ? getCategoryLabel(detail.category) : detail.category;
-        const vehicleName = typeof window.getVehicleNameById === 'function' ? window.getVehicleNameById(detail.vehicleId) : 'Неизвестный автомобиль';
-        const partsHTML = (detail.parts || []).length > 0 ? `<div class="repair-tooltip-detail-parts"><div class="label">Запчасти:</div>${detail.parts.map(p => `<div class="item">• ${safeEscapeHtml(p.name)} - ${safeFormatMoney(p.cost)}</div>`).join('')}</div>` : '';
-        const worksHTML = (detail.works || []).length > 0 ? `<div class="repair-tooltip-detail-works"><div class="label">Работы:</div>${detail.works.map(w => `<div class="item">• ${safeEscapeHtml(w.name)} - ${safeFormatMoney(w.cost)}</div>`).join('')}</div>` : '';
-        html += `<div class="repair-tooltip-detail-item"><div style="font-weight: 600; color: var(--ios-accent); font-size: 12px; margin-bottom: 6px;">${safeEscapeHtml(vehicleName)}</div><div class="repair-tooltip-detail-header"><div class="repair-tooltip-detail-title">${safeEscapeHtml(categoryLabel)}</div><div class="repair-tooltip-detail-amount">${safeFormatMoney(detail.total)}</div></div>${detail.description && detail.description !== categoryLabel ? `<div class="repair-tooltip-detail-meta">${safeEscapeHtml(detail.description)}</div>` : ''}${detail.mileage ? `<div class="repair-tooltip-detail-meta">Пробег: ${detail.mileage.toLocaleString()} км</div>` : ''}${partsHTML}${worksHTML}</div>`;
+            const partsHTML = parts.length
+                ? `<div class="repair-tooltip-detail-parts"><div class="label">Запчасти:</div>${parts.map(p => `<div class="item">• ${esc(p.name || p.title || '')}${p.cost ? ' — ' + fmtMoney(parseFloat(p.cost) || 0) : ''}</div>`).join('')}</div>`
+                : '';
+            const worksHTML = works.length
+                ? `<div class="repair-tooltip-detail-works"><div class="label">Работы:</div>${works.map(w => `<div class="item">• ${esc(w.name || w.title || '')}${w.cost ? ' — ' + fmtMoney(parseFloat(w.cost) || 0) : ''}</div>`).join('')}</div>`
+                : '';
+
+            return `<div class="repair-tooltip-detail-item">
+                ${vName ? `<div style="font-weight:600;color:var(--ios-accent);font-size:12px;margin-bottom:6px;">${esc(vName)}</div>` : ''}
+                <div class="repair-tooltip-detail-header">
+                    <div class="repair-tooltip-detail-title">${esc(title)}</div>
+                    <div class="repair-tooltip-detail-amount">${fmtMoney(amount)}</div>
+                </div>
+                ${(date || mile) ? `<div class="repair-tooltip-detail-meta">${date}${date && mile ? ' · ' : ''}${mile ? mile.toLocaleString('ru-RU') + ' км' : ''}</div>` : ''}
+                ${description && description !== catLabel ? `<div class="repair-tooltip-detail-meta" style="font-style:italic;">${esc(description)}</div>` : ''}
+                ${partsHTML}${worksHTML}
+            </div>`;
+        }).join('');
+
+        return `
+            <div class="repair-tooltip-header"><ion-icon name="construct-outline"></ion-icon><h4>Подробности ремонтов</h4></div>
+            <div class="repair-tooltip-summary">
+                <div class="repair-tooltip-summary-item"><div class="label">Ремонтов</div><div class="value">${count}</div></div>
+                <div class="repair-tooltip-summary-item"><div class="label">Сумма</div><div class="value">${fmtMoney(total)}</div></div>
+                <div class="repair-tooltip-summary-item"><div class="label">Средний чек</div><div class="value">${count ? fmtMoney(total / count) : '0 ₽'}</div></div>
+            </div>
+            <div class="repair-tooltip-details">${items || '<div style="padding:10px;text-align:center;color:var(--ios-text-tertiary);font-size:13px;">Нет деталей</div>'}</div>
+            <div class="repair-tooltip-hint">Тапните вне окна, чтобы закрыть</div>`;
+    }
+
+    function openRepairTooltip(anchor) {
+        if (typeof window.__tooltipShow !== 'function') return;
+        window.__tooltipShow(buildRepairTooltipHTML(anchor), anchor, 'repair-tooltip');
+    }
+
+    document.addEventListener('click', function (e) {
+        const anchor = e.target.closest('td.repair-cell-with-details, .rcd-repair');
+        if (!anchor) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (document.getElementById('card-tooltip')) {
+            if (typeof window.__tooltipClose === 'function') window.__tooltipClose();
+            return;
+        }
+        openRepairTooltip(anchor);
     });
-    html += `</div><div class="repair-tooltip-hint">Наведите для просмотра деталей</div>`;
-    tooltip.innerHTML = html;
-    const rect = cell.getBoundingClientRect();
-    const tooltipWidth = 350;
-    const tooltipHeight = tooltip.offsetHeight || 250;
-    let left = rect.right + 10;
-    let top = rect.top;
-    if (left + tooltipWidth > window.innerWidth) left = rect.left - tooltipWidth - 10;
-    if (top + tooltipHeight > window.innerHeight) top = window.innerHeight - tooltipHeight - 10;
-    tooltip.style.left = left + 'px';
-    tooltip.style.top = top + 'px';
-    tooltip.classList.add('visible');
-}
 
-function hideRepairTooltip() {
-    if (repairTooltipElement) repairTooltipElement.classList.remove('visible');
-}
+    // ============================================
+    // РЕАКЦИЯ НА СМЕНУ АВТО / ПОЛЬЗОВАТЕЛЯ
+    // ============================================
+    window.addEventListener('vehicleChanged', function (e) {
+        console.log('🚗 repair-module: смена авто →', e.detail ? e.detail.vehicleId : '?');
+        populateRepairModalVehicleSelect();
+        renderRepairList();
+        updateRepairStats();
+        updateRepairCharts();
+    });
 
-document.addEventListener('mouseover', function(event) {
-    const cell = event.target.closest('.repair-cell-with-details');
-    if (cell) showRepairTooltip(event, cell);
-});
-document.addEventListener('mouseout', function(event) {
-    const cell = event.target.closest('.repair-cell-with-details');
-    if (cell) {
-        const tooltip = document.getElementById('repair-tooltip');
-        if (tooltip && !tooltip.contains(event.relatedTarget)) hideRepairTooltip();
-    }
-});
-document.addEventListener('click', function(event) {
-    const cell = event.target.closest('.repair-cell-with-details');
-    if (cell) {
-        if (repairTooltipElement && repairTooltipElement.classList.contains('visible')) { hideRepairTooltip(); } else { showRepairTooltip(event, cell); }
-    } else if (!event.target.closest('#repair-tooltip')) { hideRepairTooltip(); }
-});
-console.log('✅ Tooltip для ремонта инициализирован');
-
-// ============================================
-// «Что менялось?» — сворачиваемая секция
-// ============================================
-(function() {
-    function setup() {
-        const heads = Array.from(document.querySelectorAll('#tab-repair h3, #tab-repair h4, #tab-repair .section-title, #tab-repair .form-section > h3')).filter(el => el.children.length <= 1 && el.textContent.trim().replace(/\s+/g, ' ') === 'Что менялось?');
-        for (const head of heads) {
-            if (head.closest('.chg-collapse')) continue;
-            const list = head.nextElementSibling;
-            if (!list || list.closest('.chg-collapse')) continue;
-            const wrap = document.createElement('div');
-            wrap.className = 'chg-collapse collapsed';
-            head.parentNode.insertBefore(wrap, head);
-            const header = document.createElement('div');
-            header.className = 'chg-collapse-header';
-            const chev = document.createElement('ion-icon');
-            chev.setAttribute('name', 'chevron-down-outline');
-            chev.className = 'chg-chevron';
-            wrap.appendChild(header);
-            header.appendChild(head);
-            header.appendChild(chev);
-            const inner = document.createElement('div');
-            inner.className = 'chg-collapse-inner';
-            inner.appendChild(list);
-            wrap.appendChild(inner);
-            header.addEventListener('click', () => wrap.classList.toggle('collapsed'));
+    function onUserChanged(user) {
+        currentRepairUserUid = null;
+        if (user && typeof window.db !== 'undefined') {
+            currentRepairUserUid = user.uid;
+            // Данные загрузятся при вызове loadRepairRecords() из auth-module
+        } else {
+            repairRecords = [];
+            persistLocal();
+            renderRepairList();
+            updateRepairStats();
+            updateRepairCharts();
         }
     }
-    let tries = 0;
-    const timer = setInterval(() => { setup(); if (++tries > 30) clearInterval(timer); }, 1000);
-    const rep = document.getElementById('tab-repair');
-    if (rep) new MutationObserver(() => setup()).observe(rep, { childList: true, subtree: true });
-    setup();
+
+    // ============================================
+    // ИНИЦИАЛИЗАЦИЯ
+    // ============================================
+    function init() {
+        const form = document.getElementById('repair-form');
+        if (form) form.addEventListener('submit', handleRepairSubmit);
+
+        const dateEl = document.getElementById('repair-date');
+        if (dateEl) dateEl.valueAsDate = new Date();
+
+        ['repair-filter-period', 'repair-filter-category', 'repair-filter-search'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.addEventListener('change', renderRepairList);
+            if (id === 'repair-filter-search') el.addEventListener('input', renderRepairList);
+        });
+
+        const receiptUpload = document.getElementById('repair-receipt-upload');
+        const documentUpload = document.getElementById('repair-document-upload');
+        if (receiptUpload) receiptUpload.addEventListener('change', e => handlePhotoSelect(e, 'receipt'));
+        if (documentUpload) documentUpload.addEventListener('change', e => handlePhotoSelect(e, 'document'));
+
+        // Модалка: клик по overlay
+        document.addEventListener('click', function (e) {
+            const overlay = document.getElementById('repair-modal-overlay');
+            if (overlay && e.target === overlay) closeRepairModal();
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            const overlay = document.getElementById('repair-modal-overlay');
+            if (overlay && overlay.classList.contains('visible')) closeRepairModal();
+        });
+
+        // Делегирование для модалки (авторасчёт)
+        document.addEventListener('input', function (e) {
+            if (e.target.classList.contains('repair-modal-part-cost') ||
+                e.target.classList.contains('repair-modal-work-cost')) {
+                calculateRepairModalTotal();
+            }
+        });
+
+        setupDynamicListDelegation();
+        addRepairPart();
+        addRepairWork();
+        calculateRepairTotal();
+
+        // Подписка на смену пользователя
+        if (typeof window.auth !== 'undefined' && typeof window.auth.onAuthStateChanged === 'function') {
+            window.auth.onAuthStateChanged(onUserChanged);
+        }
+
+        loadRepairRecords();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+    // ============================================
+    // ЭКСПОРТ
+    // ============================================
+    Object.defineProperty(window, 'repairRecords', {
+        get: function () { return repairRecords; },
+        configurable: true
+    });
+
+    window.loadRepairRecords = loadRepairRecords;
+    window.handleRepairSubmit = handleRepairSubmit;
+    window.editRepairRecordTab = editRepairRecordTab;
+    window.deleteRepairRecord = deleteRepairRecord;
+    window.clearRepairForm = clearRepairForm;
+    window.renderRepairList = renderRepairList;
+    window.updateRepairStats = updateRepairStats;
+    window.updateRepairCharts = updateRepairCharts;
+    window.syncRepairToMainRecords = syncRepairToMainRecords;
+    window.exportRepairData = exportRepairData;
+    window.getCategoryLabel = getCategoryLabel;
+    window.getCategoryIcon = getCategoryIcon;
+    window.getCategoryColor = getCategoryColor;
+    window.addRepairPart = addRepairPart;
+    window.addRepairWork = addRepairWork;
+    window.calculateRepairTotal = calculateRepairTotal;
+    window.handlePhotoSelect = handlePhotoSelect;
+    window.removePhoto = removePhoto;
+    window.updatePhotoPreview = updatePhotoPreview;
+    window.rotatePhoto = rotatePhoto;
+    window.compressImageForUpload = compressImageForUpload;
+    window.calculatePhotoBudget = calculatePhotoBudget;
+
+    window.openRepairModal = openRepairModal;
+    window.closeRepairModal = closeRepairModal;
+    window.submitRepairModal = submitRepairModal;
+    window.addRepairModalPart = addRepairModalPart;
+    window.addRepairModalWork = addRepairModalWork;
+    window.calculateRepairModalTotal = calculateRepairModalTotal;
+    window.clearRepairModalForm = clearRepairModalForm;
+    window.handleRepairModalPhotoSelect = handleRepairModalPhotoSelect;
+    window.removeRepairModalPhoto = removeRepairModalPhoto;
+    window.rotateRepairModalPhoto = rotateRepairModalPhoto;
+    window.updateRepairModalPhotoPreview = updateRepairModalPhotoPreview;
+    window.populateRepairModalVehicleSelect = populateRepairModalVehicleSelect;
+
+    window.openPhotoViewer = openPhotoViewer;
+    window.closePhotoViewer = closePhotoViewer;
+    window.downloadCurrentPhoto = downloadCurrentPhoto;
+    window.handlePhotoClick = handlePhotoClick;
+    window.handlePhotoDoubleTap = handlePhotoDoubleTap;
+
+    console.log('✅ repair-module.js v7.0 (Firebase-экономный) загружен');
 })();
