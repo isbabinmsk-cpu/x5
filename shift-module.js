@@ -1,5 +1,5 @@
 // ============================================
-// МОДУЛЬ КАЛЕНДАРЯ СМЕН (ВЕРСИЯ 6.0 - АБСОЛЮТНАЯ СИНХРОНИЗАЦИЯ)
+// МОДУЛЬ КАЛЕНДАРЯ СМЕН (ВЕРСИЯ 6.1 - АБСОЛЮТНАЯ СИНХРОНИЗАЦИЯ + ЗАЩИТА РУЧНЫХ НАСТРОЕК)
 // ============================================
 
 const SHIFTS_STORAGE_KEY = 'driverShifts';
@@ -246,9 +246,23 @@ async function loadShiftsFromFirebase() {
 
 function mergeFirebaseWithHistory(firebaseShifts) {
     const groupedRecords = getGroupedHistoryRecords();
-    const mergedShifts = firebaseShifts.map(shift => {
-        const metrics = getDailyMetrics(shift.date, groupedRecords);
-        const updatedShift = { ...shift };
+    const mergedShifts = firebaseShifts.map(firebaseShift => {
+        const localShift = shifts.find(s => s.id === firebaseShift.id);
+        
+        // ⭐ ЗАЩИТА 1: Если локальная смена имеет ручной флаг, приоритет отдаём ей
+        if (localShift && localShift.manualOverride) {
+            const metrics = getDailyMetrics(firebaseShift.date, groupedRecords);
+            const updatedShift = { ...localShift };
+            if (metrics.income > 0) updatedShift.income = metrics.income;
+            if (metrics.orders > 0) updatedShift.orders = metrics.orders;
+            if (metrics.hours > 0) updatedShift.hours = metrics.hours;
+            if (metrics.expenses > 0) updatedShift.expenses = metrics.expenses;
+            if (metrics.bonuses > 0) updatedShift.bonuses = metrics.bonuses;
+            return updatedShift;
+        }
+        
+        const metrics = getDailyMetrics(firebaseShift.date, groupedRecords);
+        const updatedShift = { ...firebaseShift };
         if (metrics.income > 0) updatedShift.income = metrics.income;
         if (metrics.orders > 0) updatedShift.orders = metrics.orders;
         if (metrics.hours > 0) updatedShift.hours = metrics.hours;
@@ -256,20 +270,25 @@ function mergeFirebaseWithHistory(firebaseShifts) {
         if (metrics.bonuses > 0) updatedShift.bonuses = metrics.bonuses;
         return updatedShift;
     });
+
+    // ⭐ ЗАЩИТА 2: Сохраняем локальные смены, которых ещё нет в Firebase (или которые не успели синхронизироваться)
+    shifts.forEach(localShift => {
+        if (!mergedShifts.find(s => s.id === localShift.id)) {
+            mergedShifts.push(localShift);
+        }
+    });
+
     shifts = mergedShifts;
     window.shifts = shifts;
 }
 
 // ⚠️ ВАЖНО: Эта функция нейтрализована, чтобы не перезаписывать window.records неполным кэшем.
-// Реальное безопасное объединение локальных и облачных данных теперь полностью 
-// управляется блоком "COURIER APP · ЕДИНЫЙ ИСТОЧНИК РАСХОДОВ" в самом низу этого файла.
 function listenToRecordsChanges() {
     if (typeof auth === 'undefined' || !auth.currentUser || typeof db === 'undefined') return;
     if (recordsUnsubscribe) {
         try { recordsUnsubscribe(); } catch(e) {}
         recordsUnsubscribe = null;
     }
-    // Слушатель будет переназначен блоком ExpenseSync ниже
 }
 
 // ===== 6. СОХРАНЕНИЕ =====
@@ -307,12 +326,25 @@ async function saveShiftsBatchToFirebase(shiftsArray) {
         }
         for (const shift of shiftsArray) {
             const idx = shifts.findIndex(s => s.id === shift.id);
-            if (idx !== -1) shifts[idx] = { ...shifts[idx], ...shift };
-            else shifts.push(shift);
+            if (idx !== -1) {
+                // ⭐ ЗАЩИТА 3: Если смена уже имела ручной флаг, не даём перезаписать его на false
+                const wasManual = shifts[idx].manualOverride;
+                shifts[idx] = { ...shifts[idx], ...shift };
+                if (wasManual) {
+                    shifts[idx].manualOverride = true;
+                    shifts[idx].dayType = shift.dayType || shifts[idx].dayType;
+                    shifts[idx].isWorking = shift.isWorking !== undefined ? shift.isWorking : shifts[idx].isWorking;
+                }
+            } else {
+                shifts.push(shift);
+            }
         }
         saveShiftsLocal();
         return true;
-    } catch (error) { return false; }
+    } catch (error) { 
+        console.error('Ошибка пакетного сохранения в Firebase:', error);
+        return false; 
+    }
 }
 
 // ===== 7. ОБНОВЛЕНИЕ ДАННЫХ ИЗ ИСТОРИИ =====
@@ -328,15 +360,12 @@ function updateShiftDataFromHistory() {
         const targetDate = normalizeDate(shift.date);
         const dayRecords = grouped[targetDate];
         
-        // Если записей нет — не трогаем
         if (!dayRecords || dayRecords.length === 0) continue;
         
         const metrics = getDailyMetrics(targetDate, grouped);
         
-        // Жестко синхронизируем расходы, если есть записи
         if (Number(shift.expenses) !== Number(metrics.expenses)) {
             shift.expenses = metrics.expenses;
-            shift.manualOverride = false;
             updatedCount++;
         }
     }
@@ -383,58 +412,71 @@ async function generateShiftsBySettings() {
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     const today = getLocalDateString();
     const datePrefix = `${currentYear}-${monthStr}`;
-    const toRemove = shifts.filter(s => s.date.startsWith(datePrefix));
     
-    if (toRemove.length > 0) {
+    // ⭐ ЗАЩИТА 4: Сохраняем существующие смены месяца в карту, чтобы не потерять ручные настройки при пересоздании
+    const existingShiftsMap = {};
+    shifts.filter(s => s.date.startsWith(datePrefix)).forEach(s => {
+        existingShiftsMap[s.date] = s;
+    });
+
+    if (Object.keys(existingShiftsMap).length > 0) {
         if (typeof auth !== 'undefined' && auth.currentUser && typeof db !== 'undefined') {
             try {
                 const batch = db.batch();
-                for (const shift of toRemove) batch.delete(db.collection('users').doc(auth.currentUser.uid).collection(SHIFTS_COLLECTION).doc(shift.id));
+                for (const dateStr of Object.keys(existingShiftsMap)) {
+                    const s = existingShiftsMap[dateStr];
+                    batch.delete(db.collection('users').doc(auth.currentUser.uid).collection(SHIFTS_COLLECTION).doc(s.id));
+                }
                 await batch.commit();
             } catch (error) { console.error(error); }
         }
         shifts = shifts.filter(s => !s.date.startsWith(datePrefix));
     }
-    
+
     const groupedRecords = getGroupedHistoryRecords();
     const newMonthShifts = [];
+    
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${currentYear}-${monthStr}-${String(day).padStart(2, '0')}`;
+        const existing = existingShiftsMap[dateStr];
+        
         const isWorking = isWorkingDayBySchedule(dateStr);
         const metrics = getDailyMetrics(dateStr, groupedRecords);
         const isPast = dateStr < today;
         let finalIsWorking = isWorking;
         if (isPast) finalIsWorking = metrics.orders > 0 || metrics.expenses > 0;
-        
+
         newMonthShifts.push({
-            id: 'shift_' + dateStr,
+            id: existing ? existing.id : 'shift_' + dateStr,
             date: dateStr,
-            isWorking: finalIsWorking,
-            startTime: finalIsWorking ? `${WORK_START_HOUR}:00` : null,
-            endTime: finalIsWorking ? `${WORK_END_HOUR}:00` : null,
-            income: metrics.income,
-            orders: metrics.orders,
-            hours: finalIsWorking ? (WORK_END_HOUR - WORK_START_HOUR) : 0,
-            expenses: metrics.expenses,
-            bonuses: metrics.bonuses,
-            notes: '',
-            dayType: finalIsWorking ? 'work' : 'dayoff',
-            manualOverride: false,
-            updatedAt: new Date().toISOString()
+            // ⭐ Если смена существовала и имела ручной флаг, сохраняем её состояние!
+            isWorking: (existing && existing.manualOverride) ? existing.isWorking : finalIsWorking,
+            startTime: (existing && existing.manualOverride) ? existing.startTime : (finalIsWorking ? `${WORK_START_HOUR}:00` : null),
+            endTime: (existing && existing.manualOverride) ? existing.endTime : (finalIsWorking ? `${WORK_END_HOUR}:00` : null),
+            income: existing ? existing.income : metrics.income,
+            orders: existing ? existing.orders : metrics.orders,
+            hours: existing ? existing.hours : (finalIsWorking ? (WORK_END_HOUR - WORK_START_HOUR) : 0),
+            expenses: existing ? existing.expenses : metrics.expenses,
+            bonuses: existing ? existing.bonuses : metrics.bonuses,
+            notes: existing ? existing.notes : '',
+            dayType: (existing && existing.manualOverride) ? existing.dayType : (finalIsWorking ? 'work' : 'dayoff'),
+            manualOverride: existing ? existing.manualOverride : false,
+            updatedAt: existing ? existing.updatedAt : new Date().toISOString()
         });
     }
-    
-    // Смены всегда есть локально — это уже успех.
+
+    shifts.push(...newMonthShifts);
     saveShiftsLocal();
     window.shifts = shifts;
+
     const fbAvailable = (typeof auth !== 'undefined' && auth.currentUser && typeof db !== 'undefined');
     if (!fbAvailable) {
-        // Облако ещё не готово (идёт загрузка) — НЕ показываем ошибку.
-        // heal()/следующая синхронизация допишет смены в облако сами.
+        safeShowToast('✅ График обновлён (локально)');
         return;
     }
+    
     const saved = await saveShiftsBatchToFirebase(newMonthShifts);
-    if (saved) safeShowToast('✅ График создан');
+    if (saved) safeShowToast('✅ График создан и синхронизирован');
     else safeShowToast('⚠️ График сохранён локально, облако догонит');
 }
 
@@ -719,37 +761,29 @@ async function renderCalendar() {
     const container = document.getElementById('shift-calendar');
     if (!container) return;
 
-    // ============================================================
-    // ⭐ ЕДИНЫЙ ИСТОЧНИК ДАННЫХ — window.records
-    // Карточка «Расходы», ячейки дней и модалка считают отсюда,
-    // одной и той же формулой: fuelCost + repairCost + tax
-    // ============================================================
     let allRecords = (typeof getHistoryRecords === 'function') ? (getHistoryRecords() || []) : [];
     if (!Array.isArray(allRecords)) allRecords = [];
     if (allRecords.length === 0 && Array.isArray(window.records)) {
         allRecords = window.records;
     }
 
-    // Нормализация даты (с запасным вариантом, если normalizeDate недоступна)
     const normDate = (d) => {
         if (!d) return '';
         if (typeof normalizeDate === 'function') {
             try {
                 const n = normalizeDate(d);
                 if (n) return String(n).trim();
-            } catch (e) { /* используем fallback ниже */ }
+            } catch (e) { }
         }
         return String(d).trim();
     };
 
-    // Единые формулы расчёта — ТЕ ЖЕ, что в showExpensesDetailsModal()
     const recIncome   = r => (Number(r.payPickup)||0) + (Number(r.payDelivery)||0) + (Number(r.payDistance)||0) + (Number(r.payWeight)||0) + (Number(r.loadPay)||0) + (Number(r.bonusPay)||0) + (Number(r.rating)||0) + (Number(r.tips)||0);
     const recExpenses = r => (Number(r.fuelCost)||0) + (Number(r.repairCost)||0) + (Number(r.tax)||0);
     const recOrders   = r => Number(r.ordersDelivery)||0;
     const recBonuses  = r => Number(r.bonusPay)||0;
     const recHours    = r => Number(r.hours)||0;
 
-    // Группировка свежих записей по дням
     const groupedFresh = {};
     allRecords.forEach(r => {
         const d = normDate(r.date);
@@ -758,7 +792,6 @@ async function renderCalendar() {
         groupedFresh[d].push(r);
     });
 
-    // Метрики конкретного дня — из той же группировки, теми же формулами
     const getDayMetrics = (dateStr) => {
         const recs = groupedFresh[dateStr] || [];
         const m = { income: 0, expenses: 0, orders: 0, bonuses: 0, hours: 0 };
@@ -781,9 +814,6 @@ async function renderCalendar() {
         return;
     }
 
-    // ============================================================
-    // ⭐ ЖЁСТКАЯ СИНХРОНИЗАЦИЯ shift.expenses ИЗ window.records
-    // ============================================================
     shifts.forEach(shift => {
         const d = normDate(shift.date);
         const dayRecs = groupedFresh[d];
@@ -792,7 +822,6 @@ async function renderCalendar() {
             dayRecs.forEach(r => { exp += recExpenses(r); });
             if (Number(shift.expenses) !== Number(exp)) {
                 shift.expenses = exp;
-                shift.manualOverride = false; // данные пришли из истории
             }
         }
     });
@@ -802,14 +831,11 @@ async function renderCalendar() {
     const today = getLocalDateString();
     const dayTypeIcons = { work: 'briefcase-outline', sick: 'medical-outline', vacation: 'airplane-outline', dayoff: 'remove-circle-outline', repair: 'construct-outline' };
 
-    // ============================================================
-    // ⭐⭐⭐ ИТОГИ МЕСЯЦА — НАПРЯМУЮ ИЗ window.records (как в модалке) ⭐⭐⭐
-    // ============================================================
     let totalIncome = 0, totalBonuses = 0, totalExpenses = 0, totalOrders = 0, totalHours = 0;
 
     allRecords.forEach(r => {
         const d = normDate(r.date);
-        if (!d || !d.startsWith(datePrefix)) return; // только этот месяц
+        if (!d || !d.startsWith(datePrefix)) return;
 
         totalIncome   += recIncome(r);
         totalExpenses += recExpenses(r);
@@ -817,7 +843,7 @@ async function renderCalendar() {
         totalBonuses  += recBonuses(r);
         totalHours    += recHours(r);
     });
-    totalHours = Math.round(totalHours * 10) / 10; // защита от 10.300000000000001 при сложении дробей
+    totalHours = Math.round(totalHours * 10) / 10;
 
     const workingDays = shifts.filter(s => String(s.date).startsWith(datePrefix) && s.isWorking).length;
     const netIncome = totalIncome - totalExpenses;
@@ -852,7 +878,7 @@ async function renderCalendar() {
     for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${currentYear}-${monthStr}-${String(day).padStart(2, '0')}`;
         const shift = shifts.find(s => s.date === dateStr);
-        const metrics = getDayMetrics(dateStr); // ⭐ из window.records, не из getDailyMetrics
+        const metrics = getDayMetrics(dateStr);
         const income = metrics.income;
         const orders = metrics.orders;
         const bonuses = metrics.bonuses;
@@ -882,12 +908,6 @@ async function renderCalendar() {
         else if (!isWorking && !isFuture) dayClass += ' day-off';
         else if (!isWorking && isFuture) dayClass += ' future-day-off';
 
-        // ============================================================
-        // ⭐⭐⭐ СОДЕРЖИМОЕ ЯЧЕЙКИ — ОДНА ЦИФРА ИТОГА + ЗАКАЗЫ ⭐⭐⭐
-        // Итог = доход минус расход (бонусы уже включены в доход).
-        // Показывается при ЛЮБОМ типе дня. Отдельные строки дохода
-        // и расхода убраны, чтобы всё влезало в ячейку.
-        // ============================================================
         const net = income - expenses;
         const fmtShort = (v) => {
             const a = Math.abs(v);
@@ -984,10 +1004,10 @@ async function renderCalendar() {
         document.head.appendChild(style);
     }
 
-if (!document.getElementById('shift-day-money-styles')) {
-    const styleMoney = document.createElement('style');
-    styleMoney.id = 'shift-day-money-styles';
-    styleMoney.textContent = `
+    if (!document.getElementById('shift-day-money-styles')) {
+        const styleMoney = document.createElement('style');
+        styleMoney.id = 'shift-day-money-styles';
+        styleMoney.textContent = `
             .shift-day { position: relative; }
             .shift-day-number { position: absolute; top: 3px; left: 6px; z-index: 2; font-size: 11px; }
             .shift-day-body {
@@ -1014,8 +1034,8 @@ if (!document.getElementById('shift-day-money-styles')) {
                 .shift-day-number { font-size: 10px; }
             }
         `;
-    document.head.appendChild(styleMoney);
-}
+        document.head.appendChild(styleMoney);
+    }
 
     const netIncomeClass = netIncome >= 0 ? 'positive' : 'negative';
     html += `
@@ -1068,7 +1088,6 @@ if (!document.getElementById('shift-day-money-styles')) {
     `;
     container.innerHTML = html;
 
-    // Сохраняем обновленные смены после рендера, чтобы при перезагрузке было актуально
     localStorage.setItem('driverShifts', JSON.stringify(shifts));
     window.shifts = shifts;
 }
@@ -1331,8 +1350,6 @@ window.forceSyncHistoryToCalendar = function() {
 
 /* ============================================================
    ЕДИНАЯ СИНХРОНИЗАЦИЯ РАСХОДОВ (конец shift-module.js)
-   Модалка дня, карточка месяца и смены считают из одних записей.
-   Блок идемпотентен — повторная вставка не ломает ничего.
    ============================================================ */
 (function () {
     'use strict';
@@ -1358,7 +1375,6 @@ window.forceSyncHistoryToCalendar = function() {
         return s;
     };
 
-    // Источник как у модалки «Расходы за месяц»
     const getRecords = () => {
         let r = (typeof getHistoryRecords === 'function') ? (getHistoryRecords() || []) : [];
         if (!Array.isArray(r) || r.length === 0) r = Array.isArray(window.records) ? window.records : [];
@@ -1400,7 +1416,6 @@ window.forceSyncHistoryToCalendar = function() {
 
     const setText = (el, txt) => { if (el && el.textContent !== txt) el.textContent = txt; };
 
-    // --- Карточка итогов месяца: всегда из записей ---
     const patchCard = () => {
         const card = document.querySelector('.month-summary-card');
         if (!card) return;
@@ -1418,7 +1433,6 @@ window.forceSyncHistoryToCalendar = function() {
         }
     };
 
-    // --- Та самая ячейка: поле «Расходы» в модалке дня ---
     const patchShiftInput = (dateStr) => {
         const inp = document.getElementById('shift-expenses-input');
         if (inp && dateStr) inp.value = dayMetrics(dateStr).expenses;
@@ -1446,7 +1460,6 @@ window.forceSyncHistoryToCalendar = function() {
         window.renderCalendar.__syncWrapped = true;
     }
 
-    // --- Если карточку/модалку рисует другой код — ловим вставку и правим ---
     const startObserver = () => {
         if (window.__shiftSyncObserver) return;
         window.__shiftSyncObserver = new MutationObserver((muts) => {
@@ -1462,7 +1475,6 @@ window.forceSyncHistoryToCalendar = function() {
         window.__shiftSyncObserver.observe(document.body, { childList: true, subtree: true });
     };
 
-    // --- Синхронизация shift.expenses из записей ---
     const syncShifts = () => {
         if (typeof shifts === 'undefined' || !Array.isArray(shifts)) return;
         let changed = false;
@@ -1482,7 +1494,7 @@ window.forceSyncHistoryToCalendar = function() {
 })();
 
 /* ============================================================================
-   COURIER APP · ЕДИНЫЙ ИСТОЧНИК РАСХОДОВ · вставить в КОНЕЦ shift-module.js
+   COURIER APP · ЕДИНЫЙ ИСТОЧНИК РАСХОДОВ
    ============================================================================ */
 (function () {
     'use strict';
@@ -1494,7 +1506,6 @@ window.forceSyncHistoryToCalendar = function() {
     var LS_SHIFT = 'driverShifts';
     var MAX_TOMB = 600;
 
-    /* ------------------------------- утилиты ------------------------------ */
     function num(v) {
         if (typeof v === 'number') return isFinite(v) ? v : 0;
         if (v == null) return 0;
@@ -1524,7 +1535,6 @@ window.forceSyncHistoryToCalendar = function() {
     function fbReady() { return typeof db !== 'undefined' && db && typeof auth !== 'undefined' && auth && auth.currentUser; }
     function fbCol() { return db.collection('users').doc(auth.currentUser.uid).collection('records'); }
 
-    /* ------------------------------ состояние ----------------------------- */
     var st = {
         union: [], byKey: {}, cloudReady: false, cloudIds: {}, prevCloudIds: null,
         tomb: {}, healing: false, renderTimer: 0, attached: false, bootAt: Date.now(), lastReason: 'boot'
@@ -1537,7 +1547,6 @@ window.forceSyncHistoryToCalendar = function() {
         lsSet(LS_TOMB, JSON.stringify(ids));
     }
 
-    /* ------------------------------- источники ---------------------------- */
     var rawHistoryFn = (typeof window.getHistoryRecords === 'function') ? window.getHistoryRecords : null;
     function localRaw() {
         var arr = null;
@@ -1547,7 +1556,6 @@ window.forceSyncHistoryToCalendar = function() {
     }
     function cloudRaw() { return Array.isArray(window.records) ? window.records.filter(Boolean) : []; }
 
-    /* ------------------------------ объединение --------------------------- */
     function rebuild(reason) {
         st.lastReason = reason || 'manual';
         var local = localRaw(), cloudArr = cloudRaw();
@@ -1564,9 +1572,6 @@ window.forceSyncHistoryToCalendar = function() {
         }
         local.forEach(function (r) { put(r, 'local'); });
         cloudArr.forEach(function (r) { put(r, 'cloud'); });
-        // ⭐ sideRecords УБРАНА: боковые журналы (driverFuelLogs/repair_records)
-        // не подмешиваются в расходы календаря — это давало дубли заправок.
-        // Расходы = только records (локальные + облако).
 
         st.union = order.map(function (k) { return map[k]; });
         st.byKey = map;
@@ -1594,7 +1599,6 @@ window.forceSyncHistoryToCalendar = function() {
         return st.union;
     }
 
-    /* --------------------------- смены и рендер --------------------------- */
     function dayExpenses(dateStr) {
         var d = normDate(dateStr), s = 0;
         for (var i = 0; i < st.union.length; i++) if (normDate(st.union[i].date) === d) s += expensesOf(st.union[i]);
@@ -1610,7 +1614,6 @@ window.forceSyncHistoryToCalendar = function() {
         }, 150);
     }
 
-    /* ---------------------- единый источник для приложения ---------------- */
     window.getHistoryRecords = function () { return st.union.length ? st.union.slice() : localRaw(); };
     if (typeof window.getGroupedHistoryRecords === 'function') {
         window.getGroupedHistoryRecords = function () {
@@ -1620,7 +1623,6 @@ window.forceSyncHistoryToCalendar = function() {
         };
     }
 
-    /* ------------------------- слушатель Firestore ------------------------ */
     function attachListener() {
         if (!fbReady()) return false;
         try { if (typeof recordsUnsubscribe === 'function') { recordsUnsubscribe(); recordsUnsubscribe = null; } } catch (e) {}
@@ -1657,7 +1659,6 @@ window.forceSyncHistoryToCalendar = function() {
     }
     window.listenToRecordsChanges = attachListener;
 
-    /* ------------------ долечивание: локальное → облако ------------------- */
     function heal() {
         if (!st.cloudReady || !fbReady() || st.healing) return;
         var missing = st.union.filter(function (r) {
@@ -1681,11 +1682,8 @@ window.forceSyncHistoryToCalendar = function() {
         })();
     }
 
-    /* ------------------------------- индикатор ---------------------------- */
-    // Пилюля на экране убрана по запросу. Статус: ExpenseSync.status() в консоли.
     function badge() { /* no-op: визуальный индикатор отключён */ }
 
-    /* -------------------------------- запуск ------------------------------ */
     function boot(reason) {
         rebuild(reason);
         if (!st.attached && attachListener()) return;
@@ -1697,7 +1695,6 @@ window.forceSyncHistoryToCalendar = function() {
         }
     }
     
-    // ⭐ Разовая чистка: удаляем side-копии, созданные прошлой версией
     (function purgeSide() {
         try {
             var raw = lsJSON(LS_RECORDS, []);
@@ -1758,4 +1755,4 @@ window.scheduleSettings = scheduleSettings;
 window.showExpensesDetailsModal = showExpensesDetailsModal;
 window.toggleExpenseCategory = toggleExpenseCategory;
 
-console.log('✅ Модуль календаря смен v6.0 (Абсолютная синхронизация) загружен');
+console.log('✅ Модуль календаря смен v6.1 (Абсолютная синхронизация + Защита ручных настроек) загружен');
