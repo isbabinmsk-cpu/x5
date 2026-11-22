@@ -1,5 +1,5 @@
 // ============================================
-// МОДУЛЬ ВКЛАДКИ "ГЛАВНАЯ" v2.1 (С ПЕРЕКЛЮЧЕНИЕМ МЕСЯЦЕВ)
+// МОДУЛЬ ВКЛАДКИ "ГЛАВНАЯ" v2.2 (С ПЛАШКАМИ ИКОНОК)
 // ============================================
 (function() {
     'use strict';
@@ -14,20 +14,20 @@
     
     function formatMoney(n) {
         if (typeof window.formatMoney === 'function') return window.formatMoney(n);
-        return new Intl.NumberFormat('ru-RU', {style:'currency', currency:'RUB', minimumFractionDigits: 2}).format(n || 0);
+        return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', minimumFractionDigits: 2 }).format(n || 0);
     }
 
-    // Максимально надежный парсинг дат "YYYY-MM-DD"
+    // Максимально надежный парсинг дат "YYYY-MM-DD" или "DD.MM.YYYY"
     function getYMD(dateStr) {
         if (!dateStr) return null;
         const s = String(dateStr).trim();
         const match = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
         if (match) {
-            return { year: parseInt(match[1]), month: parseInt(match[2]), day: parseInt(match[3]) };
+            return { year: parseInt(match[1], 10), month: parseInt(match[2], 10), day: parseInt(match[3], 10) };
         }
         const parts = s.split('.');
         if (parts.length === 3) {
-            return { year: parseInt(parts[2]), month: parseInt(parts[1]), day: parseInt(parts[0]) };
+            return { year: parseInt(parts[2], 10), month: parseInt(parts[1], 10), day: parseInt(parts[0], 10) };
         }
         const d = new Date(s);
         if (!isNaN(d.getTime())) return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
@@ -127,7 +127,10 @@
         overlay.className = 'goals-modal-overlay';
         overlay.innerHTML = `
             <div class="goals-modal">
-                <div class="goals-modal-header"><ion-icon name="flag-outline"></ion-icon><h3>Мои цели</h3></div>
+                <div class="goals-modal-header">
+                    <span class="home-icon-badge home-icon-sm home-icon-blue"><ion-icon name="flag-outline"></ion-icon></span>
+                    <h3>Мои цели</h3>
+                </div>
                 <div class="goals-modal-body">
                     <div class="goal-input-group"><label>Доход</label><input type="number" id="gi" value="${goals.income}"></div>
                     <div class="goal-input-group"><label>Заказы</label><input type="number" id="go" value="${goals.orders}"></div>
@@ -144,9 +147,9 @@
         const close = () => { overlay.classList.remove('visible'); setTimeout(() => overlay.remove(), 300); };
         overlay.querySelector('#g-cancel').onclick = close;
         overlay.querySelector('#g-save').onclick = async () => {
-            const income = parseFloat($('gi').value);
-            const orders = parseInt($('go').value);
-            const hours = parseFloat($('gh').value);
+            const income = parseFloat($('gi').value) || 0;
+            const orders = parseInt($('go').value) || 0;
+            const hours = parseFloat($('gh').value) || 0;
             const newGoals = { income, orders, hours };
             localStorage.setItem(GOALS_STORAGE_KEY, JSON.stringify(newGoals));
             await saveGoalsToFirebase(newGoals);
@@ -184,16 +187,16 @@
         const records = window.records || [];
         const sorted = [...records].sort((a, b) => {
             const ya = getYMD(a.date), yb = getYMD(b.date);
-            if(!ya || !yb) return 0;
-            return new Date(yb.year, yb.month-1, yb.day) - new Date(ya.year, ya.month-1, ya.day);
+            if (!ya || !yb) return 0;
+            return new Date(yb.year, yb.month - 1, yb.day) - new Date(ya.year, ya.month - 1, ya.day);
         });
         const recent = sorted.slice(0, 5);
 
         container.innerHTML = recent.map((r, i) => {
             const ymd = getYMD(r.date);
-            const dateStr = ymd ? `${String(ymd.day).padStart(2,'0')}.${String(ymd.month).padStart(2,'0')}.${ymd.year}` : r.date;
+            const dateStr = ymd ? `${String(ymd.day).padStart(2, '0')}.${String(ymd.month).padStart(2, '0')}.${ymd.year}` : r.date;
             const profit = (Number(r.totalIncome) || 0) - (Number(r.totalExpenses) || 0);
-            return `<div style="display: flex; justify-content: space-between; padding: 12px 0; ${i < recent.length-1 ? 'border-bottom: 1px solid var(--ios-border);' : ''}">
+            return `<div style="display: flex; justify-content: space-between; padding: 12px 0; ${i < recent.length - 1 ? 'border-bottom: 1px solid var(--ios-border);' : ''}">
                 <div>
                     <div style="font-weight: 600;">${dateStr}</div>
                     <div style="font-size: 13px; color: var(--ios-text-tertiary);">${r.ordersDelivery || 0} зак · ${r.hours || 0} ч</div>
@@ -206,7 +209,38 @@
     }
 
     // ============================================
-    // 4. ГЛАВНАЯ ФУНКЦИЯ
+    // 4. ОБЁРТКА ИКОНОК В ПЛАШКИ (БЕЗ КНОПОК МЕСЯЦЕВ И ЦЕЛЕЙ)
+    // ============================================
+    function wrapHomeIcons() {
+        // 1. Иконки в карточках метрик (В день, Заказы, Часы, Ср. чек)
+        const metricIcons = document.querySelectorAll('.dash-metric-header ion-icon');
+        const metricColors = ['home-icon-green', 'home-icon-blue', 'home-icon-orange', 'home-icon-purple'];
+        
+        metricIcons.forEach((icon, index) => {
+            if (icon.parentElement.classList.contains('home-icon-badge')) return; // Уже обёрнута
+            const badge = document.createElement('span');
+            badge.className = `home-icon-badge home-icon-sm ${metricColors[index % metricColors.length]}`;
+            icon.parentNode.insertBefore(badge, icon);
+            badge.appendChild(icon);
+        });
+
+        // 2. Иконки в заголовках секций (Мои цели, Достижения, Последние записи)
+        const sectionIcons = document.querySelectorAll('.dash-section-header h2 ion-icon');
+        const sectionColors = ['home-icon-orange', 'home-icon-purple', 'home-icon-blue'];
+        
+        sectionIcons.forEach((icon, index) => {
+            if (icon.parentElement.classList.contains('home-icon-badge')) return;
+            const badge = document.createElement('span');
+            badge.className = `home-icon-badge home-icon-lg ${sectionColors[index % sectionColors.length]}`;
+            icon.parentNode.insertBefore(badge, icon);
+            badge.appendChild(icon);
+        });
+
+        // ⚠️ Кнопки .dash-nav-btn и .dash-icon-btn намеренно НЕ обрабатываются здесь!
+    }
+
+    // ============================================
+    // 5. ГЛАВНАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ
     // ============================================
     function updateHomeTab() {
         const records = window.records || [];
@@ -273,11 +307,14 @@
         updateGoals();
         updateRecentRecords();
         
+        // 8. Применяем обёртку иконок (безопасно, так как проверяет classList)
+        wrapHomeIcons();
+        
         if (typeof window.updateTrends === 'function') window.updateTrends();
     }
 
     // ============================================
-    // ОБРАБОТЧИКИ КНОПОК ПЕРЕКЛЮЧЕНИЯ МЕСЯЦЕВ
+    // 6. ОБРАБОТЧИКИ КНОПОК ПЕРЕКЛЮЧЕНИЯ МЕСЯЦЕВ
     // ============================================
     document.addEventListener('click', (e) => {
         const prevBtn = e.target.closest('#dash-prev-month');
@@ -296,10 +333,32 @@
         }
     });
 
-    // Экспорт
+    // ============================================
+    // 7. ИНИЦИАЛИЗАЦИЯ
+    // ============================================
+    function init() {
+        wrapHomeIcons(); // Запускаем сразу при загрузке
+        
+        // Наблюдатель на случай, если вкладка перерисуется динамически
+        const homeTab = document.querySelector('#tab-home');
+        if (homeTab) {
+            const observer = new MutationObserver(() => {
+                wrapHomeIcons();
+            });
+            observer.observe(homeTab, { childList: true, subtree: true });
+        }
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+    // Экспорт в глобальную область
     window.updateHomeTab = updateHomeTab;
     window.updateGoals = updateGoals;
     window.showGoalSettings = showGoalSettings;
 
-    console.log('✅ Модуль "Главная" v2.1 (с переключением месяцев) загружен');
+    console.log('✅ Модуль "Главная" v2.2 (с плашками иконок, без трогания кнопок) загружен');
 })();

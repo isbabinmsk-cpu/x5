@@ -562,18 +562,76 @@ async function loadFuelLogs(force = false) { // ⭐ добавили force
     // 12. МОДАЛКА
     // ============================================
     function openFuelModal() {
-        const overlay = document.getElementById('fuel-modal-overlay');
-        if (!overlay) return;
+    const overlay = document.getElementById('fuel-modal-overlay');
+    if (!overlay) return;
 
-        overlay.classList.add('visible');
-        document.body.style.overflow = 'hidden';
-        populateVehicleSelect();
-
-        setTimeout(() => {
-            const dateEl = document.getElementById('fuel-date');
-            if (dateEl && !dateEl.value) dateEl.valueAsDate = new Date();
-        }, 100);
+    // ✅ 1. Чистим шапку от возможных дубликатов иконок (защита от старого HTML)
+    const header = overlay.querySelector('.fuel-modal-header');
+    if ( header ) {
+        // Удаляем все "голые" иконки, которые не обёрнуты в плашку
+        const directIcons = header.querySelectorAll(':scope > ion-icon');
+        directIcons.forEach(icon => icon.remove());
+        
+        // Гарантируем наличие оранжевой плашки в заголовке (если её вдруг нет)
+        if (!header.querySelector('.fuel-icon-badge')) {
+            const titleEl = header.querySelector('h3') || header;
+            const badge = document.createElement('span');
+            badge.className = 'fuel-icon-badge fuel-icon-orange';
+            badge.innerHTML = '<ion-icon name="flame-outline"></ion-icon>';
+            titleEl.insertBefore(badge, titleEl.firstChild);
+        }
     }
+
+    // ✅ 2. Оборачиваем иконки в label в цветные плашки (только если ещё не обёрнуты)
+    const labels = overlay.querySelectorAll('.fuel-modal-body .form-group label');
+    labels.forEach(label => {
+        if (label.dataset.badged === '1') return; // Уже обработано
+        
+        const icon = label.querySelector(':scope > ion-icon');
+        if (!icon) return;
+
+        const name = icon.getAttribute('name') || '';
+        const text = (label.textContent || '').trim().toLowerCase();
+        
+        let colorClass = 'fuel-icon-blue';
+        let iconName = name;
+
+        if (text.includes('автомобиль') || name.includes('car')) {
+            colorClass = 'fuel-icon-blue'; iconName = 'car-outline';
+        } else if (text.includes('дата')) {
+            colorClass = 'fuel-icon-blue'; iconName = 'calendar-outline';
+        } else if (text.includes('пробег')) {
+            colorClass = 'fuel-icon-orange'; iconName = 'speedometer-outline';
+        } else if (text.includes('литр') && !text.includes('цена')) {
+            colorClass = 'fuel-icon-cyan'; iconName = 'water-outline';
+        } else if (text.includes('сумма') || text.includes('руб')) {
+            colorClass = 'fuel-icon-green'; iconName = 'cash-outline';
+        } else if (text.includes('цена за литр')) {
+            colorClass = 'fuel-icon-purple'; iconName = 'pricetag-outline';
+        } else if (text.includes('комментарий') || text.includes('примечание')) {
+            colorClass = 'fuel-icon-teal'; iconName = 'chatbubble-outline';
+        }
+
+        const badge = document.createElement('span');
+        badge.className = 'fuel-icon-badge ' + colorClass;
+        badge.innerHTML = '<ion-icon name="' + iconName + '"></ion-icon>';
+        
+        icon.replaceWith(badge);
+        label.dataset.badged = '1';
+    });
+
+    // ✅ 3. Открываем модалку
+    overlay.classList.add('visible');
+    document.body.style.overflow = 'hidden';
+    populateVehicleSelect();
+    
+    setTimeout(() => {
+        const dateEl = document.getElementById('fuel-date');
+        if (dateEl && !dateEl.value) {
+            dateEl.valueAsDate = new Date();
+        }
+    }, 100);
+}
 
     function closeFuelModal() {
         const overlay = document.getElementById('fuel-modal-overlay');

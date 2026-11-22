@@ -2617,6 +2617,287 @@ window.addEventListener('resize', () => {
 })();
 
 // ============================================
+// ПАТЧ: модалка «Настройки» → стиль fuel/repair
+// (только графика, логика/id/onclick НЕ трогается)
+// ============================================
+(function () {
+    'use strict';
+
+    const BLACKLIST = new Set([
+        'chevron-down','chevron-up','chevron-forward','chevron-back',
+        'arrow-forward','arrow-back','arrow-up','arrow-down',
+        'swap-horizontal','swap-vertical','ellipsis','ellipsis-horizontal','ellipsis-vertical',
+        'filter','search','add','add-outline','add-circle-outline','remove','remove-outline'
+    ]);
+
+    const COLORS = {
+        'pricetag-outline':'yellow','pricetag':'yellow','key-outline':'yellow','trophy-outline':'yellow',
+        'car-outline':'blue','settings-outline':'blue','save-outline':'blue','sync-outline':'blue',
+        'grid-outline':'blue','grid':'blue','info-outline':'blue','document-outline':'blue','receipt-outline':'blue',
+        'cloud-outline':'green','cloud-upload-outline':'green','cloud-download-outline':'green','checkmark-outline':'green','lock-closed-outline':'green',
+        'document-text-outline':'purple','person-circle-outline':'purple','person-outline':'purple','mail-outline':'blue','list-outline':'purple',
+        'layers-outline':'orange','flame-outline':'orange','construct-outline':'orange','speedometer-outline':'orange',
+        'download-outline':'cyan','water-outline':'cyan','snow-outline':'cyan',
+        'trash-outline':'red','alert-circle-outline':'red','close-outline':'red','log-out-outline':'red','warning-outline':'red',
+        'cash-outline':'green','wallet-outline':'red','trending-up-outline':'teal','chatbubble-outline':'teal'
+    };
+    const colorFor = n => 'asm-icon-' + (COLORS[n] || 'blue');
+
+    function findSettingsModal() {
+        let best = null, bestLen = Infinity;
+        document.querySelectorAll('div, section').forEach(el => {
+            const t = el.textContent || '';
+            if (t.includes('Резервное копирование') && t.includes('Мои автомобили') && t.includes('Тарифы')) {
+                if (t.length < bestLen) { bestLen = t.length; best = el; }
+            }
+        });
+        return best;
+    }
+
+    function wrapIcons(modal) {
+        modal.querySelectorAll('ion-icon').forEach(icon => {
+            if (icon.closest('.asm-icon-badge')) return;
+            const name = icon.getAttribute('name') || '';
+            if (BLACKLIST.has(name)) return;
+            const parent = icon.parentElement;
+            if (!parent) return;
+            // иконка без подписи рядом (крестик X в шапке) — не оборачиваем
+            if (parent.textContent.trim() === '') return;
+            const span = document.createElement('span');
+            span.className = 'asm-icon-badge ' + colorFor(name);
+            icon.replaceWith(span);
+            span.appendChild(icon);
+        });
+    }
+
+    let done = false;
+    function run() {
+        if (done) return;
+        const m = findSettingsModal();
+        if (!m) return;
+        if (m.dataset.asmPatched === '1') { done = true; return; }
+        m.classList.add('asm-modal');
+        wrapIcons(m);
+        m.dataset.asmPatched = '1';
+        done = true;
+    }
+
+    function boot() {
+        run();
+        if (done) return;
+        const obs = new MutationObserver(() => {
+            run();
+            if (done) obs.disconnect();
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
+})();
+
+// ============================================
+// АККОРДЕОНЫ В МОДАЛКЕ «НАСТРОЙКИ»
+// ============================================
+function toggleSettingsSection(headerEl) {
+    const card = headerEl.closest('.settings-card');
+    if (!card) return;
+    card.classList.toggle('collapsed');
+    
+    // Запоминаем состояние по тексту заголовка
+    const title = (headerEl.textContent || '').trim();
+    try {
+        const state = JSON.parse(localStorage.getItem('settingsAccordionState') || '{}');
+        state[title] = card.classList.contains('collapsed');
+        localStorage.setItem('settingsAccordionState', JSON.stringify(state));
+    } catch (e) {}
+}
+
+// Восстановление состояния (свёрнутые секции остаются свёрнутыми)
+function restoreSettingsAccordionState() {
+    try {
+        const state = JSON.parse(localStorage.getItem('settingsAccordionState') || '{}');
+        document.querySelectorAll('#tab-settings .settings-accordion-header').forEach(header => {
+            const title = (header.textContent || '').trim();
+            const card = header.closest('.settings-card');
+            if (card && state[title] === true) card.classList.add('collapsed');
+        });
+    } catch (e) {}
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', restoreSettingsAccordionState);
+} else {
+    restoreSettingsAccordionState();
+}
+window.toggleSettingsSection = toggleSettingsSection;
+
+// ============================================
+// SWIPE TO DISMISS — закрытие модалок свайпом вниз
+// ============================================
+(function() {
+    'use strict';
+    
+    const DISMISS_THRESHOLD = 120; // пикселей, после которых модалка закроется
+    
+    function enableSwipeToDismiss(overlayId, closeFn) {
+        const overlay = document.getElementById(overlayId);
+        if (!overlay) return;
+        
+        const modal = overlay.querySelector('.fuel-modal, .entry-modal, .cp-settings-modal');
+        if (!modal) return;
+        
+        // Зона свайпа: ручка или шапка
+        const dragHandle = overlay.querySelector('.fuel-modal-handle, .entry-modal-handle, .fuel-modal-header');
+        if (!dragHandle) return;
+        
+        let startY = 0;
+        let currentY = 0;
+        let isDragging = false;
+        let isAnimating = false;
+        
+        // Тело со скроллом (для проверки scrollTop)
+        const modalBody = overlay.querySelector('.fuel-modal-body, .entry-modal-body, .cp-settings-body');
+        
+        function canSwipe() {
+            // Разрешаем свайп только если контент прокручен до самого верха
+            return !modalBody || modalBody.scrollTop <= 2;
+        }
+        
+        function onTouchStart(e) {
+            if (isAnimating) return;
+            if (!canSwipe()) return;
+            if (e.touches.length !== 1) return;
+            
+            isDragging = true;
+            startY = e.touches[0].clientY;
+            currentY = startY;
+            modal.style.transition = 'none';
+        }
+        
+        function onTouchMove(e) {
+            if (!isDragging) return;
+            currentY = e.touches[0].clientY;
+            const deltaY = currentY - startY;
+            
+            // Реагируем только на движение ВНИЗ
+            if (deltaY > 0) {
+                // Если пользователь начал тянуть вниз — блокируем скролл страницы
+                if (deltaY > 5) e.preventDefault();
+                // Плавное сопротивление после 100px
+                const resistance = deltaY < 100 ? 1 : 100 + (deltaY - 100) * 0.4;
+                modal.style.transform = `translateY(${resistance}px)`;
+            }
+        }
+        
+        function onTouchEnd() {
+            if (!isDragging) return;
+            isDragging = false;
+            isAnimating = true;
+            
+            const deltaY = currentY - startY;
+            
+            if (deltaY > DISMISS_THRESHOLD) {
+                // Закрываем
+                modal.style.transition = 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)';
+                modal.style.transform = 'translateY(100%)';
+                
+                setTimeout(() => {
+                    modal.style.transform = '';
+                    isAnimating = false;
+                    if (typeof closeFn === 'function') closeFn();
+                }, 300);
+            } else {
+                // Возвращаем на место
+                modal.style.transition = 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)';
+                modal.style.transform = '';
+                setTimeout(() => { isAnimating = false; }, 350);
+            }
+        }
+        
+        dragHandle.addEventListener('touchstart', onTouchStart, { passive: true });
+        dragHandle.addEventListener('touchmove', onTouchMove, { passive: false });
+        dragHandle.addEventListener('touchend', onTouchEnd);
+        dragHandle.addEventListener('touchcancel', onTouchEnd);
+        
+        // Курсор grab для десктопа
+        dragHandle.style.cursor = 'grab';
+        dragHandle.addEventListener('mousedown', (e) => {
+            if (isAnimating) return;
+            if (!canSwipe()) return;
+            isDragging = true;
+            startY = e.clientY;
+            currentY = startY;
+            modal.style.transition = 'none';
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            currentY = e.clientY;
+            const deltaY = currentY - startY;
+            if (deltaY > 0) {
+                const resistance = deltaY < 100 ? 1 : 100 + (deltaY - 100) * 0.4;
+                modal.style.transform = `translateY(${resistance}px)`;
+            }
+        });
+        document.addEventListener('mouseup', () => {
+            if (!isDragging) return;
+            const deltaY = currentY - startY;
+            isDragging = false;
+            isAnimating = true;
+            if (deltaY > DISMISS_THRESHOLD) {
+                modal.style.transition = 'transform 0.3s cubic-bezier(0.32, 0.72, 0, 1)';
+                modal.style.transform = 'translateY(100%)';
+                setTimeout(() => {
+                    modal.style.transform = '';
+                    isAnimating = false;
+                    if (typeof closeFn === 'function') closeFn();
+                }, 300);
+            } else {
+                modal.style.transition = 'transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)';
+                modal.style.transform = '';
+                setTimeout(() => { isAnimating = false; }, 350);
+            }
+        });
+    }
+    
+    // Инициализация для всех модалок
+    function initAllSwipeDismiss() {
+        enableSwipeToDismiss('fuel-modal-overlay', () => {
+            if (typeof window.closeFuelModal === 'function') window.closeFuelModal();
+        });
+        enableSwipeToDismiss('repair-modal-overlay', () => {
+            if (typeof window.closeRepairModal === 'function') window.closeRepairModal();
+        });
+        enableSwipeToDismiss('tab-settings', () => {
+            if (typeof window.closeAppSettings === 'function') window.closeAppSettings();
+        });
+        enableSwipeToDismiss('entry-modal-overlay', () => {
+            if (typeof window.closeEntryModal === 'function') window.closeEntryModal();
+        });
+        enableSwipeToDismiss('name-modal-overlay', () => {
+            if (typeof window.closeNameModal === 'function') window.closeNameModal();
+        });
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initAllSwipeDismiss);
+    } else {
+        initAllSwipeDismiss();
+    }
+    
+    // Наблюдаем за DOM на случай динамического создания модалок
+    const observer = new MutationObserver(() => {
+        initAllSwipeDismiss();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    console.log('✅ Swipe-to-dismiss модуль загружен');
+})();    
+
+// ============================================
 // ЭКСПОРТ В WINDOW
 // ============================================
 window.loadUserData = loadUserData;

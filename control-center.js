@@ -1166,113 +1166,145 @@
     }
 
     function openNotifSettings() {
-        if (document.getElementById('cc-settings-overlay')) return;
-        const s = settings;
-
-        const getSvc = (id, defKm, defMonths) => {
-            const svc = (s.to.services && s.to.services[id]) || {};
-            return {
-                enabled: svc.enabled !== undefined ? svc.enabled : true,
-                intervalKm: svc.intervalKm !== undefined ? svc.intervalKm : defKm,
-                months: svc.months !== undefined ? svc.months : defMonths
-            };
+    console.log('🔧 Открытие настроек уведомлений...');
+    
+    const oldOverlay = document.getElementById('cc-settings-overlay');
+    if (oldOverlay) oldOverlay.remove();
+    
+    const s = settings;
+    
+    // --- ХЕЛПЕРЫ ---
+    const badge = (icon, cls) =>
+        '<span class="cp-icon-badge ' + (cls || '') + '"><ion-icon name="' + icon + '"></ion-icon></span>';
+    
+    const rowSwitch = (path, label, checked, icon, cls) =>
+        '<label class="cp-row">' + badge(icon, cls) +
+        '<span class="cp-row-label">' + label + '</span>' +
+        '<span class="cp-switch"><input type="checkbox" data-path="' + path + '"' + (checked ? ' checked' : '') + '>' +
+        '<span class="cp-switch-track"><span class="cp-switch-thumb"></span></span></span>' +
+        '</label>';
+    
+    const rowNum = (path, label, value, min, max, icon, cls) =>
+        '<label class="cp-row">' + badge(icon, cls) +
+        '<span class="cp-row-label">' + label + '</span>' +
+        '<input type="number" data-path="' + path + '" value="' + value + '" min="' + (min || 0) + '"' +
+        (max !== undefined ? ' max="' + max + '"' : '') + ' step="1"></label>';
+    
+    const rowDate = (path, label, value, icon, cls) =>
+        '<label class="cp-row">' + badge(icon, cls) +
+        '<span class="cp-row-label">' + label + '</span>' +
+        '<input type="date" data-path="' + path + '" value="' + (value || '') + '"></label>';
+    
+    const section = (icon, text, cls) =>
+        '<div class="cp-section">' + badge(icon, cls || 'cp-icon-gray') + text + '</div>';
+    
+    const getSvc = (id, defKm, defMonths) => {
+        const svc = (s.to.services && s.to.services[id]) || {};
+        return {
+            enabled: svc.enabled !== undefined ? svc.enabled : true,
+            intervalKm: svc.intervalKm !== undefined ? svc.intervalKm : defKm,
+            months: svc.months !== undefined ? svc.months : defMonths
         };
-
-        const buildSvcRow = (id, name, def) => (
-            '<div class="cp-svc-item">' +
-                switchRow('to.services.' + id + '.enabled', name, def.enabled) +
-                (def.enabled ?
-                    '<div class="cp-svc-grid">' +
-                        numRow('to.services.' + id + '.intervalKm', 'Интервал (км)', def.intervalKm, 1000) +
-                        numRow('to.services.' + id + '.months', 'Интервал (мес.)', def.months, 1) +
-                    '</div>'
-                : '') +
-            '</div>'
-        );
-
-        const overlay = document.createElement('div');
-        overlay.id = 'cc-settings-overlay';
-        overlay.className = 'cp-settings-overlay';
-        overlay.innerHTML =
-            '<div class="cp-settings-modal">' +
-                '<div class="cp-settings-header">' +
-                    '<ion-icon name="settings-outline"></ion-icon>' +
-                    '<h3>Настройки напоминаний</h3>' +
-                '</div>' +
-                '<div class="cp-settings-body">' +
-                    switchRow('enabled', 'Все напоминания', s.enabled) +
-                    switchRow('systemNotifications', 'Системные уведомления', s.systemNotifications) +
-
-                    '<div class="cp-section">Техобслуживание (ТО)</div>' +
-                    switchRow('to.enabled', 'Включить напоминания о ТО', s.to.enabled) +
-                    (s.to.enabled ? numRow('to.warnBeforeKm', 'Предупреждать за (км)', s.to.warnBeforeKm, 0) : '') +
-                    (s.to.enabled ?
-                        '<div class="cp-svc-list">' +
-                            buildSvcRow('oil',     '🛢️ Замена масла и фильтра',     getSvc('oil', 10000, 12)) +
-                            buildSvcRow('trans',   '⚙️ Масло в МКПП / АКПП',       getSvc('trans', 60000, 48)) +
-                            buildSvcRow('air',     '💨 Воздушный фильтр',          getSvc('air', 15000, 12)) +
-                            buildSvcRow('cabin',   '🌬️ Салонный фильтр',           getSvc('cabin', 15000, 12)) +
-                            buildSvcRow('plugs',   '⚡ Свечи зажигания',           getSvc('plugs', 30000, 24)) +
-                            buildSvcRow('brakefl', '💧 Тормозная жидкость',        getSvc('brakefl', 40000, 24)) +
-                            buildSvcRow('coolant', '❄️ Охлаждающая жидкость',      getSvc('coolant', 60000, 36)) +
-                            buildSvcRow('belt',    '🔗 Ремень / Цепь ГРМ',         getSvc('belt', 80000, 60)) +
-                            buildSvcRow('battery', '🔋 Аккумулятор',               getSvc('battery', 60000, 48)) +
-                        '</div>'
-                    : '') +
-
-                    '<div class="cp-section">Смены</div>' +
-                    switchRow('shift.enabled', 'Напоминать о сменах', s.shift.enabled) +
-                    (s.shift.enabled ?
-                        dateRow('shift.anchor', 'Начало цикла (1-й раб. день)', s.shift.anchor) +
-                        numRow('shift.workDays', 'Рабочих дней', s.shift.workDays, 1) +
-                        numRow('shift.offDays', 'Выходных дней', s.shift.offDays, 1) +
-                        numRow('shift.remindAtHour', 'Напоминать с часа (0-23)', s.shift.remindAtHour, 0)
-                    : '') +
-
-                    '<div class="cp-section">Топливо</div>' +
-                    switchRow('fuel.enabled', 'Контроль роста расхода', s.fuel.enabled) +
-                    (s.fuel.enabled ? numRow('fuel.risePercent', 'Порог роста (%)', s.fuel.risePercent, 1) : '') +
-
-                    '<div class="cp-section">Цели</div>' +
-                    switchRow('goals.enabled', 'Достижение целей', s.goals.enabled) +
-                '</div>' +
-                '<div class="cp-settings-footer">' +
-                    '<button class="cp-btn" id="cc-settings-cancel" type="button">Отмена</button>' +
-                    '<button class="cp-btn primary" id="cc-settings-save" type="button">' +
-                        '<ion-icon name="checkmark-outline"></ion-icon> Сохранить' +
-                    '</button>' +
-                '</div>' +
-            '</div>';
-
-        document.body.appendChild(overlay);
-        requestAnimationFrame(() => overlay.classList.add('visible'));
-
-        const close = () => {
-            overlay.classList.remove('visible');
-            setTimeout(() => { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 300);
-        };
-        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
-
-        const cancelBtn = overlay.querySelector('#cc-settings-cancel');
-        if (cancelBtn) cancelBtn.addEventListener('click', close);
-
-        const saveBtn = overlay.querySelector('#cc-settings-save');
-        if (saveBtn) {
-            saveBtn.addEventListener('click', async () => {
-                overlay.querySelectorAll('[data-path]').forEach(inp => {
-                    const path = inp.dataset.path;
-                    if (inp.type === 'checkbox') setByPath(settings, path, inp.checked);
-                    else if (inp.type === 'number') setByPath(settings, path, num(inp.value));
-                    else setByPath(settings, path, inp.value);
-                });
-                markDirty();
-                await saveRemindersData();
-                close();
-                refresh();
-                showNotification('success', 'Настройки сохранены', 'Изменения применены');
+    };
+    
+    const buildSvcRow = (id, name, icon, cls, def) =>
+        '<div class="cp-svc-item">' +
+        rowSwitch('to.services.' + id + '.enabled', name, def.enabled, icon, cls) +
+        (def.enabled ?
+            '<div class="cp-svc-grid">' +
+            '<label class="cp-row"><span class="cp-row-label">Интервал (км)</span>' +
+            '<input type="number" data-path="to.services.' + id + '.intervalKm" value="' + def.intervalKm + '" min="1000" step="1000"></label>' +
+            '<label class="cp-row"><span class="cp-row-label">Интервал (мес.)</span>' +
+            '<input type="number" data-path="to.services.' + id + '.months" value="' + def.months + '" min="1" step="1"></label>' +
+            '</div>' :
+            '') +
+        '</div>';
+    
+    // --- СОБРАНИЕ МОДАЛКИ ---
+    const overlay = document.createElement('div');
+    overlay.id = 'cc-settings-overlay';
+    overlay.className = 'cp-settings-overlay';
+    overlay.innerHTML =
+        '<div class="cp-settings-modal">' +
+        '<div class="cp-settings-header">' +
+        badge('settings-outline', 'cp-icon-blue') +
+        '<h3>Настройки напоминаний</h3>' +
+        '</div>' +
+        '<div class="cp-settings-body">' +
+        
+        rowSwitch('enabled', 'Все напоминания', s.enabled, 'notifications-outline', 'cp-icon-blue') +
+        rowSwitch('systemNotifications', 'Системные уведомления', s.systemNotifications, 'phone-portrait-outline', 'cp-icon-purple') +
+        
+        section('construct-outline', 'Техобслуживание (ТО)', 'cp-icon-orange') +
+        rowSwitch('to.enabled', 'Включить напоминания о ТО', s.to.enabled, 'construct-outline', 'cp-icon-orange') +
+        (s.to.enabled ? rowNum('to.warnBeforeKm', 'Предупреждать за, км', s.to.warnBeforeKm, 0, undefined, 'speedometer-outline', 'cp-icon-blue') : '') +
+        (s.to.enabled ?
+            '<div class="cp-svc-list">' +
+            buildSvcRow('oil', 'Замена масла и фильтра', 'flask-outline', 'cp-icon-orange', getSvc('oil', 10000, 12)) +
+            buildSvcRow('trans', 'Масло в МКПП / АКПП', 'options-outline', 'cp-icon-blue', getSvc('trans', 60000, 48)) +
+            buildSvcRow('air', 'Воздушный фильтр', 'wind-outline', 'cp-icon-cyan', getSvc('air', 15000, 12)) +
+            buildSvcRow('cabin', 'Салонный фильтр', 'leaf-outline', 'cp-icon-green', getSvc('cabin', 15000, 12)) +
+            buildSvcRow('plugs', 'Свечи зажигания', 'flash-outline', 'cp-icon-yellow', getSvc('plugs', 30000, 24)) +
+            buildSvcRow('brakefl', 'Тормозная жидкость', 'water-outline', 'cp-icon-blue', getSvc('brakefl', 40000, 24)) +
+            buildSvcRow('coolant', 'Охлаждающая жидкость', 'snow-outline', 'cp-icon-cyan', getSvc('coolant', 60000, 36)) +
+            buildSvcRow('belt', 'Ремень / Цепь ГРМ', 'link-outline', 'cp-icon-purple', getSvc('belt', 80000, 60)) +
+            buildSvcRow('battery', 'Аккумулятор', 'battery-full-outline', 'cp-icon-green', getSvc('battery', 60000, 48)) +
+            '</div>' :
+            '') +
+        
+        section('calendar-outline', 'Смены', 'cp-icon-cyan') +
+        rowSwitch('shift.enabled', 'Напоминать о сменах', s.shift.enabled, 'calendar-outline', 'cp-icon-cyan') +
+        (s.shift.enabled ?
+            rowDate('shift.anchor', 'Начало цикла', s.shift.anchor, 'calendar-outline', 'cp-icon-cyan') +
+            rowNum('shift.workDays', 'Рабочих дней', s.shift.workDays, 1, undefined, 'briefcase-outline', 'cp-icon-orange') +
+            rowNum('shift.offDays', 'Выходных дней', s.shift.offDays, 1, undefined, 'bed-outline', 'cp-icon-purple') +
+            rowNum('shift.remindAtHour', 'Напоминать с часа', s.shift.remindAtHour, 0, 23, 'time-outline', 'cp-icon-yellow') :
+            '') +
+        
+        section('trending-up-outline', 'Топливо и Цели', 'cp-icon-teal') +
+        rowSwitch('fuel.enabled', 'Контроль роста расхода', s.fuel.enabled, 'trending-up-outline', 'cp-icon-teal') +
+        (s.fuel.enabled ? rowNum('fuel.risePercent', 'Порог роста, %', s.fuel.risePercent, 1, undefined, 'trending-up-outline', 'cp-icon-red') : '') +
+        rowSwitch('goals.enabled', 'Достижение целей', s.goals.enabled, 'trophy-outline', 'cp-icon-yellow') +
+        
+        '</div>' +
+        '<div class="cp-settings-footer">' +
+        '<button class="cp-btn" id="cc-settings-cancel" type="button">Отмена</button>' +
+        '<button class="cp-btn primary" id="cc-settings-save" type="button">' +
+        '<ion-icon name="checkmark-outline"></ion-icon> Сохранить' +
+        '</button>' +
+        '</div>' +
+        '</div>';
+    
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('visible'));
+    
+    const close = () => {
+        overlay.classList.remove('visible');
+        setTimeout(() => { if (overlay.parentNode) overlay.remove(); }, 250);
+    };
+    
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    
+    const cancelBtn = overlay.querySelector('#cc-settings-cancel');
+    if (cancelBtn) cancelBtn.addEventListener('click', close);
+    
+    const saveBtn = overlay.querySelector('#cc-settings-save');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+            overlay.querySelectorAll('[data-path]').forEach(inp => {
+                const path = inp.dataset.path;
+                if (inp.type === 'checkbox') setByPath(settings, path, inp.checked);
+                else if (inp.type === 'number') setByPath(settings, path, num(inp.value));
+                else setByPath(settings, path, inp.value);
             });
-        }
+            markDirty();
+            await saveRemindersData();
+            close();
+            refresh();
+            showNotification('success', 'Настройки сохранены', 'Изменения применены');
+        });
     }
+}
 
     // ---------- СВАЙП ----------
     function initSwipe() {
@@ -1606,3 +1638,6 @@
     }
 })();
 
+document.getElementById('cc-logout-btn')?.addEventListener('click', function() {
+    if (typeof window.logoutUser === 'function') window.logoutUser();
+});

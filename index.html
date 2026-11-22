@@ -7,19 +7,19 @@
     <meta name="description" content="Журнал работы водителя - учет доходов, расходов и аналитика">
     <meta name="keywords" content="водитель, журнал, учет, доходы, расходы, аналитика">
     <meta name="author" content="Driver Journal">
-    
+
     <!-- SEO и соцсети -->
     <meta property="og:title" content="Журнал работы водителя">
     <meta property="og:description" content="Учет доходов, расходов и аналитика для водителей">
     <meta property="og:type" content="website">
-    
+
     <!-- Тема для iOS -->
     <meta name="theme-color" content="#007AFF">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Журнал водителя">
     <meta name="mobile-web-app-capable" content="yes">
-    
+
     <title>Courier App</title>
 
     <!-- Favicon -->
@@ -41,58 +41,57 @@
     <link rel="stylesheet" href="css/entry-module.css">
     <link rel="stylesheet" href="css/shift.css">
     <link rel="stylesheet" href="css/control-center.css">
-    
-<!-- ⚡ Показываем экран загрузки СРАЗУ, если была сессия -->
-<script>
-    (function() {
-        try {
-            if (localStorage.getItem('driverAuthState') === 'true') {
-                // Помечаем html — для CSS (например, чтобы не мигала форма входа)
-                document.documentElement.classList.add('was-authenticated');
-            }
-        } catch (e) {}
-    })();
-</script>
-    
+
+    <!-- ⚡ Показываем экран загрузки СРАЗУ, если была сессия -->
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('driverAuthState') === 'true') {
+                    document.documentElement.classList.add('was-authenticated');
+                }
+            } catch (e) {}
+        })();
+    </script>
+
     <!-- Ionicons -->
     <script type="module" src="https://unpkg.com/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
     <script nomodule src="https://unpkg.com/ionicons@7.4.0/dist/ionicons/ionicons.js"></script>
-    
+
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-    
+
     <!-- Конфигурация Firebase -->
     <script src="firebase-config.js"></script>
-    
+
     <!-- Библиотеки для экспорта -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    
+
     <!-- ⚠️ ПОРЯДОК: auth-module ПОСЛЕ firebase-config, script.js с defer -->
-    <script src="auth-module.js?v=1.0.2"></script>
-    
-    <script src="script.js?v=2.9.97" defer></script>
-    
+    <script src="auth-module.js?v=1.0.3"></script>
+
+    <script src="script.js?v=2.9.98" defer></script>
+
     <!-- Модули -->
-     <script 
-        src="home-module.js?v=1.0.5"></script>
     <script 
-        src="vehicle-module.js?v=1.1.2"></script>
+        src="home-module.js?v=1.0.6"></script>
     <script 
-        src="repair-module.js?v=1.1.9"></script>
-    <script  
-        src="fuel-module.js?v=1.1.3"></script>
+        src="vehicle-module.js?v=1.1.3"></script>
     <script 
-        src="entry-module.js?v=1.1.1"></script>
+        src="repair-module.js?v=1.2.0"></script>
     <script 
-        src="shift-module.js?v=1.1.4"></script>
+        src="fuel-module.js?v=1.1.4"></script>
     <script 
-        src="backup-module.js?v=1.1.0"></script>
+        src="entry-module.js?v=1.1.2"></script>
     <script 
-        src="control-center.js?v=1.0.5"></script>
+        src="shift-module.js?v=1.1.5"></script>
+    <script 
+        src="backup-module.js?v=1.1.1"></script>
+    <script 
+        src="control-center.js?v=1.0.6"></script>
 </head>
 <body>
 
@@ -118,7 +117,7 @@
 <!-- ЭКРАН АВТОРИЗАЦИИ -->
 <!-- ============================================ -->
 <div id="auth-screen" class="auth-screen">
-    
+
     <div class="auth-particles">
         <div class="auth-particle" style="top: 10%; left: 5%; animation-delay: 0s;"></div>
         <div class="auth-particle" style="top: 20%; left: 85%; animation-delay: 1s;"></div>
@@ -127,9 +126,9 @@
         <div class="auth-particle" style="top: 40%; left: 50%; animation-delay: 1.5s;"></div>
         <div class="auth-particle" style="top: 85%; left: 30%; animation-delay: 2.5s;"></div>
     </div>
-    
+
     <div class="auth-container">
-        
+
         <div class="auth-header">
             <div class="auth-icon-wrapper">
                 <div class="auth-icon">
@@ -140,7 +139,7 @@
             <h1 class="auth-title">Журнал водителя</h1>
             <p class="auth-subtitle">Войдите или создайте аккаунт</p>
         </div>
-        
+
         <div class="auth-tabs">
             <button class="auth-tab active" onclick="switchAuthTab('login')">
                 <ion-icon name="log-in-outline"></ion-icon>
@@ -151,7 +150,7 @@
                 Регистрация
             </button>
         </div>
-        
+
         <form id="login-form" class="auth-form">
             <div class="auth-form-group">
                 <label><ion-icon name="mail-outline"></ion-icon> Email</label>
@@ -171,7 +170,7 @@
             </button>
             <div id="login-error" class="auth-error"></div>
         </form>
-        
+
         <form id="register-form" class="auth-form" style="display: none;">
             <div class="auth-form-group">
                 <label><ion-icon name="person-outline"></ion-icon> Имя</label>
@@ -215,12 +214,10 @@
         </div>
         <div class="header-titles">
             <h1>Журнал работы водителя</h1>
-            
         </div>
     </div>
-    
+
     <div class="header-bottom-row">
-        
         <button id="logout-btn" class="header-logout">
             <ion-icon name="log-out-outline"></ion-icon>
         </button>
@@ -229,12 +226,12 @@
 <div class="header-spacer" id="header-spacer"></div>
 
     <main id="main-content" class="tabs-container">
-        
+
+<!-- Вкладка: Главная -->
 <div id="tab-home" class="tab-content active">
 
 <!-- 1. HERO-СЕКЦИЯ (Финансовый итог месяца) -->
 <div class="card dash-hero-card">
-    <!-- Заголовок с переключателем месяцев -->
     <div class="dash-hero-header">
         <button class="dash-nav-btn" id="dash-prev-month" type="button" aria-label="Предыдущий месяц">
             <ion-icon name="chevron-back-outline"></ion-icon>
@@ -244,12 +241,11 @@
             <ion-icon name="chevron-forward-outline"></ion-icon>
         </button>
     </div>
-    
-    <!-- Подпись "ЧИСТАЯ ПРИБЫЛЬ" оставляем как было -->
+
     <div class="dash-hero-label" style="font-size:13px;">ЧИСТАЯ ПРИБЫЛЬ ЗА МЕСЯЦ</div>
-    
+
     <div class="dash-hero-value" id="profile-total-profit">0 ₽</div>
-    
+
     <div class="dash-hero-sub">
         <div class="dash-sub-item">
             <span>ДОХОД</span>
@@ -275,7 +271,7 @@
             </div>
             <div class="dash-metric-value" id="profile-avg-per-day">0 ₽</div>
         </div>
-        
+
         <div class="card dash-metric-card">
             <div class="dash-metric-header">
                 <ion-icon name="cube" style="color: #007AFF;"></ion-icon>
@@ -310,7 +306,6 @@
             </button>
         </div>
 
-        <!-- Доход -->
         <div class="dash-goal-item">
             <div class="dash-goal-labels">
                 <span>Доход</span>
@@ -319,7 +314,6 @@
             <div class="dash-progress-track"><div class="dash-progress-fill bg-green" id="goal-income-bar" style="width: 0%;"></div></div>
         </div>
 
-        <!-- Заказы -->
         <div class="dash-goal-item">
             <div class="dash-goal-labels">
                 <span>Заказы</span>
@@ -328,7 +322,6 @@
             <div class="dash-progress-track"><div class="dash-progress-fill bg-blue" id="goal-orders-bar" style="width: 0%;"></div></div>
         </div>
 
-        <!-- Часы -->
         <div class="dash-goal-item" style="margin-bottom: 0;">
             <div class="dash-goal-labels">
                 <span>Часы</span>
@@ -343,9 +336,7 @@
         <div class="dash-section-header">
             <h2><ion-icon name="medal" style="color: var(--ios-gold);"></ion-icon> Достижения</h2>
         </div>
-        <div id="profile-achievements" class="dash-achievements-scroll">
-            <!-- JS добавит бейджи сюда -->
-        </div>
+        <div id="profile-achievements" class="dash-achievements-scroll"></div>
     </div>
 
     <!-- 5. ПОСЛЕДНИЕ ЗАПИСИ -->
@@ -362,8 +353,7 @@
 
 <!-- Вкладка: Аналитика -->
 <div id="tab-analytics" class="tab-content">
-    
-    <!-- ============ ФИЛЬТРЫ ============ -->
+
     <div class="card" style="margin-bottom: 12px;">
         <div class="repair-filters">
             <div class="filter-group">
@@ -376,20 +366,18 @@
             </div>
         </div>
     </div>
-    
-    <!-- ============ ГЛАВНЫЙ БЛОК (HERO) ============ -->
+
     <div class="analytics-hero-card">
         <div class="analytics-hero-month">
-            <!-- По умолчанию ВСЕ ВРЕМЯ, чтобы не путать -->
             <span id="analytics-month-title">ВСЕ ВРЕМЯ</span>
         </div>
-        
+
         <div class="analytics-hero-main">
             <div class="analytics-hero-amount" id="net-profit">0 ₽</div>
         </div>
-        
+
         <div class="analytics-hero-divider"></div>
-        
+
         <div class="analytics-hero-subgrid">
             <div class="analytics-hero-subitem">
                 <div class="sub-label">ДОХОД</div>
@@ -405,8 +393,7 @@
             </div>
         </div>
     </div>
-    
-    <!-- ============ СЕТКА 2Х2 (БЫСТРЫЕ ПОКАЗАТЕЛИ) ============ -->
+
     <div class="analytics-stats-grid">
         <div class="analytics-stat-card">
             <div class="analytics-icon-label">
@@ -415,7 +402,7 @@
             </div>
             <div class="analytics-value" id="avg-net-profit-per-day">0 ₽</div>
         </div>
-        
+
         <div class="analytics-stat-card">
             <div class="analytics-icon-label">
                 <ion-icon name="cube-outline" class="icon-blue-text"></ion-icon>
@@ -423,7 +410,7 @@
             </div>
             <div class="analytics-value" id="total-orders">0</div>
         </div>
-        
+
         <div class="analytics-stat-card">
             <div class="analytics-icon-label">
                 <ion-icon name="time-outline" class="icon-orange-text"></ion-icon>
@@ -431,7 +418,7 @@
             </div>
             <div class="analytics-value" id="total-hours">0</div>
         </div>
-        
+
         <div class="analytics-stat-card">
             <div class="analytics-icon-label">
                 <ion-icon name="cash-outline" class="icon-purple-text"></ion-icon>
@@ -440,14 +427,12 @@
             <div class="analytics-value" id="avg-check">0 ₽</div>
         </div>
     </div>
-    
-    <!-- ============ ДЕТАЛИЗАЦИЯ ============ -->
+
     <div class="card">
         <h2><ion-icon name="stats-chart-outline" class="section-icon"></ion-icon> Детализация</h2>
-        
-        <!-- ВАЖНО: здесь используется analytics-details-grid, а не stats-grid -->
+
         <div class="analytics-details-grid">
-            
+
             <div class="analytics-detail-card">
                 <div class="analytics-icon-label">
                     <ion-icon name="calendar-outline" class="icon-green-text"></ion-icon>
@@ -455,7 +440,7 @@
                 </div>
                 <div class="analytics-detail-value" id="avg-income-per-day">0 ₽</div>
             </div>
-            
+
             <div class="analytics-detail-card">
                 <div class="analytics-icon-label">
                     <ion-icon name="flame-outline" class="icon-orange-text"></ion-icon>
@@ -463,7 +448,7 @@
                 </div>
                 <div class="analytics-detail-value" id="total-fuel">0 ₽</div>
             </div>
-            
+
             <div class="analytics-detail-card">
                 <div class="analytics-icon-label">
                     <ion-icon name="construct-outline" class="icon-red-text"></ion-icon>
@@ -471,7 +456,7 @@
                 </div>
                 <div class="analytics-detail-value" id="total-repair">0 ₽</div>
             </div>
-            
+
             <div class="analytics-detail-card">
                 <div class="analytics-icon-label">
                     <ion-icon name="receipt-outline" class="icon-purple-text"></ion-icon>
@@ -479,7 +464,7 @@
                 </div>
                 <div class="analytics-detail-value" id="total-tax">0 ₽</div>
             </div>
-            
+
             <div class="analytics-detail-card">
                 <div class="analytics-icon-label">
                     <ion-icon name="navigate-outline" class="icon-gray-text"></ion-icon>
@@ -487,7 +472,7 @@
                 </div>
                 <div class="analytics-detail-value" id="total-distance">0 <span class="unit">км</span></div>
             </div>
-            
+
             <div class="analytics-detail-card">
                 <div class="analytics-icon-label">
                     <ion-icon name="speedometer-outline" class="icon-cyan-text"></ion-icon>
@@ -495,11 +480,10 @@
                 </div>
                 <div class="analytics-detail-value" id="avg-per-hour">0 ₽</div>
             </div>
-            
+
         </div>
     </div>
-    
-    <!-- ============ ГРАФИКИ ============ -->
+
     <div class="card">
         <h2><ion-icon name="bar-chart-outline" class="section-icon"></ion-icon> Графики</h2>
         <div class="repair-charts-grid">
@@ -517,11 +501,10 @@
             </div>
         </div>
     </div>
-    
-    <!-- ============ СРАВНЕНИЕ ПЕРИОДОВ ============ -->
+
     <div class="card">
         <h2><ion-icon name="git-compare-outline" class="section-icon"></ion-icon> Сравнение периодов</h2>
-        
+
         <div class="comparison-selectors">
             <div class="comparison-period">
                 <h3><ion-icon name="calendar-outline"></ion-icon> Период 1</h3>
@@ -532,9 +515,9 @@
                     <select id="compare1-year" onchange="updateComparison()"></select>
                 </div>
             </div>
-            
+
             <div class="comparison-vs">VS</div>
-            
+
             <div class="comparison-period">
                 <h3><ion-icon name="calendar-outline"></ion-icon> Период 2</h3>
                 <div class="form-group">
@@ -545,7 +528,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="quick-compare-buttons">
             <button class="btn btn-secondary" onclick="quickCompare('month')">
                 <ion-icon name="calendar-number-outline"></ion-icon> Этот vs Прошлый месяц
@@ -557,7 +540,7 @@
                 <ion-icon name="calendar-number-outline"></ion-icon> Тот же месяц vs прошлый год
             </button>
         </div>
-        
+
         <div class="table-scroll-wrapper" style="margin-top: 16px;">
             <div id="comparison-results">
                 <div class="repair-list-placeholder">
@@ -565,7 +548,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="repair-chart-box" style="margin-top: 20px;">
             <h4>📈 Сравнительный график</h4>
             <div class="chart-wrapper">
@@ -573,14 +556,14 @@
             </div>
         </div>
     </div>
-    
+
 </div>
 
 <!-- Вкладка: История -->
 <div id="tab-history" class="tab-content">
     <div class="card glass-heavy">
         <h2><ion-icon name="clipboard-outline" class="section-icon"></ion-icon> История записей</h2>
-        
+
         <div class="filters" style="margin-bottom: 16px;">
             <div class="form-group" style="flex: 1; min-width: 140px;">
                 <label><ion-icon name="calendar-outline"></ion-icon> Месяц</label>
@@ -606,18 +589,18 @@
                 </button>
             </div>
         </div>
-        
-<div class="view-mode-toggle">
-    <button class="vmt-btn active" id="vmt-table" onclick="setViewMode('table')" title="Таблица">
-        <ion-icon name="grid-outline"></ion-icon><span>Таблица</span>
-    </button>
-    <button class="vmt-btn" id="vmt-cards" onclick="setViewMode('cards')" title="Карточки">
-        <ion-icon name="albums-outline"></ion-icon><span>Карточки</span>
-    </button>
-</div>
-        
+
+        <div class="view-mode-toggle">
+            <button class="vmt-btn active" id="vmt-table" onclick="setViewMode('table')" title="Таблица">
+                <ion-icon name="grid-outline"></ion-icon><span>Таблица</span>
+            </button>
+            <button class="vmt-btn" id="vmt-cards" onclick="setViewMode('cards')" title="Карточки">
+                <ion-icon name="albums-outline"></ion-icon><span>Карточки</span>
+            </button>
+        </div>
+
         <div id="history-info" style="margin-bottom: 12px; font-size: 13px; color: var(--ios-text-tertiary); text-align: center;">Загрузка...</div>
-        
+
         <div class="table-container" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
             <table style="min-width: 1800px;">
                 <thead>
@@ -659,7 +642,7 @@
                 <tbody id="records-body"></tbody>
             </table>
         </div>
-        
+
         <div id="history-pagination" style="display: flex; justify-content: center; gap: 8px; margin-top: 16px;"></div>
     </div>
 </div>
@@ -668,10 +651,8 @@
 <div id="tab-fuel" class="tab-content">
     <div class="card">
         <h2><ion-icon name="flame-outline" class="section-icon"></ion-icon> Калькулятор топлива</h2>
-        
-        <!-- ============ СТАТИСТИКА ============ -->
+
         <div class="repair-stats-grid">
-            <!-- Средний расход -->
             <div class="repair-stat-card">
                 <div class="stat-icon-wrapper icon-green">
                     <ion-icon name="speedometer-outline"></ion-icon>
@@ -681,8 +662,7 @@
                     <div class="stat-value" id="fuel-avg-consumption">0 <span class="unit">л/100км</span></div>
                 </div>
             </div>
-            
-            <!-- Стоимость км -->
+
             <div class="repair-stat-card">
                 <div class="stat-icon-wrapper icon-blue">
                     <ion-icon name="cash-outline"></ion-icon>
@@ -692,8 +672,7 @@
                     <div class="stat-value" id="fuel-cost-per-km">0 <span class="unit">₽/км</span></div>
                 </div>
             </div>
-            
-            <!-- Всего литров -->
+
             <div class="repair-stat-card">
                 <div class="stat-icon-wrapper icon-cyan" style="background: rgba(90, 200, 250, 0.12); color: #5AC8FA;">
                     <ion-icon name="water-outline"></ion-icon>
@@ -703,8 +682,7 @@
                     <div class="stat-value" id="fuel-total-liters">0 <span class="unit">л</span></div>
                 </div>
             </div>
-            
-            <!-- Пробег -->
+
             <div class="repair-stat-card">
                 <div class="stat-icon-wrapper icon-gray" style="background: rgba(142, 142, 147, 0.12); color: #8E8E93;">
                     <ion-icon name="car-outline"></ion-icon>
@@ -714,8 +692,7 @@
                     <div class="stat-value" id="fuel-total-mileage">0 <span class="unit">км</span></div>
                 </div>
             </div>
-            
-            <!-- Всего потрачено -->
+
             <div class="repair-stat-card">
                 <div class="stat-icon-wrapper icon-orange">
                     <ion-icon name="wallet-outline"></ion-icon>
@@ -725,8 +702,7 @@
                     <div class="stat-value" id="fuel-total-spent">0 <span class="unit">₽</span></div>
                 </div>
             </div>
-            
-            <!-- Заправок -->
+
             <div class="repair-stat-card">
                 <div class="stat-icon-wrapper icon-purple">
                     <ion-icon name="list-outline"></ion-icon>
@@ -737,33 +713,30 @@
                 </div>
             </div>
         </div>
-        
-        <!-- ============ КНОПКА ДОБАВЛЕНИЯ ============ -->
+
         <div class="repair-add-trigger">
             <button type="button" class="btn btn-primary repair-add-btn" onclick="openFuelModal()">
                 <ion-icon name="add-circle-outline"></ion-icon> Добавить заправку
             </button>
         </div>
     </div>
-    
-<!-- ============ ГРАФИК ============ -->
-<div class="card">
-    <h2><ion-icon name="trending-up-outline" class="section-icon"></ion-icon> Динамика расхода топлива</h2>
-    
-    <div class="chart-wrapper">
-        <canvas id="fuel-consumption-chart"></canvas>
+
+    <div class="card">
+        <h2><ion-icon name="trending-up-outline" class="section-icon"></ion-icon> Динамика расхода топлива</h2>
+
+        <div class="chart-wrapper">
+            <canvas id="fuel-consumption-chart"></canvas>
+        </div>
+
+        <div id="fuel-chart-empty" class="repair-chart-empty">
+            <ion-icon name="analytics-outline"></ion-icon>
+            Добавьте минимум 2 заправки с указанием пробега для построения графика
+        </div>
     </div>
-    
-    <div id="fuel-chart-empty" class="repair-chart-empty">
-        <ion-icon name="analytics-outline"></ion-icon>
-        Добавьте минимум 2 заправки с указанием пробега для построения графика
-    </div>
-</div>
-    
-    <!-- ============ ИСТОРИЯ ЗАПРАВОК ============ -->
+
     <div class="card">
         <h2><ion-icon name="time-outline" class="section-icon"></ion-icon> История заправок</h2>
-        
+
         <div class="repair-filters">
             <div class="filter-group">
                 <label>Период</label>
@@ -775,7 +748,7 @@
                 </select>
             </div>
         </div>
-        
+
         <div id="fuel-logs-list">
             <div class="repair-list-placeholder">
                 <ion-icon name="fuel-outline"></ion-icon>
@@ -785,45 +758,12 @@
     </div>
 </div>
 
-<!-- Модальное окно заправки -->
-<div class="fuel-modal-overlay" id="fuel-modal-overlay">
-    <div class="fuel-modal">
-        <div class="fuel-modal-header">
-            <ion-icon name="fuel-outline"></ion-icon>
-            <h3>Добавить заправку</h3>
-            <button class="fuel-modal-close" onclick="closeFuelModal()" aria-label="Закрыть">
-                <ion-icon name="close-outline"></ion-icon>
-            </button>
-        </div>
-        <div class="fuel-modal-body">
-            <form id="fuel-form">
-                <div class="form-group"><label><ion-icon name="car-outline"></ion-icon> Автомобиль</label><select id="fuel-vehicle-select"></select></div>
-                <div class="form-group"><label><ion-icon name="calendar-outline"></ion-icon> Дата *</label><input type="date" id="fuel-date" required></div>
-                <div class="form-group"><label><ion-icon name="speedometer-outline"></ion-icon> Пробег (км) *</label><input type="number" id="fuel-mileage" placeholder="Например: 125000" required min="0" step="1"></div>
-                <div class="form-group"><label><ion-icon name="water-outline"></ion-icon> Литры *</label><input type="number" id="fuel-liters" placeholder="Например: 45.5" required min="0" step="0.01"></div>
-                <div class="form-group"><label><ion-icon name="cash-outline"></ion-icon> Сумма (₽) *</label><input type="text" id="fuel-amount" placeholder="Например: 45.5*2 или 1500+300" required autocomplete="off"></div>
-                <div class="form-row">
-                    <div class="form-group"><label><ion-icon name="pricetag-outline"></ion-icon> Цена за литр (₽)</label><input type="number" id="fuel-price" placeholder="Авторасчет" readonly></div>
-                    <div class="form-group"><label><ion-icon name="trending-up-outline"></ion-icon> Расход л/100км</label><input type="number" id="fuel-consumption" placeholder="Авторасчет" readonly></div>
-                </div>
-                <div class="form-group"><label><ion-icon name="document-text-outline"></ion-icon> Комментарий</label><input type="text" id="fuel-comment" placeholder="АЗС, марка бензина и т.д."></div>
-            </form>
-        </div>
-        <div class="fuel-modal-footer">
-            <button type="button" class="btn btn-clear" onclick="clearFuelForm()"><ion-icon name="trash-outline"></ion-icon> Очистить</button>
-            <button type="button" class="btn btn-save" onclick="handleFuelSubmit()"><ion-icon name="save-outline"></ion-icon><span id="fuel-submit-text">Сохранить</span></button>
-        </div>
-    </div>
-</div>
-
 <!-- Вкладка: Ремонт -->
 <div id="tab-repair" class="tab-content">
     <div class="card">
         <h2><ion-icon name="construct-outline" class="section-icon"></ion-icon> Учет ремонта</h2>
-        
-        <!-- ============ СТАТИСТИКА ============ -->
+
         <div class="repair-stats-grid">
-            <!-- Карточка 1 -->
             <div class="repair-stat-card">
                 <div class="stat-icon-wrapper icon-red">
                     <ion-icon name="construct-outline"></ion-icon>
@@ -833,8 +773,7 @@
                     <div class="stat-value" id="repair-total-count">0</div>
                 </div>
             </div>
-            
-            <!-- Карточка 2 -->
+
             <div class="repair-stat-card">
                 <div class="stat-icon-wrapper icon-orange">
                     <ion-icon name="cash-outline"></ion-icon>
@@ -844,8 +783,7 @@
                     <div class="stat-value" id="repair-total-amount">0 ₽</div>
                 </div>
             </div>
-            
-            <!-- Карточка 3 -->
+
             <div class="repair-stat-card">
                 <div class="stat-icon-wrapper icon-blue">
                     <ion-icon name="calculator-outline"></ion-icon>
@@ -855,8 +793,7 @@
                     <div class="stat-value" id="repair-avg-amount">0 ₽</div>
                 </div>
             </div>
-            
-            <!-- Карточка 4 -->
+
             <div class="repair-stat-card">
                 <div class="stat-icon-wrapper icon-purple">
                     <ion-icon name="stats-chart-outline"></ion-icon>
@@ -866,8 +803,7 @@
                     <div class="stat-value" id="repair-most-common">—</div>
                 </div>
             </div>
-            
-            <!-- Карточка 5 -->
+
             <div class="repair-stat-card">
                 <div class="stat-icon-wrapper icon-green">
                     <ion-icon name="navigate-outline"></ion-icon>
@@ -877,8 +813,7 @@
                     <div class="stat-value" id="repair-total-mileage">0 <span class="unit">км</span></div>
                 </div>
             </div>
-            
-            <!-- Карточка 6 -->
+
             <div class="repair-stat-card">
                 <div class="stat-icon-wrapper icon-gold">
                     <ion-icon name="speedometer-outline"></ion-icon>
@@ -889,15 +824,13 @@
                 </div>
             </div>
         </div>
-        
-        <!-- ============ КНОПКА ДОБАВЛЕНИЯ ============ -->
+
         <div class="repair-add-trigger">
             <button type="button" class="btn btn-primary repair-add-btn" onclick="openRepairModal()">
                 <ion-icon name="add-circle-outline"></ion-icon> Добавить ремонт
             </button>
         </div>
-        
-        <!-- ============ ГРАФИКИ ============ -->
+
         <div class="repair-charts-grid">
             <div class="repair-chart-box">
                 <h4>Расходы по категориям</h4>
@@ -914,8 +847,7 @@
                 </div>
             </div>
         </div>
-        
-        <!-- ============ ФИЛЬТРЫ ============ -->
+
         <div class="repair-filters">
             <div class="filter-group">
                 <label>Период</label>
@@ -948,95 +880,17 @@
                 <input type="text" id="repair-filter-search" placeholder="Поиск по описанию...">
             </div>
         </div>
-        
-        <!-- ============ СПИСОК ============ -->
+
         <div id="repair-list">
             <div class="repair-list-placeholder">
                 <ion-icon name="construct-outline"></ion-icon> Загрузка данных о ремонте...
             </div>
         </div>
-        
-        <!-- ============ ЭКСПОРТ ============ -->
+
         <div class="repair-export-btn">
             <button class="btn btn-secondary" onclick="exportRepairData()">
                 <ion-icon name="download-outline"></ion-icon> Экспорт ремонтов (JSON)
             </button>
-        </div>
-    </div>
-</div>
-
-<!-- Модальное окно ремонта -->
-<div id="repair-modal-overlay" class="fuel-modal-overlay" style="display:none;">
-    <div class="fuel-modal" role="dialog" aria-modal="true" style="max-width:600px;max-height:90vh;overflow-y:auto;">
-        <div class="fuel-modal-header">
-            <div class="fuel-modal-handle"></div>
-            <h3 class="fuel-modal-title"><ion-icon name="construct-outline"></ion-icon><span id="repair-modal-title-text">Добавить ремонт</span></h3>
-            <button class="fuel-modal-close" type="button" onclick="closeRepairModal()" aria-label="Закрыть"><ion-icon name="close-outline"></ion-icon></button>
-        </div>
-        <div class="fuel-modal-body">
-            <form id="repair-modal-form" onsubmit="return false;">
-                <div class="form-row">
-                    <div class="form-group"><label><ion-icon name="car-outline" class="form-icon"></ion-icon> Автомобиль</label><select id="repair-modal-vehicle-select"></select></div>
-                    <div class="form-group"><label><ion-icon name="calendar-outline" class="form-icon"></ion-icon> Дата *</label><input type="date" id="repair-modal-date" required></div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group"><label><ion-icon name="speedometer-outline" class="form-icon"></ion-icon> Пробег (км) *</label><input type="number" id="repair-modal-mileage" min="0" required></div>
-                    <div class="form-group"><label><ion-icon name="pricetag-outline" class="form-icon"></ion-icon> Категория *</label>
-                        <select id="repair-modal-category" required>
-                            <option value="engine">Двигатель</option><option value="transmission">Трансмиссия</option>
-                            <option value="brakes">Тормозная система</option><option value="suspension">Подвеска</option>
-                            <option value="electrics">Электрика</option><option value="body">Кузов</option>
-                            <option value="tires">Шины/Диски</option><option value="oil">Масло/Жидкости</option>
-                            <option value="cooling">Охлаждение</option><option value="exhaust">Выхлопная система</option>
-                            <option value="other">Прочее</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-group"><label><ion-icon name="document-text-outline" class="form-icon"></ion-icon> Описание</label><input type="text" id="repair-modal-description" placeholder="Что менялось?"></div>
-                <div class="form-section">
-                    <h4><ion-icon name="cube-outline"></ion-icon> Запчасти и материалы</h4>
-                    <div id="repair-modal-parts-list" class="dynamic-list-container"></div>
-                    <button type="button" class="btn-add-dynamic" onclick="addRepairModalPart()"><ion-icon name="add-circle-outline"></ion-icon> Добавить деталь</button>
-                </div>
-                <div class="form-section">
-                    <h4><ion-icon name="construct-outline"></ion-icon> Работы</h4>
-                    <div id="repair-modal-works-list" class="dynamic-list-container"></div>
-                    <button type="button" class="btn-add-dynamic" onclick="addRepairModalWork()"><ion-icon name="add-circle-outline"></ion-icon> Добавить работу</button>
-                </div>
-                <div class="form-section">
-                    <h4><ion-icon name="camera-outline"></ion-icon> Фото чека и документов</h4>
-                    <div class="photo-upload-grid">
-                        <div class="photo-upload-item">
-                            <label for="repair-modal-receipt-upload" class="photo-upload-label"><ion-icon name="receipt-outline"></ion-icon><span>Чек</span></label>
-                            <input type="file" id="repair-modal-receipt-upload" accept="image/*" class="photo-upload-input" onchange="handleRepairModalPhotoSelect(event, 'receipt')">
-                            <div class="photo-preview" id="repair-modal-receipt-preview"><ion-icon name="image-outline"></ion-icon><span>Нет фото</span></div>
-                            <div class="photo-rotate-controls" id="repair-modal-receipt-rotate" style="display: none;">
-                                <button type="button" class="photo-rotate-btn" onclick="rotateRepairModalPhoto('receipt', -90)" title="Повернуть влево"><ion-icon name="refresh-outline" style="transform: scaleX(-1);"></ion-icon></button>
-                                <button type="button" class="photo-rotate-btn" onclick="rotateRepairModalPhoto('receipt', 90)" title="Повернуть вправо"><ion-icon name="refresh-outline"></ion-icon></button>
-                            </div>
-                        </div>
-                        <div class="photo-upload-item">
-                            <label for="repair-modal-document-upload" class="photo-upload-label"><ion-icon name="document-text-outline"></ion-icon><span>Документ</span></label>
-                            <input type="file" id="repair-modal-document-upload" accept="image/*" class="photo-upload-input" onchange="handleRepairModalPhotoSelect(event, 'document')">
-                            <div class="photo-preview" id="repair-modal-document-preview"><ion-icon name="image-outline"></ion-icon><span>Нет фото</span></div>
-                            <div class="photo-rotate-controls" id="repair-modal-document-rotate" style="display: none;">
-                                <button type="button" class="photo-rotate-btn" onclick="rotateRepairModalPhoto('document', -90)" title="Повернуть влево"><ion-icon name="refresh-outline" style="transform: scaleX(-1);"></ion-icon></button>
-                                <button type="button" class="photo-rotate-btn" onclick="rotateRepairModalPhoto('document', 90)" title="Повернуть вправо"><ion-icon name="refresh-outline"></ion-icon></button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-group"><label><ion-icon name="chatbox-ellipses-outline" class="form-icon"></ion-icon> Комментарий</label><textarea id="repair-modal-comment" rows="2" placeholder="Дополнительная информация"></textarea></div>
-                <div class="repair-modal-totals">
-                    <div class="repair-modal-total-row"><span>Запчасти:</span><strong id="repair-modal-parts-total">0 ₽</strong></div>
-                    <div class="repair-modal-total-row"><span>Работы:</span><strong id="repair-modal-works-total">0 ₽</strong></div>
-                    <div class="repair-modal-total-row repair-modal-total-final"><span>Итого:</span><strong id="repair-modal-total-cost">0 ₽</strong></div>
-                </div>
-            </form>
-        </div>
-        <div class="fuel-modal-footer">
-            <button type="button" class="btn btn-clear" onclick="clearRepairModalForm()"><ion-icon name="trash-outline"></ion-icon> Очистить</button>
-            <button type="button" class="btn btn-save" onclick="submitRepairModal()"><ion-icon name="save-outline"></ion-icon><span id="repair-modal-submit-text">Сохранить</span></button>
         </div>
     </div>
 </div>
@@ -1056,152 +910,7 @@
     </div>
 </div>
 
-<!-- Модальное окно: Настройки -->
-<div id="tab-settings" class="fuel-modal-overlay" style="display: none; z-index: 10000;">
-    <div class="fuel-modal" style="max-width: 600px;">
-        
-        <!-- Ручка для свайпа -->
-        <div class="fuel-modal-handle"></div>
-        
-        <!-- Шапка -->
-        <div class="fuel-modal-header">
-            <ion-icon name="settings-outline"></ion-icon>
-            <h3>Настройки</h3>
-            <button type="button" class="fuel-modal-close" onclick="closeAppSettings()" aria-label="Закрыть">
-                <ion-icon name="close-outline"></ion-icon>
-            </button>
-        </div>
-        
-        <!-- Тело (со скроллом) -->
-        <div class="fuel-modal-body">
-            
-            <!-- ПРОФИЛЬ -->
-            <div class="card" style="text-align: center; margin-bottom: 20px; background: var(--ios-bg-secondary);">
-                <div style="position: relative; display: inline-block; margin-bottom: 12px; cursor: pointer;" id="profile-avatar-container" onclick="document.getElementById('avatar-input').click()">
-                    <div id="profile-avatar" style="width: 100px; height: 100px; border-radius: 50%; background: var(--ios-accent-light); display: flex; align-items: center; justify-content: center; border: 3px solid var(--ios-accent); overflow: hidden; position: relative;">
-                        <ion-icon name="person-circle-outline" id="avatar-icon" style="font-size: 48px; color: var(--ios-accent);"></ion-icon>
-                        <img id="avatar-image" src="" alt="Фото" style="display: none; width: 100%; height: 100%; object-fit: cover;">
-                    </div>
-                    <input type="file" id="avatar-input" accept="image/*" style="display: none;" onchange="uploadAvatar(event)">
-                </div>
-                <h2 id="profile-name" style="font-size: 20px; margin-bottom: 4px;">Загрузка...</h2>
-                <p style="color: var(--ios-text-tertiary); font-size: 14px; margin: 0;" id="profile-email">email@example.com</p>
-            </div>
-            
-            <!-- ТАРИФЫ -->
-            <div class="card" style="margin-bottom: 16px;">
-                <h2><ion-icon name="pricetag-outline" style="color: var(--ios-warning);"></ion-icon> Тарифы</h2>
-                <p class="tariff-info">Тарифы применяются с указанной даты.</p>
-                <form id="tariff-form" class="tariff-form" onsubmit="saveTariff(event)">
-                    <div class="form-row">
-                        <div class="form-group"><label>Дата вступления в силу *</label><input type="date" id="tariff-date" required></div>
-                        <div class="form-group"><label>Забор (₽/шт)</label><input type="number" id="tariff-pickup" step="0.01" min="0" required></div>
-                        <div class="form-group"><label>Выдача (₽/шт)</label><input type="number" id="tariff-delivery" step="0.01" min="0" required></div>
-                        <div class="form-group"><label>Км (₽/км)</label><input type="number" id="tariff-km" step="0.01" min="0" required></div>
-                        <div class="form-group"><label>Вес (₽/кг)</label><input type="number" id="tariff-weight" step="0.01" min="0" required></div>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-success" style="width: 100%;">
-                            <ion-icon name="checkmark-circle-outline"></ion-icon> Добавить тариф
-                        </button>
-                    </div>
-                </form>
-            </div>
-            
-            <!-- МАССОВЫЕ ДЕЙСТВИЯ -->
-            <div class="card" style="margin-bottom: 16px;">
-                <h2><ion-icon name="options-outline" style="color: var(--ios-accent);"></ion-icon> Массовые действия</h2>
-                <button class="btn btn-primary" onclick="recalculateAllTariffs()" style="width: 100%; margin-bottom: 8px;">
-                    <ion-icon name="refresh-outline"></ion-icon> Пересчитать по тарифам
-                </button>
-                <p class="hint-text" style="text-align: center;">Обновит суммы выплат во всех записях.</p>
-            </div>
-            
-            <!-- ИСТОРИЯ ТАРИФОВ -->
-            <div class="card" style="margin-bottom: 16px;">
-                <h2><ion-icon name="time-outline" style="color: var(--ios-purple);"></ion-icon> История тарифов</h2>
-                <div id="tariffs-list" class="tariffs-list"></div>
-            </div>
-            
-            <!-- АВТОМОБИЛИ -->
-            <div class="card" style="margin-bottom: 16px;">
-                <h2><ion-icon name="car-sport-outline" style="color: var(--ios-accent);"></ion-icon> Мои автомобили</h2>
-                <div class="form-group" style="margin-bottom: 16px;">
-                    <label>Активный автомобиль:</label>
-                    <select id="vehicle-selector" class="form-control"></select>
-                </div>
-                <form id="vehicle-form" class="tariff-form" style="background: transparent; padding: 0; border: none; box-shadow: none;">
-                    <div class="form-row">
-                        <div class="form-group"><label>Модель *</label><input type="text" id="vehicle-name" placeholder="Kia K5" required></div>
-                        <div class="form-group"><label>Гос. номер</label><input type="text" id="vehicle-plate" placeholder="А 000 АА 00"></div>
-                        <div class="form-group"><label>Год</label><input type="number" id="vehicle-year" placeholder="2020"></div>
-                    </div>
-                    <div style="display: flex; gap: 8px; margin-top: 12px;">
-                        <button type="submit" class="btn btn-success" style="flex: 1;"><ion-icon name="add-circle-outline"></ion-icon> Добавить</button>
-                        <button type="button" id="cancel-edit-vehicle" class="btn btn-secondary" style="display: none;" onclick="cancelEditVehicle()">Отмена</button>
-                    </div>
-                </form>
-                <div id="vehicle-list" class="vehicle-list-container" style="margin-top: 16px;"></div>
-            </div>
-            
-            <!-- БЭКАП -->
-            <div class="card" style="margin-bottom: 16px;">
-                <h2><ion-icon name="cloud-download-outline" style="color: var(--ios-success);"></ion-icon> Резервное копирование</h2>
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <button class="btn btn-primary" onclick="exportToExcel()" style="width: 100%;"><ion-icon name="grid-outline"></ion-icon> Экспорт в Excel</button>
-                    <button class="btn btn-success" onclick="exportToPDF()" style="width: 100%;"><ion-icon name="print-outline"></ion-icon> Экспорт в PDF</button>
-                    <button class="btn btn-secondary" onclick="exportFullBackup()" style="width: 100%;"><ion-icon name="save-outline"></ion-icon> Полный бэкап (JSON)</button>
-                    <button class="btn btn-secondary" onclick="importFullBackup()" style="width: 100%;"><ion-icon name="cloud-upload-outline"></ion-icon> Восстановить</button>
-                    <button class="btn btn-danger" onclick="resetAllAppData()" style="width: 100%;"><ion-icon name="trash-outline"></ion-icon> Полный сброс</button>
-                </div>
-            </div>
-            
-        </div>
-        
-        <!-- Футер (как в модалке ввода данных) -->
-        <div class="fuel-modal-footer">
-            <button type="button" class="btn btn-clear" onclick="closeAppSettings()">
-                <ion-icon name="close-circle-outline"></ion-icon> Закрыть
-            </button>
-            <!-- Кнопка сохранения не нужна, так как настройки сохраняются по мере изменения -->
-        </div>
-        
-    </div>
-</div>
-
-<!-- Модальное окно: Изменение имени (по центру) -->
-<div id="name-modal-overlay" class="cp-settings-overlay" style="display: none; z-index: 10002;">
-    <div class="cp-settings-modal" style="max-width: 380px; height: auto; max-height: 90vh; border-radius: 20px;">
-        
-        <!-- Шапка -->
-        <div class="cp-settings-header">
-            <ion-icon name="person-outline"></ion-icon>
-            <h3>Изменить имя</h3>
-            
-            <!-- ⚠️ УДАЛИТЕ ОТСЮДА ВСЕ ИНЛАЙН-СТИЛИ, ОСТАВЬТЕ ТОЛЬКО ЭТО: -->
-            <button type="button" class="fuel-modal-close" onclick="closeNameModal()" aria-label="Закрыть">
-                <ion-icon name="close-outline"></ion-icon>
-            </button>
-            
-        </div>
-        
-        <!-- Тело -->
-        <div class="cp-settings-body" style="padding: 20px;">
-            <div class="form-group">
-                <label style="font-size: 13px; color: var(--cc-header-text); margin-bottom: 8px; display: block;">Ваше имя</label>
-                <input type="text" id="name-modal-input" placeholder="Введите имя" autocomplete="name"
-                       style="width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 16px; border-radius: 12px; border: 1px solid var(--cc-settings-border); background: var(--cc-settings-input-bg); color: var(--cc-settings-text); outline: none;">
-            </div>
-        </div>
-        
-        <!-- Футер (кнопки) -->
-        <div class="cp-settings-footer" style="padding: 16px 20px;">
-            <button type="button" class="cp-btn" onclick="closeNameModal()">Отмена</button>
-            <button type="button" class="cp-btn primary" onclick="saveNameModal()">
-                <ion-icon name="checkmark-outline"></ion-icon> Сохранить
-            </button>
-        </div>
-    </div>
+    </main>
 </div>
 
 <!-- НИЖНЕЕ МЕНЮ -->
@@ -1221,7 +930,7 @@
             <ion-icon name="calendar-outline"></ion-icon><span class="label">Календарь</span>
         </button>
     </nav>
-    
+
     <button id="fab-add" onclick="toggleFabMenu(event)" aria-label="Добавить запись">
         <ion-icon name="add-outline"></ion-icon>
     </button>
@@ -1257,6 +966,478 @@
     </button>
 </div>
 
+<!-- ============================================================ -->
+<!-- ⚠️ ВСЕ МОДАЛКИ ВЫНЕСЕНЫ В КОНЕЦ <body>                      -->
+<!-- Причина: position:fixed внутри transform-родителя (.tab-content) -->
+<!-- ломался и создавал «бесконечную пустоту» под контентом.     -->
+<!-- ============================================================ -->
+
+<!-- ============================================
+     МОДАЛКА ДОБАВИТЬ ЗАПРАВКУ (стиль entry/fuel v2.1)
+     ============================================ -->
+<div id="fuel-modal-overlay" class="fuel-modal-overlay">
+    <div class="fuel-modal" role="dialog" aria-modal="true">
+        <div class="fuel-modal-handle"></div>
+
+        <div class="fuel-modal-header">
+            <span class="fuel-icon-badge fuel-icon-orange"><ion-icon name="flame-outline"></ion-icon></span>
+            <h3>Добавить заправку</h3>
+            <button class="fuel-modal-close" type="button" onclick="closeFuelModal()" aria-label="Закрыть">
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+
+        <div class="fuel-modal-body">
+            <form id="fuel-form" onsubmit="return false;">
+
+                <!-- КАРТОЧКА 1: Основная информация -->
+                <div class="fuel-card">
+                    <div class="fuel-card-title">
+                        <span class="fuel-icon-badge fuel-icon-blue fuel-icon-sm"><ion-icon name="car-outline"></ion-icon></span>
+                        Основная информация
+                    </div>
+                    <div class="fuel-card-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label><span class="fuel-icon-badge fuel-icon-blue fuel-icon-sm"><ion-icon name="car-outline"></ion-icon></span> Автомобиль</label>
+                                <select id="fuel-vehicle-select"></select>
+                            </div>
+                            <div class="form-group">
+                                <label><span class="fuel-icon-badge fuel-icon-blue fuel-icon-sm"><ion-icon name="calendar-outline"></ion-icon></span> Дата *</label>
+                                <input type="date" id="fuel-date" required>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label><span class="fuel-icon-badge fuel-icon-orange fuel-icon-sm"><ion-icon name="speedometer-outline"></ion-icon></span> Пробег (км) *</label>
+                            <input type="number" id="fuel-mileage" min="0" step="1" placeholder="Например: 125000" required>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- КАРТОЧКА 2: Топливо -->
+                <div class="fuel-card">
+                    <div class="fuel-card-title">
+                        <span class="fuel-icon-badge fuel-icon-orange fuel-icon-sm"><ion-icon name="flame-outline"></ion-icon></span>
+                        Топливо
+                    </div>
+                    <div class="fuel-card-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label><span class="fuel-icon-badge fuel-icon-cyan fuel-icon-sm"><ion-icon name="water-outline"></ion-icon></span> Литры *</label>
+                                <input type="number" id="fuel-liters" step="0.01" min="0" placeholder="Например: 45.5" required>
+                            </div>
+                            <div class="form-group">
+                                <label><span class="fuel-icon-badge fuel-icon-green fuel-icon-sm"><ion-icon name="cash-outline"></ion-icon></span> Сумма (₽) *</label>
+                                <input type="text" id="fuel-amount" placeholder="Например: 45.5*2 или 1500+300" required autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label><span class="fuel-icon-badge fuel-icon-purple fuel-icon-sm"><ion-icon name="pricetag-outline"></ion-icon></span> Цена за литр (₽)</label>
+                                <input type="number" id="fuel-price" placeholder="Авторасчет" readonly>
+                            </div>
+                            <div class="form-group">
+                                <label><span class="fuel-icon-badge fuel-icon-teal fuel-icon-sm"><ion-icon name="trending-up-outline"></ion-icon></span> Расход л/100км</label>
+                                <input type="number" id="fuel-consumption" placeholder="Авторасчет" readonly>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- КАРТОЧКА 3: Дополнительно -->
+                <div class="fuel-card">
+                    <div class="fuel-card-title">
+                        <span class="fuel-icon-badge fuel-icon-purple fuel-icon-sm"><ion-icon name="chatbubble-outline"></ion-icon></span>
+                        Дополнительно
+                    </div>
+                    <div class="fuel-card-body">
+                        <div class="form-group">
+                            <label><span class="fuel-icon-badge fuel-icon-teal fuel-icon-sm"><ion-icon name="document-text-outline"></ion-icon></span> Комментарий</label>
+                            <input type="text" id="fuel-comment" placeholder="АЗС, марка бензина и т.д.">
+                        </div>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+
+        <div class="fuel-modal-footer">
+            <button type="button" class="btn btn-clear" onclick="clearFuelForm()">
+                <span class="fuel-icon-badge fuel-icon-red fuel-icon-sm"><ion-icon name="trash-outline"></ion-icon></span> Очистить
+            </button>
+            <button type="button" class="btn btn-success" onclick="handleFuelSubmit()">
+                <span class="fuel-icon-badge fuel-icon-green fuel-icon-sm"><ion-icon name="save-outline"></ion-icon></span> <span id="fuel-submit-text">Сохранить</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================
+     МОДАЛКА ДОБАВИТЬ РЕМОНТ (стиль entry/fuel v2.1)
+     ============================================ -->
+<div id="repair-modal-overlay" class="fuel-modal-overlay">
+    <div class="fuel-modal" role="dialog" aria-modal="true">
+        <div class="fuel-modal-handle"></div>
+
+        <div class="fuel-modal-header">
+            <span class="repair-icon-badge repair-icon-orange"><ion-icon name="construct-outline"></ion-icon></span>
+            <h3 id="repair-modal-title-text">Добавить ремонт</h3>
+            <button class="fuel-modal-close" type="button" onclick="closeRepairModal()" aria-label="Закрыть">
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+
+        <div class="fuel-modal-body">
+            <form id="repair-modal-form" onsubmit="return false;">
+
+                <!-- КАРТОЧКА 1: Основная информация -->
+                <div class="repair-card">
+                    <div class="repair-card-title">
+                        <span class="repair-icon-badge repair-icon-blue repair-icon-sm"><ion-icon name="car-outline"></ion-icon></span>
+                        Основная информация
+                    </div>
+                    <div class="repair-card-body">
+                        <div class="form-group">
+                            <label><span class="repair-icon-badge repair-icon-blue repair-icon-sm"><ion-icon name="car-outline"></ion-icon></span> Автомобиль</label>
+                            <select id="repair-modal-vehicle-select"></select>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label><span class="repair-icon-badge repair-icon-blue repair-icon-sm"><ion-icon name="calendar-outline"></ion-icon></span> Дата *</label>
+                                <input type="date" id="repair-modal-date" required>
+                            </div>
+                            <div class="form-group">
+                                <label><span class="repair-icon-badge repair-icon-orange repair-icon-sm"><ion-icon name="speedometer-outline"></ion-icon></span> Пробег (км) *</label>
+                                <input type="number" id="repair-modal-mileage" min="0" step="1" placeholder="Например: 125000" required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- КАРТОЧКА 2: Категория и описание -->
+                <div class="repair-card">
+                    <div class="repair-card-title">
+                        <span class="repair-icon-badge repair-icon-purple repair-icon-sm"><ion-icon name="pricetag-outline"></ion-icon></span>
+                        Категория и описание
+                    </div>
+                    <div class="repair-card-body">
+                        <div class="form-group">
+                            <label><span class="repair-icon-badge repair-icon-purple repair-icon-sm"><ion-icon name="pricetag-outline"></ion-icon></span> Категория *</label>
+                            <select id="repair-modal-category" required>
+                                <option value="engine">Двигатель</option>
+                                <option value="transmission">Трансмиссия</option>
+                                <option value="brakes">Тормозная система</option>
+                                <option value="suspension">Подвеска</option>
+                                <option value="electrics">Электрика</option>
+                                <option value="body">Кузов</option>
+                                <option value="tires">Шины/Диски</option>
+                                <option value="oil">Масло/Жидкости</option>
+                                <option value="cooling">Охлаждение</option>
+                                <option value="exhaust">Выхлопная система</option>
+                                <option value="other">Прочее</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label><span class="repair-icon-badge repair-icon-teal repair-icon-sm"><ion-icon name="document-text-outline"></ion-icon></span> Описание</label>
+                            <input type="text" id="repair-modal-description" placeholder="Что менялось?">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- КАРТОЧКА 3: Запчасти -->
+                <div class="repair-card">
+                    <div class="repair-card-title">
+                        <span class="repair-icon-badge repair-icon-cyan repair-icon-sm"><ion-icon name="cube-outline"></ion-icon></span>
+                        Запчасти и материалы
+                    </div>
+                    <div class="repair-card-body">
+                        <div id="repair-modal-parts-list" class="dynamic-list-container"></div>
+                        <button type="button" class="btn-add-dynamic" onclick="addRepairModalPart()">
+                            <ion-icon name="add-circle-outline"></ion-icon> Добавить деталь
+                        </button>
+                    </div>
+                </div>
+
+                <!-- КАРТОЧКА 4: Работы -->
+                <div class="repair-card">
+                    <div class="repair-card-title">
+                        <span class="repair-icon-badge repair-icon-green repair-icon-sm"><ion-icon name="construct-outline"></ion-icon></span>
+                        Работы
+                    </div>
+                    <div class="repair-card-body">
+                        <div id="repair-modal-works-list" class="dynamic-list-container"></div>
+                        <button type="button" class="btn-add-dynamic" onclick="addRepairModalWork()">
+                            <ion-icon name="add-circle-outline"></ion-icon> Добавить работу
+                        </button>
+                    </div>
+                </div>
+
+                <!-- КАРТОЧКА 5: Фото -->
+                <div class="repair-card">
+                    <div class="repair-card-title">
+                        <span class="repair-icon-badge repair-icon-yellow repair-icon-sm"><ion-icon name="camera-outline"></ion-icon></span>
+                        Фото чека и документов
+                    </div>
+                    <div class="repair-card-body">
+                        <div class="photo-upload-grid">
+                            <div class="photo-upload-item">
+                                <label class="photo-upload-label" for="repair-modal-receipt-upload">
+                                    <ion-icon name="receipt-outline"></ion-icon> Чек
+                                </label>
+                                <input type="file" id="repair-modal-receipt-upload" class="photo-upload-input" accept="image/*" onchange="handleRepairModalPhotoSelect(event, 'receipt')">
+                                <div id="repair-modal-receipt-preview" class="photo-preview">
+                                    <ion-icon name="image-outline"></ion-icon><span>Нет фото</span>
+                                </div>
+                                <div id="repair-modal-receipt-rotate" class="photo-rotate-controls" style="display:none;">
+                                    <button type="button" class="photo-rotate-btn" onclick="rotateRepairModalPhoto('receipt', -90)"><ion-icon name="refresh-outline"></ion-icon></button>
+                                    <button type="button" class="photo-rotate-btn" onclick="rotateRepairModalPhoto('receipt', 90)"><ion-icon name="refresh-outline" style="transform: scaleX(-1);"></ion-icon></button>
+                                </div>
+                            </div>
+                            <div class="photo-upload-item">
+                                <label class="photo-upload-label" for="repair-modal-document-upload">
+                                    <ion-icon name="document-outline"></ion-icon> Документ
+                                </label>
+                                <input type="file" id="repair-modal-document-upload" class="photo-upload-input" accept="image/*" onchange="handleRepairModalPhotoSelect(event, 'document')">
+                                <div id="repair-modal-document-preview" class="photo-preview">
+                                    <ion-icon name="image-outline"></ion-icon><span>Нет фото</span>
+                                </div>
+                                <div id="repair-modal-document-rotate" class="photo-rotate-controls" style="display:none;">
+                                    <button type="button" class="photo-rotate-btn" onclick="rotateRepairModalPhoto('document', -90)"><ion-icon name="refresh-outline"></ion-icon></button>
+                                    <button type="button" class="photo-rotate-btn" onclick="rotateRepairModalPhoto('document', 90)"><ion-icon name="refresh-outline" style="transform: scaleX(-1);"></ion-icon></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- КАРТОЧКА 6: Комментарий -->
+                <div class="repair-card">
+                    <div class="repair-card-title">
+                        <span class="repair-icon-badge repair-icon-teal repair-icon-sm"><ion-icon name="chatbubble-outline"></ion-icon></span>
+                        Комментарий
+                    </div>
+                    <div class="repair-card-body">
+                        <div class="form-group">
+                            <label><span class="repair-icon-badge repair-icon-teal repair-icon-sm"><ion-icon name="chatbubble-outline"></ion-icon></span> Примечание</label>
+                            <textarea id="repair-modal-comment" rows="2" placeholder="Дополнительная информация"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- КАРТОЧКА 7: Итоги -->
+                <div class="repair-card">
+                    <div class="repair-card-title">
+                        <span class="repair-icon-badge repair-icon-red repair-icon-sm"><ion-icon name="wallet-outline"></ion-icon></span>
+                        Итоги
+                    </div>
+                    <div class="repair-card-body">
+                        <div class="repair-calc-results" style="margin-top:0;">
+                            <div class="repair-calc-item"><span>Запчасти:</span><span class="value" id="repair-modal-parts-total">0 ₽</span></div>
+                            <div class="repair-calc-item"><span>Работы:</span><span class="value" id="repair-modal-works-total">0 ₽</span></div>
+                            <div class="repair-calc-item total"><span>Итого:</span><span class="value" id="repair-modal-total-cost">0 ₽</span></div>
+                        </div>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+
+        <div class="fuel-modal-footer">
+            <button type="button" class="btn btn-clear" onclick="clearRepairModalForm()">
+                <span class="repair-icon-badge repair-icon-red repair-icon-sm"><ion-icon name="trash-outline"></ion-icon></span> Очистить
+            </button>
+            <button type="button" class="btn btn-success" onclick="submitRepairModal()">
+                <span class="repair-icon-badge repair-icon-green repair-icon-sm"><ion-icon name="save-outline"></ion-icon></span> <span id="repair-modal-submit-text">Сохранить</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================
+     МОДАЛЬНОЕ ОКНО: НАСТРОЙКИ (аккордеоны + плашки)
+     ============================================ -->
+<div id="tab-settings" class="fuel-modal-overlay" style="display: none; z-index: 10000;">
+    <div class="fuel-modal" style="max-width: 600px;">
+
+        <div class="fuel-modal-handle"></div>
+
+        <!-- Шапка -->
+        <div class="fuel-modal-header settings-modal-header">
+            <span class="asm-icon-badge asm-icon-blue asm-icon-lg"><ion-icon name="settings-outline"></ion-icon></span>
+            <h3>Настройки</h3>
+            <button type="button" class="fuel-modal-close" onclick="closeAppSettings()" aria-label="Закрыть">
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+
+        <div class="fuel-modal-body">
+
+            <!-- ПРОФИЛЬ (без аккордеона, аватар центрирован) -->
+            <div class="settings-card settings-card-profile">
+                <div class="settings-card-body">
+                    <div style="position: relative; display: block; margin: 0 auto 12px auto; width: 100px; cursor: pointer;" id="profile-avatar-container" onclick="document.getElementById('avatar-input').click()">
+                        <div id="profile-avatar" style="width: 100px; height: 100px; border-radius: 50%; background: var(--ios-accent-light); display: flex; align-items: center; justify-content: center; border: 3px solid var(--ios-accent); overflow: hidden; position: relative;">
+                            <ion-icon name="person-circle-outline" id="avatar-icon" style="font-size: 48px; color: var(--ios-accent);"></ion-icon>
+                            <img id="avatar-image" src="" alt="Фото" style="display: none; width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                        <input type="file" id="avatar-input" accept="image/*" style="display: none;" onchange="uploadAvatar(event)">
+                    </div>
+                    <h2 id="profile-name" style="font-size: 20px; margin-bottom: 4px;">Загрузка...</h2>
+                    <p style="color: var(--ios-text-tertiary); font-size: 14px; margin: 0;" id="profile-email">email@example.com</p>
+                </div>
+            </div>
+
+            <!-- ТАРИФЫ, МАССОВЫЕ ДЕЙСТВИЯ И ИСТОРИЯ (ОБЪЕДИНЁННЫЙ АККОРДЕОН) -->
+            <div class="settings-card">
+                <h2 class="settings-accordion-header" onclick="toggleSettingsSection(this)">
+                    <span class="asm-icon-badge asm-icon-yellow asm-icon-sm"><ion-icon name="pricetag-outline"></ion-icon></span>
+                    Тарифы и история
+                    <span class="asm-icon-badge asm-icon-blue asm-icon-sm settings-chevron"><ion-icon name="chevron-down-outline"></ion-icon></span>
+                </h2>
+                <div class="settings-card-body">
+
+                    <!-- 1. Форма добавления тарифа -->
+                    <p class="tariff-info" style="margin-top: 0;">Тарифы применяются с указанной даты.</p>
+                    <form id="tariff-form" class="tariff-form" onsubmit="saveTariff(event)">
+                        <div class="form-row">
+                            <div class="form-group"><label>Дата вступления в силу *</label><input type="date" id="tariff-date" required></div>
+                            <div class="form-group"><label>Забор (₽/шт)</label><input type="number" id="tariff-pickup" step="0.01" min="0" required></div>
+                            <div class="form-group"><label>Выдача (₽/шт)</label><input type="number" id="tariff-delivery" step="0.01" min="0" required></div>
+                            <div class="form-group"><label>Км (₽/км)</label><input type="number" id="tariff-km" step="0.01" min="0" required></div>
+                            <div class="form-group"><label>Вес (₽/кг)</label><input type="number" id="tariff-weight" step="0.01" min="0" required></div>
+                        </div>
+                        <div class="form-actions" style="margin-top: 12px;">
+                            <button type="submit" class="btn btn-success" style="width: 100%;">
+                                <span class="asm-icon-badge asm-icon-green asm-icon-xs"><ion-icon name="checkmark-circle-outline"></ion-icon></span>
+                                Добавить тариф
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Разделитель -->
+                    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--ios-border, rgba(0,0,0,0.08));">
+                        <h3 style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--ios-text-tertiary, #8E8E93); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                            <span class="asm-icon-badge asm-icon-blue asm-icon-xs"><ion-icon name="options-outline"></ion-icon></span>
+                            Массовые действия
+                        </h3>
+                        <button class="btn btn-primary" onclick="recalculateAllTariffs()" style="width: 100%; margin-bottom: 8px;">
+                            <span class="asm-icon-badge asm-icon-blue asm-icon-xs"><ion-icon name="refresh-outline"></ion-icon></span>
+                            Пересчитать по тарифам
+                        </button>
+                        <p class="hint-text" style="text-align: center; font-size: 12px; color: var(--ios-text-tertiary); margin: 0;">Обновит суммы выплат во всех записях.</p>
+                    </div>
+
+                    <!-- Разделитель -->
+                    <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--ios-border, rgba(0,0,0,0.08));">
+                        <h3 style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--ios-text-tertiary, #8E8E93); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                            <span class="asm-icon-badge asm-icon-purple asm-icon-xs"><ion-icon name="time-outline"></ion-icon></span>
+                            История тарифов
+                        </h3>
+                        <div id="tariffs-list" class="tariffs-list"></div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- АВТОМОБИЛИ (аккордеон) -->
+            <div class="settings-card">
+                <h2 class="settings-accordion-header" onclick="toggleSettingsSection(this)">
+                    <span class="asm-icon-badge asm-icon-cyan asm-icon-sm"><ion-icon name="car-sport-outline"></ion-icon></span>
+                    Мои автомобили
+                    <span class="asm-icon-badge asm-icon-blue asm-icon-sm settings-chevron"><ion-icon name="chevron-down-outline"></ion-icon></span>
+                </h2>
+                <div class="settings-card-body">
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label>Активный автомобиль:</label>
+                        <select id="vehicle-selector" class="form-control"></select>
+                    </div>
+                    <form id="vehicle-form" class="tariff-form" style="background: transparent; padding: 0; border: none; box-shadow: none;">
+                        <div class="form-row">
+                            <div class="form-group"><label>Модель *</label><input type="text" id="vehicle-name" placeholder="Kia K5" required></div>
+                            <div class="form-group"><label>Гос. номер</label><input type="text" id="vehicle-plate" placeholder="А 000 АА 00"></div>
+                            <div class="form-group"><label>Год</label><input type="number" id="vehicle-year" placeholder="2020"></div>
+                        </div>
+                        <div style="display: flex; gap: 8px; margin-top: 12px;">
+                            <button type="submit" class="btn btn-success" style="flex: 1;">
+                                <span class="asm-icon-badge asm-icon-green asm-icon-xs"><ion-icon name="add-circle-outline"></ion-icon></span>
+                                Добавить
+                            </button>
+                            <button type="button" id="cancel-edit-vehicle" class="btn btn-secondary" style="display: none;" onclick="cancelEditVehicle()">Отмена</button>
+                        </div>
+                    </form>
+                    <div id="vehicle-list" class="vehicle-list-container" style="margin-top: 16px;"></div>
+                </div>
+            </div>
+
+            <!-- БЭКАП (аккордеон) -->
+            <div class="settings-card">
+                <h2 class="settings-accordion-header" onclick="toggleSettingsSection(this)">
+                    <span class="asm-icon-badge asm-icon-green asm-icon-sm"><ion-icon name="cloud-download-outline"></ion-icon></span>
+                    Резервное копирование
+                    <span class="asm-icon-badge asm-icon-blue asm-icon-sm settings-chevron"><ion-icon name="chevron-down-outline"></ion-icon></span>
+                </h2>
+                <div class="settings-card-body">
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <button class="btn btn-primary" onclick="exportToExcel()" style="width: 100%;">
+                            <span class="asm-icon-badge asm-icon-blue asm-icon-xs"><ion-icon name="grid-outline"></ion-icon></span>
+                            Экспорт в Excel
+                        </button>
+                        <button class="btn btn-success" onclick="exportToPDF()" style="width: 100%;">
+                            <span class="asm-icon-badge asm-icon-green asm-icon-xs"><ion-icon name="print-outline"></ion-icon></span>
+                            Экспорт в PDF
+                        </button>
+                        <button class="btn btn-secondary" onclick="exportFullBackup()" style="width: 100%;">
+                            <span class="asm-icon-badge asm-icon-blue asm-icon-xs"><ion-icon name="save-outline"></ion-icon></span>
+                            Полный бэкап (JSON)
+                        </button>
+                        <button class="btn btn-secondary" onclick="importFullBackup()" style="width: 100%;">
+                            <span class="asm-icon-badge asm-icon-green asm-icon-xs"><ion-icon name="cloud-upload-outline"></ion-icon></span>
+                            Восстановить
+                        </button>
+                        <button class="btn btn-danger" onclick="resetAllAppData()" style="width: 100%;">
+                            <span class="asm-icon-badge asm-icon-red asm-icon-xs"><ion-icon name="trash-outline"></ion-icon></span>
+                            Полный сброс
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+
+
+    </div>
+</div>
+
+<!-- Модальное окно: Изменение имени (по центру) -->
+<div id="name-modal-overlay" class="cp-settings-overlay" style="display: none; z-index: 10002;">
+    <div class="cp-settings-modal" style="max-width: 380px; height: auto; max-height: 90vh; border-radius: 20px;">
+
+        <div class="cp-settings-header">
+            <ion-icon name="person-outline"></ion-icon>
+            <h3>Изменить имя</h3>
+            <button type="button" class="fuel-modal-close" onclick="closeNameModal()" aria-label="Закрыть">
+                <ion-icon name="close-outline"></ion-icon>
+            </button>
+        </div>
+
+        <div class="cp-settings-body" style="padding: 20px;">
+            <div class="form-group">
+                <label style="font-size: 13px; color: var(--cc-header-text); margin-bottom: 8px; display: block;">Ваше имя</label>
+                <input type="text" id="name-modal-input" placeholder="Введите имя" autocomplete="name"
+                       style="width: 100%; box-sizing: border-box; padding: 12px 14px; font-size: 16px; border-radius: 12px; border: 1px solid var(--cc-settings-border); background: var(--cc-settings-input-bg); color: var(--cc-settings-text); outline: none;">
+            </div>
+        </div>
+
+        <div class="cp-settings-footer" style="padding: 16px 20px;">
+            <button type="button" class="cp-btn" onclick="closeNameModal()">Отмена</button>
+            <button type="button" class="cp-btn primary" onclick="saveNameModal()">
+                <ion-icon name="checkmark-outline"></ion-icon> Сохранить
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Просмотрщик фото -->
 <div id="photo-viewer" class="photo-viewer-overlay">
     <div class="photo-viewer-header">
@@ -1270,11 +1451,80 @@
     <div class="photo-viewer-dots" id="photo-viewer-dots"></div>
 </div>
 
+<!-- CONTROL CENTER -->
+<div id="control-center" class="control-center">
+    <div class="cc-handle"></div>
+    <div class="cc-grid">
+        <div class="cc-tile cc-tile-active" id="cc-theme-toggle" role="button" tabindex="0"><ion-icon name="moon-outline"></ion-icon><span>Тёмная тема</span></div>
+        <div class="cc-tile" id="cc-sound-toggle" role="button" tabindex="0"><ion-icon name="volume-high-outline"></ion-icon><span>Звук</span></div>
+        <div class="cc-tile" id="cc-sync-toggle" role="button" tabindex="0"><ion-icon name="sync-outline"></ion-icon><span>Автосинхр.</span></div>
+        <div class="cc-tile" id="cc-notif-toggle" role="button" tabindex="0"><ion-icon name="notifications-outline"></ion-icon><span>Уведомления</span></div>
+    </div>
+    <div class="cc-actions">
+        <button class="cc-action-btn" id="cc-backup-btn" type="button"><ion-icon name="download-outline"></ion-icon><span>Бэкап</span></button>
+        <button class="cc-action-btn" id="cc-settings-btn" type="button"><ion-icon name="settings-outline"></ion-icon><span>Настройки</span></button>
+        <button class="cc-action-btn" id="cc-reset-btn" type="button"><ion-icon name="trash-outline"></ion-icon><span>Сброс</span></button>
+    </div>
+
+    <div class="cc-sliders">
+        <label class="cc-slider-row" for="cc-brightness">
+            <input type="range" id="cc-brightness" class="cc-slider" min="20" max="100" step="1" value="100">
+            <div class="cc-slider-track">
+                <div class="cc-slider-fill"></div>
+                <div class="cc-slider-icon-wrap">
+                    <ion-icon name="sunny" class="cc-icon-brightness"></ion-icon>
+                </div>
+            </div>
+        </label>
+
+        <label class="cc-slider-row" for="cc-volume">
+            <input type="range" id="cc-volume" class="cc-slider" min="0" max="100" step="1" value="100">
+            <div class="cc-slider-track">
+                <div class="cc-slider-fill"></div>
+                <div class="cc-slider-icon-wrap">
+                    <ion-icon name="volume-high" class="cc-icon-volume"></ion-icon>
+                </div>
+            </div>
+        </label>
+    </div>
+
+    <!-- Объединенная плашка: Статус сети + Время синхронизации -->
+    <div class="cc-unified-status" id="cc-unified-status">
+        <div class="cc-status-left">
+            <span id="cc-status-dot" class="cc-status-dot"></span>
+            <span id="cc-status-title">Проверка...</span>
+        </div>
+        <div class="cc-status-right" id="cc-status-time"></div>
+    </div>
+
+    <div class="cc-notifications-section">
+        <div class="cc-notif-header">
+            <span>Уведомления</span>
+            <div class="cc-notif-header-actions">
+                <button id="cc-notif-settings-btn" class="cc-header-settings-btn" type="button" title="Настройки напоминаний"><ion-icon name="settings-outline"></ion-icon></button>
+                <button id="cc-clear-all-notifs" class="cc-clear-all-btn" type="button">Очистить все</button>
+            </div>
+        </div>
+
+        <div id="cc-notification-list" class="cc-notification-list">
+            <div class="cc-no-notifs"><ion-icon name="checkmark-circle-outline" style="font-size:28px;margin-bottom:8px;display:block;color:#34C759;"></ion-icon> Нет новых уведомлений</div>
+        </div>
+    </div>
+    <div class="cc-info">
+        <div class="cc-info-row"><ion-icon name="calendar-outline"></ion-icon><span id="cc-date">—</span></div>
+        <div class="cc-info-row"><ion-icon name="time-outline"></ion-icon><span id="cc-time">—</span></div>
+    </div>
+</div>
+
+<div id="cc-overlay" class="cc-overlay"></div>
+
+<!-- Скрипты в конце body -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script>
     document.querySelectorAll('.nav-item').forEach(btn => { btn.classList.add('nav-btn'); });
 </script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+
 <script>
 (function() {
     function updateLayout() {
@@ -1291,76 +1541,7 @@
 })();
 </script>
 
-<!-- CONTROL CENTER -->
-<div id="control-center" class="control-center">
-    <div class="cc-handle"></div>
-    <div class="cc-grid">
-        <div class="cc-tile cc-tile-active" id="cc-theme-toggle" role="button" tabindex="0"><ion-icon name="moon-outline"></ion-icon><span>Тёмная тема</span></div>
-        <div class="cc-tile" id="cc-sound-toggle" role="button" tabindex="0"><ion-icon name="volume-high-outline"></ion-icon><span>Звук</span></div>
-        <div class="cc-tile" id="cc-sync-toggle" role="button" tabindex="0"><ion-icon name="sync-outline"></ion-icon><span>Автосинхр.</span></div>
-        <div class="cc-tile" id="cc-notif-toggle" role="button" tabindex="0"><ion-icon name="notifications-outline"></ion-icon><span>Уведомления</span></div>
-    </div>
-    <div class="cc-actions">
-        <button class="cc-action-btn" id="cc-backup-btn" type="button"><ion-icon name="download-outline"></ion-icon><span>Бэкап</span></button>
-        <button class="cc-action-btn" id="cc-settings-btn" type="button"><ion-icon name="settings-outline"></ion-icon><span>Настройки</span></button>
-        <button class="cc-action-btn" id="cc-reset-btn" type="button"><ion-icon name="trash-outline"></ion-icon><span>Сброс</span></button>
-    </div>
-    
-<div class="cc-sliders">
-    <!-- Яркость -->
-    <label class="cc-slider-row" for="cc-brightness">
-        <input type="range" id="cc-brightness" class="cc-slider" min="20" max="100" step="1" value="100">
-        <div class="cc-slider-track">
-            <div class="cc-slider-fill"></div>
-            <div class="cc-slider-icon-wrap">
-                <!-- Добавлен класс cc-icon-brightness -->
-                <ion-icon name="sunny" class="cc-icon-brightness"></ion-icon>
-            </div>
-        </div>
-    </label>
-    
-    <!-- Громкость -->
-    <label class="cc-slider-row" for="cc-volume">
-        <input type="range" id="cc-volume" class="cc-slider" min="0" max="100" step="1" value="100">
-        <div class="cc-slider-track">
-            <div class="cc-slider-fill"></div>
-            <div class="cc-slider-icon-wrap">
-                <!-- Добавлен класс cc-icon-volume -->
-                <ion-icon name="volume-high" class="cc-icon-volume"></ion-icon>
-            </div>
-         </div>
-        </label>
-    </div>
-    
-<!-- Объединенная плашка: Статус сети + Время синхронизации -->
-<div class="cc-unified-status" id="cc-unified-status">
-    <div class="cc-status-left">
-        <span id="cc-status-dot" class="cc-status-dot"></span>
-        <span id="cc-status-title">Проверка...</span>
-    </div>
-    <div class="cc-status-right" id="cc-status-time"></div>
-</div>
-    
-    <div class="cc-notifications-section">
-        <div class="cc-notif-header">
-            <span>Уведомления</span>
-            <div class="cc-notif-header-actions">
-                <button id="cc-notif-settings-btn" class="cc-header-settings-btn" type="button" title="Настройки напоминаний"><ion-icon name="settings-outline"></ion-icon></button>
-                <button id="cc-clear-all-notifs" class="cc-clear-all-btn" type="button">Очистить все</button>
-            </div>
-        </div>
-        
-        <div id="cc-notification-list" class="cc-notification-list">
-            <div class="cc-no-notifs"><ion-icon name="checkmark-circle-outline" style="font-size:28px;margin-bottom:8px;display:block;color:#34C759;"></ion-icon> Нет новых уведомлений</div>
-        </div>
-    </div>
-    <div class="cc-info">
-        <div class="cc-info-row"><ion-icon name="calendar-outline"></ion-icon><span id="cc-date">—</span></div>
-        <div class="cc-info-row"><ion-icon name="time-outline"></ion-icon><span id="cc-time">—</span></div>
-    </div>
-</div>
 
-<div id="cc-overlay" class="cc-overlay"></div>
 
 </body>
 </html>
