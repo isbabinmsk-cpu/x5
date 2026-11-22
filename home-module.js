@@ -267,21 +267,28 @@
         });
         
         // 4. Считаем
-        let income = 0, expenses = 0, orders = 0, hours = 0;
-        const daysSet = new Set();
-        
-        monthRecords.forEach(r => {
-            income += Number(r.totalIncome) || 0;
-            expenses += Number(r.totalExpenses) || 0;
-            orders += Number(r.ordersDelivery) || 0;
-            hours += Number(r.hours) || 0;
-            daysSet.add(r.date);
-        });
+    let income = 0, expenses = 0, orders = 0, hours = 0;
+    const daysSet = new Set();
+    
+    monthRecords.forEach(r => {
+        // Финансы и метрики считаем по всем записям месяца (чтобы не ломать общую статистику)
+        income += Number(r.totalIncome) || 0;
+        expenses += Number(r.totalExpenses) || 0;
+        orders += Number(r.ordersDelivery) || 0;
+        hours += Number(r.hours) || 0;
 
-        const profit = income - expenses;
-        const days = daysSet.size;
-        const avgDay = days > 0 ? profit / days : 0;
-        const avgCheck = orders > 0 ? income / orders : 0;
+        // ⭐ КОЛИЧЕСТВО СМЕН считаем ТОЛЬКО для записей типа "Работа"
+        // (Если в вашей базе поле называется иначе, например recordType или category, 
+        // замените 'r.type' на нужное название поля)
+        if (r.type === 'work' || r.recordType === 'work') {
+            daysSet.add(r.date);
+        }
+    });
+
+    const profit = income - expenses;
+    const days = daysSet.size; // Теперь здесь будет только количество дней с типом "Работа"
+    const avgDay = days > 0 ? profit / days : 0;
+    const avgCheck = orders > 0 ? income / orders : 0;
 
         // 5. Обновляем заголовок (Название месяца)
         const titleEl = $('dash-hero-month-name');
@@ -360,5 +367,5 @@
     window.updateGoals = updateGoals;
     window.showGoalSettings = showGoalSettings;
 
-    console.log('✅ Модуль "Главная" v2.2 (с плашками иконок, без трогания кнопок) загружен');
+    console.log('✅ Модуль "Главная" v1.0.7 (с плашками иконок, без трогания кнопок) загружен');
 })();
