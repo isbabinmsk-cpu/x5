@@ -1134,3 +1134,289 @@ body.dark-theme #tab-settings .fuel-modal-body {
         border-radius: 24px;
     }
 }
+
+/* ============================================
+   МОДАЛКА НАСТРОЕК УВЕДОМЛЕНИЙ (ВСЕ элементы с иконками)
+   ============================================ */
+
+.cp-settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 10005;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+.cp-settings-overlay.visible { opacity: 1; pointer-events: auto; }
+
+.cp-settings-modal {
+    background: var(--cc-settings-bg);
+    color: var(--cc-settings-text);
+    border-radius: 20px;
+    width: 92%;
+    max-width: 460px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--cc-settings-border);
+    transform: scale(0.96) translateY(10px);
+    transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    overflow: hidden;
+}
+.cp-settings-overlay.visible .cp-settings-modal { transform: scale(1) translateY(0); }
+
+.cp-settings-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--cc-settings-border);
+    background: var(--cc-settings-bg);
+    flex-shrink: 0;
+}
+.cp-settings-header .cp-icon-badge { width: 38px; height: 38px; min-width: 38px; border-radius: 12px; }
+.cp-settings-header .cp-icon-badge ion-icon { font-size: 20px; }
+.cp-settings-header h3 {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    color: var(--cc-settings-text);
+}
+
+.cp-settings-body {
+    padding: 16px 20px 20px;
+    overflow-y: auto;
+    flex: 1;
+    background: var(--cc-settings-bg);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.cp-settings-body::-webkit-scrollbar { width: 5px; }
+.cp-settings-body::-webkit-scrollbar-thumb { background: var(--cc-switch-bg); border-radius: 3px; }
+
+/* --- Плашка-иконка (стиль как на скриншоте карточек) --- */
+.cp-icon-badge {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(142, 142, 147, 0.15);
+    color: #8E8E93;
+    flex-shrink: 0;
+}
+.cp-icon-badge ion-icon { font-size: 19px; }
+
+.cp-icon-blue   { background: rgba(10, 132, 255, 0.16);  color: #0A84FF; }
+.cp-icon-green  { background: rgba(48, 209, 88, 0.16);   color: #30D158; }
+.cp-icon-orange { background: rgba(255, 159, 10, 0.16);  color: #FF9F0A; }
+.cp-icon-purple { background: rgba(175, 82, 222, 0.16);  color: #AF52DE; }
+.cp-icon-cyan   { background: rgba(100, 210, 255, 0.16); color: #64D2FF; }
+.cp-icon-yellow { background: rgba(255, 214, 10, 0.16);  color: #FFD60A; }
+.cp-icon-red    { background: rgba(255, 69, 58, 0.16);   color: #FF453A; }
+.cp-icon-teal   { background: rgba(48, 176, 199, 0.16);  color: #30B0C7; }
+.cp-icon-gray   { background: rgba(142, 142, 147, 0.2);  color: #8E8E93; }
+
+/* --- Строка: плашка + метка + контрол --- */
+.cp-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    background: var(--cc-svc-bg);
+    border-radius: 14px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    transition: background 0.15s;
+}
+.cp-row:active { background: var(--cc-btn-hover); }
+.cp-row-label {
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    color: var(--cc-settings-text);
+    line-height: 1.3;
+}
+
+/* --- iOS-переключатель --- */
+.cp-switch { position: relative; display: inline-block; width: 51px; height: 31px; flex-shrink: 0; }
+.cp-switch input { position: absolute; opacity: 0; width: 0; height: 0; margin: 0; }
+.cp-switch-track {
+    position: absolute; inset: 0;
+    background: var(--cc-switch-bg);
+    border-radius: 999px;
+    transition: background 0.25s ease;
+}
+.cp-switch-thumb {
+    position: absolute; top: 2px; left: 2px;
+    width: 27px; height: 27px;
+    background: #ffffff; border-radius: 50%;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+    transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.cp-switch input:checked + .cp-switch-track { background: var(--cc-accent); }
+.cp-switch input:checked + .cp-switch-track .cp-switch-thumb { transform: translateX(20px); }
+
+/* --- Поля ввода --- */
+.cp-row input[type="number"],
+.cp-row input[type="date"] {
+    width: 110px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--cc-settings-text);
+    background: var(--cc-settings-input-bg);
+    border: 1px solid var(--cc-settings-input-border);
+    border-radius: 10px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    -moz-appearance: textfield;
+    appearance: none;
+}
+.cp-row input[type="number"]::-webkit-inner-spin-button,
+.cp-row input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.cp-row input[type="number"]:focus,
+.cp-row input[type="date"]:focus {
+    border-color: var(--cc-accent);
+    box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.15);
+}
+.cp-row input[type="date"] { text-align: left; width: 140px; }
+.cp-row input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); cursor: pointer; }
+
+/* --- Заголовки секций (теперь с БОЛЬШОЙ иконкой-плашкой) --- */
+.cp-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 4px 6px;
+    user-select: none;
+}
+.cp-section .cp-icon-badge {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border-radius: 9px;
+}
+.cp-section .cp-icon-badge ion-icon { font-size: 17px; }
+.cp-section {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--cc-header-text);
+}
+
+/* --- Карточка сервиса ТО --- */
+.cp-svc-list { display: flex; flex-direction: column; gap: 8px; }
+.cp-svc-item {
+    background: var(--cc-svc-bg);
+    border: 1px solid var(--cc-settings-border);
+    border-radius: 16px;
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.cp-svc-item .cp-row { background: transparent; }
+.cp-svc-item .cp-row:active { background: var(--cc-btn-hover); }
+
+.cp-svc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 0 4px 6px; }
+.cp-svc-grid .cp-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 10px 12px;
+    background: var(--cc-settings-input-bg);
+    border-radius: 12px;
+}
+.cp-svc-grid .cp-row-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+    color: var(--cc-header-text);
+    flex: none;
+}
+.cp-svc-grid .cp-row input[type="number"] { width: 100%; }
+
+/* --- Подвал с 3D-кнопками --- */
+.cp-settings-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--cc-settings-border);
+    background: var(--cc-settings-bg);
+    flex-shrink: 0;
+}
+.cp-settings-footer .cp-btn {
+    border-radius: 14px;
+    padding: 12px 22px;
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: var(--cc-settings-text);
+    background: var(--cc-btn-bg);
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
+    transition: transform 0.1s, box-shadow 0.1s, background 0.15s;
+    -webkit-tap-highlight-color: transparent;
+}
+.cp-settings-footer .cp-btn:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0.3);
+    background: var(--cc-btn-hover);
+}
+.cp-settings-footer .cp-btn ion-icon { font-size: 17px; }
+.cp-settings-footer .cp-btn.primary {
+    background: var(--cc-accent);
+    color: #ffffff;
+    box-shadow: 0 4px 0 var(--cc-accent-hover);
+}
+.cp-settings-footer .cp-btn.primary:active {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 var(--cc-accent-hover);
+    background: var(--cc-accent-hover);
+}
+
+@media (max-width: 380px) {
+    .cp-svc-grid { grid-template-columns: 1fr; }
+    .cp-row input[type="number"] { width: 100px; }
+    .cp-row input[type="date"] { width: 130px; }
+    .cp-settings-header h3 { font-size: 16px; }
+}
+
+/* Кнопка "Выход" в Control Center — красный акцент */
+.cc-logout-btn {
+    color: var(--ios-danger, #FF3B30) !important;
+}
+.cc-logout-btn ion-icon {
+    color: var(--ios-danger, #FF3B30) !important;
+}
+body.dark-theme .cc-logout-btn {
+    color: #FF6961 !important;
+}
+body.dark-theme .cc-logout-btn ion-icon {
+    color: #FF6961 !important;
+}

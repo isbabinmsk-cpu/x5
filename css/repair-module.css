@@ -1250,3 +1250,346 @@ body.dark-theme .icon-gold   { background: rgba(255, 214, 10, 0.15); color: #FFD
     min-height: 44px;
     border-radius: 10px;
 }
+
+/* ============================================
+   ЦВЕТНЫЕ ПЛАШКИ-ИКОНКИ В МОДАЛКЕ РЕМОНТА
+   (как в настройках уведомлений)
+   ============================================ */
+
+/* Базовая плашка */
+.repair-icon-badge {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    border-radius: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(142, 142, 147, 0.15);
+    color: #8E8E93;
+    flex-shrink: 0;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+.repair-icon-badge ion-icon {
+    font-size: 19px;
+    pointer-events: none;
+}
+
+/* Цвета плашек */
+.repair-icon-blue   { background: rgba(10, 132, 255, 0.16);  color: #0A84FF; }
+.repair-icon-green  { background: rgba(48, 209, 88, 0.16);   color: #30D158; }
+.repair-icon-orange { background: rgba(255, 159, 10, 0.16);  color: #FF9F0A; }
+.repair-icon-purple { background: rgba(175, 82, 222, 0.16);  color: #AF52DE; }
+.repair-icon-cyan   { background: rgba(100, 210, 255, 0.16); color: #64D2FF; }
+.repair-icon-yellow { background: rgba(255, 214, 10, 0.16);  color: #FFD60A; }
+.repair-icon-red    { background: rgba(255, 69, 58, 0.16);   color: #FF453A; }
+.repair-icon-teal   { background: rgba(48, 176, 199, 0.16);  color: #30B0C7; }
+
+/* Шапка модалки: плашка вместо обычной иконки */
+.fuel-modal-header .repair-header-badge,
+#repair-modal-overlay .fuel-modal-header .repair-header-badge {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+#repair-modal-overlay .fuel-modal-header .repair-header-badge ion-icon {
+    font-size: 22px;
+    pointer-events: none;
+}
+
+/* Убираем старую иконку в шапке (первую), если она осталась */
+#repair-modal-overlay .fuel-modal-header > ion-icon:first-child {
+    display: none !important;
+}
+
+/* Адаптив для узких экранов */
+@media (max-width: 480px) {
+    .repair-icon-badge {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        border-radius: 9px;
+        margin-right: 6px;
+    }
+    .repair-icon-badge ion-icon {
+        font-size: 17px;
+    }
+    #repair-modal-overlay .fuel-modal-header .repair-header-badge {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+    }
+    #repair-modal-overlay .fuel-modal-header .repair-header-badge ion-icon {
+        font-size: 20px;
+    }
+}
+
+/* ============================================
+   ИКОНКА В ШАПКЕ МОДАЛКИ РЕМОНТА — КОМПАКТНАЯ
+   ============================================ */
+
+/* Плашка в шапке */
+#repair-modal-overlay .fuel-modal-header .repair-header-badge {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    border-radius: 10px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    margin-right: 10px !important;
+    overflow: hidden !important; /* Иконка не выходит за границы */
+}
+
+/* Иконка внутри плашки — компактная */
+#repair-modal-overlay .fuel-modal-header .repair-header-badge ion-icon {
+    font-size: 18px !important;
+    width: 18px !important;
+    height: 18px !important;
+    pointer-events: none;
+}
+
+/* Скрываем старую иконку в шапке (первую), если она осталась */
+#repair-modal-overlay .fuel-modal-header > ion-icon:first-child {
+    display: none !important;
+}
+
+/* ============================================
+   МОДАЛКА РЕМОНТА В СТИЛЕ FUEL/ENTRY
+   (карточки-плашки + иконки-плашки)
+   ============================================ */
+
+/* --- Плашки-иконки --- */
+.repair-icon-badge {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    border-radius: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(142, 142, 147, 0.15);
+    color: #8E8E93;
+    flex-shrink: 0;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+.repair-icon-badge ion-icon {
+    font-size: 19px;
+    pointer-events: none;
+}
+.repair-icon-badge.repair-icon-sm {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 8px;
+    margin-right: 6px;
+}
+.repair-icon-badge.repair-icon-sm ion-icon { font-size: 15px; }
+
+.repair-icon-blue   { background: rgba(10, 132, 255, 0.16);  color: #0A84FF; }
+.repair-icon-green  { background: rgba(48, 209, 88, 0.16);   color: #30D158; }
+.repair-icon-orange { background: rgba(255, 159, 10, 0.16);  color: #FF9F0A; }
+.repair-icon-purple { background: rgba(175, 82, 222, 0.16);  color: #AF52DE; }
+.repair-icon-cyan   { background: rgba(100, 210, 255, 0.16); color: #64D2FF; }
+.repair-icon-yellow { background: rgba(255, 214, 10, 0.16);  color: #FFD60A; }
+.repair-icon-red    { background: rgba(255, 69, 58, 0.16);   color: #FF453A; }
+.repair-icon-teal   { background: rgba(48, 176, 199, 0.16);  color: #30B0C7; }
+
+/* --- Защита: не даём правилу fuel распушить иконку в шапке --- */
+#repair-modal-overlay .fuel-modal-header ion-icon:first-child {
+    font-size: 19px !important;
+    color: inherit;
+}
+
+/* --- Плашка в заголовке модалки --- */
+#repair-modal-overlay .fuel-modal-title .repair-icon-badge {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 12px;
+    margin-right: 10px;
+}
+#repair-modal-overlay .fuel-modal-title .repair-icon-badge ion-icon {
+    font-size: 20px !important;
+}
+
+/* --- Карточки-плашки --- */
+.repair-card {
+    background: #FFFFFF;
+    border: 1px solid rgba(0, 0, 0, 0.07);
+    border-radius: 16px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    animation: repairCardIn 0.4s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.repair-card:nth-child(1) { animation-delay: 0.05s; }
+.repair-card:nth-child(2) { animation-delay: 0.10s; }
+.repair-card:nth-child(3) { animation-delay: 0.15s; }
+.repair-card:nth-child(4) { animation-delay: 0.20s; }
+.repair-card:nth-child(5) { animation-delay: 0.25s; }
+.repair-card:nth-child(6) { animation-delay: 0.30s; }
+.repair-card:nth-child(7) { animation-delay: 0.35s; }
+
+@keyframes repairCardIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.repair-card-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: #8E8E93;
+    background: rgba(0, 0, 0, 0.02);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    user-select: none;
+}
+
+.repair-card-body {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.repair-card-body .form-group { margin-bottom: 0; }
+.repair-card-body .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+/* --- Метки полей --- */
+#repair-modal-overlay .fuel-modal-body .form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #3C3C43;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* --- Плашки в кнопках футера --- */
+.fuel-modal-footer .btn .repair-icon-badge {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 8px;
+    margin-right: 2px;
+}
+.fuel-modal-footer .btn .repair-icon-badge ion-icon { font-size: 15px; }
+
+/* --- Открываем модалку через display (как в JS) --- */
+#repair-modal-overlay {
+    display: none;
+}
+#repair-modal-overlay.visible {
+    display: flex;
+}
+
+/* ============================================
+   ТЁМНАЯ ТЕМА — карточки ремонта
+   ============================================ */
+body.dark-theme .repair-card {
+    background: #2C2C2E;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+body.dark-theme .repair-card-title {
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    color: rgba(235, 235, 245, 0.6);
+}
+body.dark-theme .repair-card-body { background: #2C2C2E; }
+
+body.dark-theme .repair-icon-badge {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(235, 235, 245, 0.7);
+}
+body.dark-theme .repair-icon-blue   { background: rgba(10, 132, 255, 0.20);  color: #64B5FF; }
+body.dark-theme .repair-icon-green  { background: rgba(48, 209, 88, 0.20);   color: #30D158; }
+body.dark-theme .repair-icon-orange { background: rgba(255, 159, 10, 0.20);  color: #FF9F0A; }
+body.dark-theme .repair-icon-purple { background: rgba(175, 82, 222, 0.20);  color: #BF5AF2; }
+body.dark-theme .repair-icon-cyan   { background: rgba(100, 210, 255, 0.20); color: #64D2FF; }
+body.dark-theme .repair-icon-yellow { background: rgba(255, 214, 10, 0.20);  color: #FFD60A; }
+body.dark-theme .repair-icon-red    { background: rgba(255, 69, 58, 0.20);   color: #FF453A; }
+body.dark-theme .repair-icon-teal   { background: rgba(48, 176, 199, 0.20);  color: #64D2FF; }
+
+body.dark-theme #repair-modal-overlay .fuel-modal-body .form-group label {
+    color: rgba(235, 235, 245, 0.72);
+}
+
+/* ============================================
+   АДАПТИВ
+   ============================================ */
+@media (max-width: 480px) {
+    .repair-card { margin-bottom: 12px; border-radius: 14px; }
+    .repair-card-title { padding: 11px 14px; font-size: 11px; }
+    .repair-card-body { padding: 12px 14px; gap: 10px; }
+    .repair-card-body .form-row { grid-template-columns: 1fr; }
+    .repair-icon-badge {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        border-radius: 9px;
+        margin-right: 6px;
+    }
+    .repair-icon-badge ion-icon { font-size: 17px; }
+    #repair-modal-overlay .fuel-modal-title .repair-icon-badge {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+    }
+    #repair-modal-overlay .fuel-modal-title .repair-icon-badge ion-icon {
+        font-size: 19px !important;
+    }
+}
+
+/* ============================================
+   ШАПКА МОДАЛКИ РЕМОНТА — СИНЯЯ ПЛАШКА (как в entry)
+   Перебивает repair-icon-orange / repair-icon-* на бейдже шапки
+   ============================================ */
+#repair-modal-overlay .fuel-modal-header .repair-header-badge,
+#repair-modal-overlay .fuel-modal-header .repair-icon-badge,
+#repair-modal-overlay .fuel-modal-title .repair-icon-badge,
+#repair-modal-overlay .fuel-modal-title .repair-header-badge {
+    background: rgba(10, 132, 255, 0.16) !important;
+    color: #0A84FF !important;
+}
+
+/* Иконка внутри наследует цвет */
+#repair-modal-overlay .fuel-modal-header .repair-header-badge ion-icon,
+#repair-modal-overlay .fuel-modal-header .repair-icon-badge ion-icon,
+#repair-modal-overlay .fuel-modal-title .repair-icon-badge ion-icon,
+#repair-modal-overlay .fuel-modal-title .repair-header-badge ion-icon {
+    color: #0A84FF !important;
+}
+
+/* Тёмная тема — те же значения, что у entry (у entry нет dark-оверрайда) */
+body.dark-theme #repair-modal-overlay .fuel-modal-header .repair-header-badge,
+body.dark-theme #repair-modal-overlay .fuel-modal-header .repair-icon-badge,
+body.dark-theme #repair-modal-overlay .fuel-modal-title .repair-icon-badge,
+body.dark-theme #repair-modal-overlay .fuel-modal-title .repair-header-badge {
+    background: rgba(10, 132, 255, 0.16) !important;
+    color: #0A84FF !important;
+}
+body.dark-theme #repair-modal-overlay .fuel-modal-header .repair-header-badge ion-icon,
+body.dark-theme #repair-modal-overlay .fuel-modal-header .repair-icon-badge ion-icon,
+body.dark-theme #repair-modal-overlay .fuel-modal-title .repair-icon-badge ion-icon,
+body.dark-theme #repair-modal-overlay .fuel-modal-title .repair-header-badge ion-icon {
+    color: #0A84FF !important;
+}

@@ -4870,3 +4870,701 @@ body.dark-theme .analytics-hero-subitem .sub-value {
 body.dark-theme .analytics-hero-divider {
     background: rgba(255, 255, 255, 0.08);
 }
+
+/* ============================================
+   МОДАЛКА «НАСТРОЙКИ» В СТИЛЕ FUEL/REPAIR
+   ============================================ */
+
+/* --- Карточка-плашка --- */
+.settings-card {
+    background: #FFFFFF;
+    border: 1px solid rgba(0, 0, 0, 0.07);
+    border-radius: 16px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    animation: settingsCardIn 0.4s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.settings-card:nth-child(1) { animation-delay: 0.05s; }
+.settings-card:nth-child(2) { animation-delay: 0.10s; }
+.settings-card:nth-child(3) { animation-delay: 0.15s; }
+.settings-card:nth-child(4) { animation-delay: 0.20s; }
+.settings-card:nth-child(5) { animation-delay: 0.25s; }
+.settings-card:nth-child(6) { animation-delay: 0.30s; }
+
+@keyframes settingsCardIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Заголовок секции: FLEX + CENTER = плашка по центру --- */
+.settings-card-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: #8E8E93;
+    background: rgba(0, 0, 0, 0.02);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    user-select: none;
+    line-height: 1;
+}
+
+/* --- Тело секции --- */
+.settings-card-body {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* Профиль — контент по центру */
+.settings-card-profile .settings-card-body {
+    text-align: center;
+    padding: 20px 16px;
+}
+
+/* ============================================
+   ⭐ КНОПКИ ВНУТРИ НАСТРОЕК — FLEX + CENTER
+   (именно это чинит «иконки не по центру»)
+   ============================================ */
+#tab-settings .btn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px;
+    min-height: 44px;
+}
+
+/* ============================================
+   ПЛАШКИ-ИКОНКИ
+   ============================================ */
+.asm-icon-badge {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    border-radius: 11px;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(142, 142, 147, 0.15);
+    color: #8E8E93;
+    flex-shrink: 0 !important;
+    flex-grow: 0 !important;
+    margin: 0 10px 0 0 !important;
+    line-height: 1;
+    box-sizing: border-box;
+}
+.asm-icon-badge ion-icon {
+    font-size: 19px;
+    display: block;
+    line-height: 1;
+    pointer-events: none;
+}
+
+/* Размеры */
+.asm-icon-badge.asm-icon-lg {
+    width: 40px; height: 40px; min-width: 40px; min-height: 40px;
+    border-radius: 12px; margin-right: 12px !important;
+}
+.asm-icon-badge.asm-icon-lg ion-icon { font-size: 22px; }
+
+.asm-icon-badge.asm-icon-sm {
+    width: 30px; height: 30px; min-width: 30px; min-height: 30px;
+    border-radius: 9px; margin-right: 10px !important;
+}
+.asm-icon-badge.asm-icon-sm ion-icon { font-size: 16px; }
+
+.asm-icon-badge.asm-icon-xs {
+    width: 28px; height: 28px; min-width: 28px; min-height: 28px;
+    border-radius: 8px; margin-right: 8px !important;
+}
+.asm-icon-badge.asm-icon-xs ion-icon { font-size: 15px; }
+
+/* Цвета */
+.asm-icon-blue   { background: rgba(10, 132, 255, 0.16);  color: #0A84FF; }
+.asm-icon-green  { background: rgba(48, 209, 88, 0.16);   color: #30D158; }
+.asm-icon-orange { background: rgba(255, 159, 10, 0.16);  color: #FF9F0A; }
+.asm-icon-purple { background: rgba(175, 82, 222, 0.16);  color: #AF52DE; }
+.asm-icon-cyan   { background: rgba(100, 210, 255, 0.16); color: #64D2FF; }
+.asm-icon-yellow { background: rgba(255, 214, 10, 0.16);  color: #FFD60A; }
+.asm-icon-red    { background: rgba(255, 69, 58, 0.16);   color: #FF453A; }
+.asm-icon-teal   { background: rgba(48, 176, 199, 0.16);  color: #30B0C7; }
+
+/* ============================================
+   ШАПКА: перебиваем правило fuel (font-size:28px)
+   ============================================ */
+.settings-modal-header ion-icon:first-child {
+    font-size: 22px !important;
+    color: inherit !important;
+}
+.settings-modal-header h3 {
+    display: flex;
+    align-items: center;
+}
+
+/* ============================================
+   ПОЛЯ ВВОДА — вдавленные, как в entry/fuel
+   ============================================ */
+#tab-settings input,
+#tab-settings select,
+#tab-settings textarea {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-weight: 500;
+    color: #1C1C1E;
+    font-family: inherit;
+    border-radius: 12px;
+    border: 1px solid #b8b8c0;
+    background: linear-gradient(to bottom, #cfcfd7 0%, #e8e8ee 8%, #f8f8fb 50%, #ffffff 100%);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35), inset 0 3px 8px rgba(0, 0, 0, 0.12), 0 1px 0 rgba(255, 255, 255, 0.85);
+    -webkit-appearance: none;
+    appearance: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+}
+#tab-settings input::placeholder { color: #8E8E93; font-weight: 400; }
+#tab-settings input:focus,
+#tab-settings select:focus,
+#tab-settings textarea:focus {
+    outline: none;
+    border-color: #007AFF;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35), inset 0 3px 8px rgba(0, 0, 0, 0.12), 0 0 0 3px rgba(0, 122, 255, 0.25), 0 1px 0 rgba(255, 255, 255, 0.85);
+}
+#tab-settings .form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #3C3C43;
+    margin-bottom: 6px;
+    display: block;
+}
+#tab-settings .form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+/* ============================================
+   ТЁМНАЯ ТЕМА
+   ============================================ */
+body.dark-theme .settings-card {
+    background: #2C2C2E;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+body.dark-theme .settings-card-title {
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    color: rgba(235, 235, 245, 0.6);
+}
+body.dark-theme .settings-card-body { background: #2C2C2E; }
+
+body.dark-theme .asm-icon-badge { background: rgba(255, 255, 255, 0.08); color: rgba(235, 235, 245, 0.7); }
+body.dark-theme .asm-icon-blue   { background: rgba(10, 132, 255, 0.20);  color: #64B5FF; }
+body.dark-theme .asm-icon-green  { background: rgba(48, 209, 88, 0.20);   color: #30D158; }
+body.dark-theme .asm-icon-orange { background: rgba(255, 159, 10, 0.20);  color: #FF9F0A; }
+body.dark-theme .asm-icon-purple { background: rgba(175, 82, 222, 0.20);  color: #BF5AF2; }
+body.dark-theme .asm-icon-cyan   { background: rgba(100, 210, 255, 0.20); color: #64D2FF; }
+body.dark-theme .asm-icon-yellow { background: rgba(255, 214, 10, 0.20);  color: #FFD60A; }
+body.dark-theme .asm-icon-red    { background: rgba(255, 69, 58, 0.20);   color: #FF453A; }
+body.dark-theme .asm-icon-teal   { background: rgba(48, 176, 199, 0.20);  color: #64D2FF; }
+
+body.dark-theme #tab-settings input,
+body.dark-theme #tab-settings select,
+body.dark-theme #tab-settings textarea {
+    background: linear-gradient(to bottom, #08080a 0%, #101013 25%, #1a1a1e 100%);
+    border: 1px solid #000000;
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+    color: #FFFFFF;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.90), inset 0 3px 8px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+body.dark-theme #tab-settings input::placeholder { color: rgba(235, 235, 245, 0.35); }
+body.dark-theme #tab-settings .form-group label { color: rgba(235, 235, 245, 0.72); }
+body.dark-theme #tab-settings .tariff-info,
+body.dark-theme #tab-settings .hint-text { color: rgba(235, 235, 245, 0.55); }
+
+/* ============================================
+   АДАПТИВ
+   ============================================ */
+@media (max-width: 480px) {
+    .settings-card { margin-bottom: 12px; border-radius: 14px; }
+    .settings-card-title { padding: 11px 14px; font-size: 11px; }
+    .settings-card-body { padding: 12px 14px; }
+    #tab-settings .form-row { grid-template-columns: 1fr; }
+    .asm-icon-badge { width: 32px; height: 32px; min-width: 32px; min-height: 32px; border-radius: 9px; }
+    .asm-icon-badge ion-icon { font-size: 17px; }
+    .asm-icon-badge.asm-icon-lg { width: 36px; height: 36px; min-width: 36px; min-height: 36px; }
+    .asm-icon-badge.asm-icon-lg ion-icon { font-size: 20px; }
+    .asm-icon-badge.asm-icon-sm { width: 28px; height: 28px; min-width: 28px; min-height: 28px; }
+    .asm-icon-badge.asm-icon-sm ion-icon { font-size: 15px; }
+    .asm-icon-badge.asm-icon-xs { width: 26px; height: 26px; min-width: 26px; min-height: 26px; }
+    .asm-icon-badge.asm-icon-xs ion-icon { font-size: 14px; }
+}
+
+/* ============================================
+   НАСТРОЙКИ: КАРТОЧКИ + АККОРДЕОНЫ + ПЛАШКИ
+   ============================================ */
+
+/* Карточка */
+.settings-card {
+    background: #FFFFFF;
+    border: 1px solid rgba(0, 0, 0, 0.07);
+    border-radius: 16px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    animation: settingsCardIn 0.4s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+.settings-card:nth-child(1) { animation-delay: 0.05s; }
+.settings-card:nth-child(2) { animation-delay: 0.10s; }
+.settings-card:nth-child(3) { animation-delay: 0.15s; }
+.settings-card:nth-child(4) { animation-delay: 0.20s; }
+.settings-card:nth-child(5) { animation-delay: 0.25s; }
+.settings-card:nth-child(6) { animation-delay: 0.30s; }
+
+@keyframes settingsCardIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Заголовок-аккордеон: FLEX + CENTER (плашки по вертикали ровно) */
+.settings-accordion-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: #8E8E93;
+    background: rgba(0, 0, 0, 0.02);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.2s, border-color 0.2s;
+    line-height: 1;
+}
+.settings-accordion-header:hover { background: rgba(0, 0, 0, 0.04); }
+.settings-accordion-header:active { background: rgba(0, 0, 0, 0.06); }
+
+/* Тело секции — анимация сворачивания */
+.settings-card-body {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow: hidden;
+    max-height: 5000px;
+    opacity: 1;
+    transition: max-height 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+                padding 0.35s cubic-bezier(0.32, 0.72, 0, 1),
+                opacity 0.25s ease;
+}
+
+/* Свёрнуто */
+.settings-card.collapsed .settings-card-body {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+}
+.settings-card.collapsed .settings-accordion-header {
+    border-bottom-color: transparent;
+}
+
+/* Шеврон — прижат вправо, поворачивается при сворачивании */
+.settings-accordion-header .settings-chevron {
+    margin-left: auto !important;
+    margin-right: 0 !important;
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.settings-card.collapsed .settings-chevron {
+    transform: rotate(-90deg);
+}
+
+/* Профиль — без аккордеона, контент по центру */
+.settings-card-profile .settings-card-body {
+    text-align: center;
+    padding: 20px 16px;
+}
+
+/* Кнопки — flex + center, чтобы плашки не прыгали */
+#tab-settings .btn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px;
+    min-height: 44px;
+}
+
+/* Поля — вдавленные, как в entry/fuel */
+#tab-settings input,
+#tab-settings select,
+#tab-settings textarea {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+    font-weight: 500;
+    color: #1C1C1E;
+    font-family: inherit;
+    border-radius: 12px;
+    border: 1px solid #b8b8c0;
+    background: linear-gradient(to bottom, #cfcfd7 0%, #e8e8ee 8%, #f8f8fb 50%, #ffffff 100%);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.35), inset 0 3px 8px rgba(0,0,0,0.12), 0 1px 0 rgba(255,255,255,0.85);
+    -webkit-appearance: none;
+    appearance: none;
+    box-sizing: border-box;
+}
+#tab-settings input:focus,
+#tab-settings select:focus,
+#tab-settings textarea:focus {
+    outline: none;
+    border-color: #007AFF;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.35), inset 0 3px 8px rgba(0,0,0,0.12), 0 0 0 3px rgba(0,122,255,0.25), 0 1px 0 rgba(255,255,255,0.85);
+}
+#tab-settings .form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #3C3C43;
+    margin-bottom: 6px;
+    display: block;
+}
+#tab-settings .form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+/* Шапка — перебиваем правило fuel (font-size:28px) */
+.settings-modal-header ion-icon:first-child { font-size: 22px !important; color: inherit !important; }
+.settings-modal-header h3 { display: flex; align-items: center; }
+
+/* --- Плашки --- */
+.asm-icon-badge {
+    width: 36px; height: 36px; min-width: 36px; min-height: 36px;
+    border-radius: 11px;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(142,142,147,0.15); color: #8E8E93;
+    flex-shrink: 0 !important;
+    margin: 0 10px 0 0 !important;
+    line-height: 1; box-sizing: border-box;
+}
+.asm-icon-badge ion-icon { font-size: 19px; display: block; line-height: 1; pointer-events: none; }
+
+.asm-icon-badge.asm-icon-lg { width: 40px; height: 40px; min-width: 40px; min-height: 40px; border-radius: 12px; margin-right: 12px !important; }
+.asm-icon-badge.asm-icon-lg ion-icon { font-size: 22px; }
+.asm-icon-badge.asm-icon-sm { width: 30px; height: 30px; min-width: 30px; min-height: 30px; border-radius: 9px; margin-right: 10px !important; }
+.asm-icon-badge.asm-icon-sm ion-icon { font-size: 16px; }
+.asm-icon-badge.asm-icon-xs { width: 28px; height: 28px; min-width: 28px; min-height: 28px; border-radius: 8px; margin-right: 8px !important; }
+.asm-icon-badge.asm-icon-xs ion-icon { font-size: 15px; }
+
+.asm-icon-blue   { background: rgba(10,132,255,0.16);  color: #0A84FF; }
+.asm-icon-green  { background: rgba(48,209,88,0.16);   color: #30D158; }
+.asm-icon-orange { background: rgba(255,159,10,0.16);  color: #FF9F0A; }
+.asm-icon-purple { background: rgba(175,82,222,0.16);  color: #AF52DE; }
+.asm-icon-cyan   { background: rgba(100,210,255,0.16); color: #64D2FF; }
+.asm-icon-yellow { background: rgba(255,214,10,0.16);  color: #FFD60A; }
+.asm-icon-red    { background: rgba(255,69,58,0.16);   color: #FF453A; }
+.asm-icon-teal   { background: rgba(48,176,199,0.16);  color: #30B0C7; }
+
+/* --- Тёмная тема --- */
+body.dark-theme .settings-card {
+    background: #2C2C2E;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+}
+body.dark-theme .settings-accordion-header {
+    background: rgba(255,255,255,0.04);
+    border-bottom-color: rgba(255,255,255,0.08);
+    color: rgba(235,235,245,0.6);
+}
+body.dark-theme .settings-accordion-header:hover { background: rgba(255,255,255,0.07); }
+body.dark-theme .settings-card-body { background: #2C2C2E; }
+
+body.dark-theme .asm-icon-badge { background: rgba(255,255,255,0.08); color: rgba(235,235,245,0.7); }
+body.dark-theme .asm-icon-blue   { background: rgba(10,132,255,0.20);  color: #64B5FF; }
+body.dark-theme .asm-icon-green  { background: rgba(48,209,88,0.20);   color: #30D158; }
+body.dark-theme .asm-icon-orange { background: rgba(255,159,10,0.20);  color: #FF9F0A; }
+body.dark-theme .asm-icon-purple { background: rgba(175,82,222,0.20);  color: #BF5AF2; }
+body.dark-theme .asm-icon-cyan   { background: rgba(100,210,255,0.20); color: #64D2FF; }
+body.dark-theme .asm-icon-yellow { background: rgba(255,214,10,0.20);  color: #FFD60A; }
+body.dark-theme .asm-icon-red    { background: rgba(255,69,58,0.20);   color: #FF453A; }
+body.dark-theme .asm-icon-teal   { background: rgba(48,176,199,0.20);  color: #64D2FF; }
+
+body.dark-theme #tab-settings input,
+body.dark-theme #tab-settings select,
+body.dark-theme #tab-settings textarea {
+    background: linear-gradient(to bottom, #08080a 0%, #101013 25%, #1a1a1e 100%);
+    border: 1px solid #000000;
+    border-bottom-color: rgba(255,255,255,0.12);
+    color: #FFFFFF;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.90), inset 0 3px 8px rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.08);
+}
+body.dark-theme #tab-settings .form-group label { color: rgba(235,235,245,0.72); }
+body.dark-theme #tab-settings .tariff-info,
+body.dark-theme #tab-settings .hint-text { color: rgba(235,235,245,0.55); }
+
+/* --- Адаптив --- */
+@media (max-width: 480px) {
+    .settings-card { margin-bottom: 12px; border-radius: 14px; }
+    .settings-accordion-header { padding: 11px 14px; font-size: 11px; gap: 8px; }
+    .settings-card-body { padding: 12px 14px; }
+    #tab-settings .form-row { grid-template-columns: 1fr; }
+    .asm-icon-badge { width: 32px; height: 32px; min-width: 32px; min-height: 32px; border-radius: 9px; }
+    .asm-icon-badge ion-icon { font-size: 17px; }
+    .asm-icon-badge.asm-icon-lg { width: 36px; height: 36px; min-width: 36px; min-height: 36px; }
+    .asm-icon-badge.asm-icon-lg ion-icon { font-size: 20px; }
+    .asm-icon-badge.asm-icon-sm { width: 28px; height: 28px; min-width: 28px; min-height: 28px; }
+    .asm-icon-badge.asm-icon-sm ion-icon { font-size: 15px; }
+    .asm-icon-badge.asm-icon-xs { width: 26px; height: 26px; min-width: 26px; min-height: 26px; }
+    .asm-icon-badge.asm-icon-xs ion-icon { font-size: 14px; }
+}
+
+/* ============================================
+   ФИКС: аватар профиля строго по центру
+   ============================================ */
+.settings-card-profile .settings-card-body {
+    align-items: center !important; /* не растягиваем children на всю ширину */
+    text-align: center !important;
+}
+
+/* Контейнер аватара сжимается до содержимого и центрируется */
+.settings-card-profile #profile-avatar-container {
+    align-self: center !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+/* Сам круг — на всякий случай через auto-маржины (работает и в block, и в flex) */
+.settings-card-profile #profile-avatar {
+    margin: 0 auto !important;
+}
+
+/* Имя и email — центрируем текст внутри растянутых блоков */
+.settings-card-profile #profile-name,
+.settings-card-profile #profile-email {
+    width: 100%;
+    text-align: center !important;
+}
+
+/* ============================================
+   SWIPE TO DISMISS: СТИЛИ ДЛЯ ШАПКИ
+   ============================================ */
+.fuel-modal-header,
+.entry-modal-header,
+.cp-settings-header {
+    /* Запрещаем браузерные жесты (например, pull-to-refresh) на шапке */
+    touch-action: none;
+    /* Даем визуальный отклик при нажатии на мобильных */
+    -webkit-tap-highlight-color: transparent;
+    cursor: grab;
+}
+
+.fuel-modal-header:active,
+.entry-modal-header:active,
+.cp-settings-header:active {
+    cursor: grabbing;
+}
+
+/* Ручка свайпа (если есть) должна явно показывать, что её можно тянуть */
+.fuel-modal-handle,
+.entry-modal-handle {
+    touch-action: none;
+    cursor: grab;
+}
+
+/* ============================================
+   SWIPE-TO-DISMISS: стили для ручки и шапки
+   ============================================ */
+
+/* Ручка свайпа — видна только на мобильных */
+.fuel-modal-handle,
+.entry-modal-handle {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 5px;
+    border-radius: 100px;
+    background: rgba(142, 142, 147, 0.4);
+    display: none;
+    z-index: 3;
+    touch-action: none;
+    cursor: grab;
+    transition: background 0.2s;
+}
+.fuel-modal-handle:active,
+.entry-modal-handle:active {
+    cursor: grabbing;
+    background: rgba(142, 142, 147, 0.7);
+}
+
+@media (max-width: 768px) {
+    .fuel-modal-handle,
+    .entry-modal-handle {
+        display: block;
+    }
+}
+
+/* Шапка — тоже зона свайпа, с визуальным откликом */
+.fuel-modal-header,
+.entry-modal-header {
+    touch-action: pan-y; /* разрешаем вертикальный скролл, но наш JS перехватит свайп */
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* Плавность transform для модалок */
+.fuel-modal,
+.entry-modal,
+.cp-settings-modal {
+    will-change: transform;
+}
+
+/* Запрет выделения текста во время свайпа */
+.fuel-modal-header.dragging,
+.entry-modal-header.dragging {
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+/* ============================================================
+   ФИНАЛЬНЫЙ ФИКС: иконки в плашках настроек (размер + центр)
+   Специфичность 1,2,1 перебивает #tab-settings .btn ion-icon (1,1,1)
+   ============================================================ */
+
+/* База: любая плашка-иконка */
+#tab-settings .asm-icon-badge ion-icon,
+.asm-icon-badge ion-icon {
+    font-size: 19px !important;
+    margin: 0 !important;
+    margin-right: 0 !important;
+    padding: 0 !important;
+    vertical-align: middle !important;
+    line-height: 1 !important;
+}
+
+/* xs — иконки в кнопках "Экспорт в Excel" и т.п. */
+#tab-settings .asm-icon-badge.asm-icon-xs ion-icon,
+.asm-icon-badge.asm-icon-xs ion-icon {
+    font-size: 15px !important;
+    margin: 0 !important;
+}
+
+/* sm — иконки в заголовках аккордеонов */
+#tab-settings .asm-icon-badge.asm-icon-sm ion-icon,
+.asm-icon-badge.asm-icon-sm ion-icon {
+    font-size: 16px !important;
+    margin: 0 !important;
+}
+
+/* lg — иконка в шапке модалки */
+#tab-settings .asm-icon-badge.asm-icon-lg ion-icon,
+.asm-icon-badge.asm-icon-lg ion-icon {
+    font-size: 22px !important;
+    margin: 0 !important;
+}
+
+/* Адаптив (мобильный) — возвращаем прежние мелкие размеры */
+@media (max-width: 480px) {
+    #tab-settings .asm-icon-badge ion-icon { font-size: 17px !important; margin: 0 !important; }
+    #tab-settings .asm-icon-badge.asm-icon-xs ion-icon { font-size: 14px !important; }
+    #tab-settings .asm-icon-badge.asm-icon-sm ion-icon { font-size: 15px !important; }
+    #tab-settings .asm-icon-badge.asm-icon-lg ion-icon { font-size: 20px !important; }
+}
+
+/* ============================================
+СВЕТЛАЯ ТЕМА: видимый текст на кнопках настроек
+(чинит невидимый белый текст на белом фоне)
+============================================ */
+body:not(.dark-theme) #tab-settings .btn,
+body:not(.dark-theme) .cp-settings-modal .btn {
+    color: #1C1C1E !important;
+    background: transparent !important;
+    background-image: none !important;
+}
+
+/* Варианты: цвет как у плоских кнопок в других секциях */
+body:not(.dark-theme) #tab-settings .btn-primary,
+body:not(.dark-theme) .cp-settings-modal .btn-primary {
+    color: #007AFF !important;
+}
+body:not(.dark-theme) #tab-settings .btn-success,
+body:not(.dark-theme) .cp-settings-modal .btn-success {
+    color: #28A745 !important;
+}
+body:not(.dark-theme) #tab-settings .btn-danger,
+body:not(.dark-theme) .cp-settings-modal .btn-danger {
+    color: #FF3B30 !important;
+}
+
+/* Иконки-плашки сохраняют свой цвет (у них задан color явно) */
+body:not(.dark-theme) #tab-settings .btn .asm-icon-badge,
+body:not(.dark-theme) .cp-settings-modal .btn .asm-icon-badge {
+    color: #8E8E93;
+}
+body:not(.dark-theme) #tab-settings .btn .asm-icon-badge.asm-icon-blue,
+body:not(.dark-theme) .cp-settings-modal .btn .asm-icon-badge.asm-icon-blue { color: #0A84FF; }
+body:not(.dark-theme) #tab-settings .btn .asm-icon-badge.asm-icon-green,
+body:not(.dark-theme) .cp-settings-modal .btn .asm-icon-badge.asm-icon-green { color: #30D158; }
+body:not(.dark-theme) #tab-settings .btn .asm-icon-badge.asm-icon-red,
+body:not(.dark-theme) .cp-settings-modal .btn .asm-icon-badge.asm-icon-red { color: #FF453A; }
+body:not(.dark-theme) #tab-settings .btn .asm-icon-badge.asm-icon-orange,
+body:not(.dark-theme) .cp-settings-modal .btn .asm-icon-badge.asm-icon-orange { color: #FF9F0A; }
+
+
+
+
+/* ============================================
+СКРЫТИЕ КРЕСТИКОВ ЗАКРЫТИЯ ВО ВСЕХ МОДАЛКАХ
+(родительский класс оверлея = специфичность 0,2,0,
+перебивает «УНИФИКАЦИЮ КРЕСТИКА» 0,1,0)
+Окна закрываются: свайп шапки, клик по фону, Escape
+============================================ */
+.fuel-modal-overlay .fuel-modal-close,
+.fuel-modal-overlay .entry-modal-close,
+.entry-modal-overlay .entry-modal-close,
+.entry-modal-overlay .fuel-modal-close,
+#fuel-modal-overlay .fuel-modal-close,
+#fuel-modal-overlay .entry-modal-close,
+#entry-modal-overlay .entry-modal-close,
+#entry-modal-overlay .fuel-modal-close,
+#repair-modal-overlay .fuel-modal-close,
+#repair-modal-overlay .entry-modal-close,
+.cp-settings-modal .fuel-modal-close,
+.cp-settings-modal .entry-modal-close,
+#tab-settings .fuel-modal-close,
+.cp-settings-header .fuel-modal-close {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* ⭐ Резервный щит: ЛЮБАЯ кнопка в шапке модалки скрывается,
+   даже если у неё другой класс (close-btn, modal-close и т.п.) */
+.fuel-modal-header>button,
+.entry-modal-header>button,
+.cp-settings-header>button {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}

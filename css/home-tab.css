@@ -547,3 +547,104 @@ body.dark-theme .goals-modal-footer .btn:active {
 .dash-hero-card > .dash-hero-label {
     display: none;
 }
+
+/* ============================================
+   ПЛАШКИ-ИКОНКИ НА ВКЛАДКЕ "ГЛАВНАЯ"
+   ============================================ */
+
+/* Базовая плашка */
+.home-icon-badge {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    border-radius: 11px;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(142, 142, 147, 0.15);
+    color: #8E8E93;
+    flex-shrink: 0 !important;
+    margin: 0 8px 0 0 !important;
+    line-height: 1;
+    box-sizing: border-box;
+}
+
+.home-icon-badge ion-icon {
+    font-size: 19px;
+    display: block;
+    line-height: 1;
+    pointer-events: none;
+    margin: 0 !important;
+}
+
+/* Маленькая плашка (для метрик) */
+.home-icon-badge.home-icon-sm {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+    border-radius: 8px;
+    margin-right: 6px !important;
+}
+
+.home-icon-badge.home-icon-sm ion-icon {
+    font-size: 15px;
+}
+
+/* Большая плашка (для заголовков секций) */
+.home-icon-badge.home-icon-lg {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: 12px;
+    margin-right: 10px !important;
+}
+
+.home-icon-badge.home-icon-lg ion-icon {
+    font-size: 22px;
+}
+
+/* Цвета плашек */
+.home-icon-blue   { background: rgba(10, 132, 255, 0.16);  color: #0A84FF; }
+.home-icon-green  { background: rgba(48, 209, 88, 0.16);   color: #30D158; }
+.home-icon-orange { background: rgba(255, 159, 10, 0.16);  color: #FF9F0A; }
+.home-icon-purple { background: rgba(175, 82, 222, 0.16);  color: #AF52DE; }
+
+/* Тёмная тема */
+body.dark-theme .home-icon-badge {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(235, 235, 245, 0.7);
+}
+
+body.dark-theme .home-icon-blue   { background: rgba(10, 132, 255, 0.20);  color: #64B5FF; }
+body.dark-theme .home-icon-green  { background: rgba(48, 209, 88, 0.20);   color: #30D158; }
+body.dark-theme .home-icon-orange { background: rgba(255, 159, 10, 0.20);  color: #FF9F0A; }
+body.dark-theme .home-icon-purple { background: rgba(175, 82, 222, 0.20);  color: #BF5AF2; }
+
+/* Адаптив */
+@media (max-width: 480px) {
+    .home-icon-badge {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        min-height: 32px;
+        border-radius: 9px;
+    }
+    .home-icon-badge ion-icon { font-size: 17px; }
+    .home-icon-badge.home-icon-sm {
+        width: 26px;
+        height: 26px;
+        min-width: 26px;
+        min-height: 26px;
+    }
+    .home-icon-badge.home-icon-sm ion-icon { font-size: 14px; }
+    .home-icon-badge.home-icon-lg {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        min-height: 36px;
+    }
+    .home-icon-badge.home-icon-lg ion-icon { font-size: 20px; }
+}

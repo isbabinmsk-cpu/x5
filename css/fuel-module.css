@@ -917,3 +917,708 @@ body.dark-theme .repair-chart-empty ion-icon { color: rgba(235, 235, 245, 0.35);
         animation: none !important;
     }
 }
+
+/* ============================================
+   ЦВЕТНЫЕ ПЛАШКИ-ИКОНКИ В МОДАЛКЕ ЗАПРАВКИ
+   (как в настройках уведомлений)
+   ============================================ */
+
+/* Базовая плашка */
+.fuel-icon-badge {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    border-radius: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(142, 142, 147, 0.15);
+    color: #8E8E93;
+    flex-shrink: 0;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+.fuel-icon-badge ion-icon {
+    font-size: 19px;
+    pointer-events: none;
+}
+
+/* Цвета плашек */
+.fuel-icon-blue   { background: rgba(10, 132, 255, 0.16);  color: #0A84FF; }
+.fuel-icon-green  { background: rgba(48, 209, 88, 0.16);   color: #30D158; }
+.fuel-icon-orange { background: rgba(255, 159, 10, 0.16);  color: #FF9F0A; }
+.fuel-icon-purple { background: rgba(175, 82, 222, 0.16);  color: #AF52DE; }
+.fuel-icon-cyan   { background: rgba(100, 210, 255, 0.16); color: #64D2FF; }
+.fuel-icon-yellow { background: rgba(255, 214, 10, 0.16);  color: #FFD60A; }
+.fuel-icon-red    { background: rgba(255, 69, 58, 0.16);   color: #FF453A; }
+.fuel-icon-teal   { background: rgba(48, 176, 199, 0.16);  color: #30B0C7; }
+
+/* Шапка модалки: иконка-плашка вместо обычной */
+.fuel-modal-header .fuel-header-badge {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.fuel-modal-header .fuel-header-badge ion-icon {
+    font-size: 22px;
+    pointer-events: none;
+}
+
+/* Убираем старую иконку в шапке (первую), если она осталась */
+.fuel-modal-header > ion-icon:first-child {
+    display: none !important;
+}
+
+/* Адаптив для узких экранов */
+@media (max-width: 480px) {
+    .fuel-icon-badge {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        border-radius: 9px;
+        margin-right: 6px;
+    }
+    .fuel-icon-badge ion-icon {
+        font-size: 17px;
+    }
+    .fuel-modal-header .fuel-header-badge {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+    }
+    .fuel-modal-header .fuel-header-badge ion-icon {
+        font-size: 20px;
+    }
+}
+
+/* ============================================
+   СТИЛИ МОДАЛКИ ТОПЛИВА (в стиле entry-module)
+   ============================================ */
+
+/* --- Заголовок модалки --- */
+.fuel-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    background: rgba(242, 242, 247, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 2;
+}
+
+.fuel-modal-handle {
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 4px;
+    border-radius: 100px;
+    background: rgba(0, 0, 0, 0.2);
+    display: none;
+}
+
+.fuel-modal-title {
+    flex: 1;
+    font-size: 18px;
+    font-weight: 700;
+    color: #000;
+    margin: 0;
+    letter-spacing: -0.3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+
+
+/* --- Тело модалки --- */
+.fuel-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 20px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+}
+
+.fuel-modal-body::-webkit-scrollbar { width: 6px; }
+.fuel-modal-body::-webkit-scrollbar-track { background: transparent; }
+.fuel-modal-body::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 3px;
+}
+
+/* --- Карточки-плашки --- */
+.fuel-card {
+    background: #FFFFFF;
+    border: 1px solid rgba(0, 0, 0, 0.07);
+    border-radius: 16px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    animation: fuelContentIn 0.4s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.fuel-card:nth-child(1) { animation-delay: 0.05s; }
+.fuel-card:nth-child(2) { animation-delay: 0.10s; }
+.fuel-card:nth-child(3) { animation-delay: 0.15s; }
+
+.fuel-card-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: #8E8E93;
+    background: rgba(0, 0, 0, 0.02);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    user-select: none;
+}
+
+.fuel-card-body {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.fuel-card-body .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.fuel-card-body .form-group {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* --- Иконки-плашки --- */
+.fuel-icon-badge {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    border-radius: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(142, 142, 147, 0.15);
+    color: #8E8E93;
+    flex-shrink: 0;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+
+.fuel-icon-badge ion-icon {
+    font-size: 19px;
+    pointer-events: none;
+}
+
+.fuel-icon-badge.fuel-icon-sm {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    border-radius: 8px;
+    margin-right: 6px;
+}
+
+.fuel-icon-badge.fuel-icon-sm ion-icon {
+    font-size: 15px;
+}
+
+.fuel-icon-blue   { background: rgba(10, 132, 255, 0.16);  color: #0A84FF; }
+.fuel-icon-green  { background: rgba(48, 209, 88, 0.16);   color: #30D158; }
+.fuel-icon-orange { background: rgba(255, 159, 10, 0.16);  color: #FF9F0A; }
+.fuel-icon-purple { background: rgba(175, 82, 222, 0.16);  color: #AF52DE; }
+.fuel-icon-cyan   { background: rgba(100, 210, 255, 0.16); color: #64D2FF; }
+.fuel-icon-yellow { background: rgba(255, 214, 10, 0.16);  color: #FFD60A; }
+.fuel-icon-red    { background: rgba(255, 69, 58, 0.16);   color: #FF453A; }
+.fuel-icon-teal   { background: rgba(48, 176, 199, 0.16);  color: #30B0C7; }
+
+/* --- Поля ввода (вдавленные) --- */
+.fuel-modal-body input,
+.fuel-modal-body select,
+.fuel-modal-body textarea {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 16px;
+    font-weight: 500;
+    color: #1C1C1E;
+    font-family: inherit;
+    border-radius: 12px;
+    border: 1px solid #b8b8c0;
+    background: linear-gradient(to bottom,
+        #cfcfd7 0%,
+        #e8e8ee 8%,
+        #f8f8fb 50%,
+        #ffffff 100%);
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.35),
+        inset 0 3px 8px rgba(0, 0, 0, 0.12),
+        0 1px 0 rgba(255, 255, 255, 0.85);
+    -webkit-appearance: none;
+    appearance: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box;
+}
+
+.fuel-modal-body input::placeholder,
+.fuel-modal-body textarea::placeholder {
+    color: #8E8E93;
+    font-weight: 400;
+}
+
+.fuel-modal-body input:focus,
+.fuel-modal-body select:focus,
+.fuel-modal-body textarea:focus {
+    outline: none;
+    border-color: #007AFF;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.35),
+        inset 0 3px 8px rgba(0, 0, 0, 0.12),
+        0 0 0 3px rgba(0, 122, 255, 0.25),
+        0 1px 0 rgba(255, 255, 255, 0.85);
+}
+
+.fuel-modal-body input[readonly] {
+    background: linear-gradient(to bottom,
+        #d8d8df 0%,
+        #e0e0e6 10%,
+        #ececf0 100%);
+    color: #636366;
+    cursor: default;
+    box-shadow:
+        inset 0 1px 3px rgba(0, 0, 0, 0.30),
+        inset 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+.fuel-modal-body select {
+    background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23636366' d='M6 9L1 4h10z'/%3E%3C/svg%3E"),
+        linear-gradient(to bottom, #cfcfd7 0%, #e8e8ee 8%, #f8f8fb 50%, #ffffff 100%);
+    background-repeat: no-repeat, no-repeat;
+    background-position: right 16px center, center;
+    background-size: 12px, 100% 100%;
+    padding-right: 40px;
+    cursor: pointer;
+}
+
+.fuel-modal-body input[type="number"] {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    -moz-appearance: textfield;
+}
+
+.fuel-modal-body input[type="number"]::-webkit-outer-spin-button,
+.fuel-modal-body input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.fuel-modal-body input[type="date"] {
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+}
+
+/* --- Метки полей --- */
+.fuel-modal-body .form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #3C3C43;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* --- Футер --- */
+.fuel-modal-footer {
+    display: flex;
+    gap: 12px;
+    padding: 16px 20px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    background: rgba(242, 242, 247, 0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    flex-shrink: 0;
+}
+
+.fuel-modal-footer .btn {
+    flex: 1;
+    min-height: 50px;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.15s cubic-bezier(0.32,0.72,0,1);
+}
+
+.fuel-modal-footer .btn:active {
+    transform: scale(0.97);
+}
+
+.fuel-modal-footer .btn-clear {
+    color: #FF3B30 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 59, 48, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+.fuel-modal-footer .btn-clear ion-icon {
+    color: #FF3B30 !important;
+}
+
+.fuel-modal-footer .btn-clear:active {
+    background-color: rgba(255, 59, 48, 0.08) !important;
+}
+
+.fuel-modal-footer .btn-success {
+    color: #34C759 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(52, 199, 89, 0.50),
+        0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+.fuel-modal-footer .btn-success ion-icon {
+    color: #34C759 !important;
+}
+
+.fuel-modal-footer .btn-success:active {
+    background-color: rgba(52, 199, 89, 0.08) !important;
+}
+
+/* --- Анимация --- */
+@keyframes fuelContentIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ============================================
+   ТЁМНАЯ ТЕМА
+   ============================================ */
+body.dark-theme .fuel-modal {
+    background: #1C1C1E;
+    box-shadow: 0 -12px 60px rgba(0, 0, 0, 0.7);
+}
+
+body.dark-theme .fuel-modal-header,
+body.dark-theme .fuel-modal-footer {
+    background: rgba(28, 28, 30, 0.92);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-theme .fuel-modal-handle {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+body.dark-theme .fuel-modal-title {
+    color: #FFFFFF;
+}
+
+body.dark-theme .fuel-modal-close {
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(235, 235, 245, 0.72);
+}
+
+body.dark-theme .fuel-modal-close:active {
+    background: rgba(255, 255, 255, 0.20);
+}
+
+body.dark-theme .fuel-card {
+    background: #2C2C2E;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+body.dark-theme .fuel-card-title {
+    background: rgba(255, 255, 255, 0.04);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+    color: rgba(235, 235, 245, 0.6);
+}
+
+body.dark-theme .fuel-card-body {
+    background: #2C2C2E;
+}
+
+body.dark-theme .fuel-modal-body input,
+body.dark-theme .fuel-modal-body select,
+body.dark-theme .fuel-modal-body textarea {
+    background: linear-gradient(to bottom, #08080a 0%, #101013 25%, #1a1a1e 100%);
+    border: 1px solid #000000;
+    border-bottom-color: rgba(255, 255, 255, 0.12);
+    color: #FFFFFF;
+    box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.8),
+        inset 0 4px 8px rgba(0, 0, 0, 0.6),
+        0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+body.dark-theme .fuel-modal-body input::placeholder,
+body.dark-theme .fuel-modal-body textarea::placeholder {
+    color: rgba(235, 235, 245, 0.35);
+}
+
+body.dark-theme .fuel-modal-body input:focus,
+body.dark-theme .fuel-modal-body select:focus,
+body.dark-theme .fuel-modal-body textarea:focus {
+    border-color: #0A84FF;
+    box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.8),
+        inset 0 4px 8px rgba(0, 0, 0, 0.6),
+        0 0 0 3px rgba(10, 132, 255, 0.30),
+        0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+body.dark-theme .fuel-modal-body input[readonly] {
+    background: linear-gradient(to bottom, #141416 0%, #1c1c1e 100%);
+    color: rgba(235, 235, 245, 0.55);
+}
+
+body.dark-theme .fuel-modal-body select {
+    background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238E8E93' d='M6 9L1 4h10z'/%3E%3C/svg%3E"),
+        linear-gradient(to bottom, #08080a 0%, #101013 25%, #1a1a1e 100%);
+}
+
+body.dark-theme .fuel-modal-body .form-group label {
+    color: rgba(235, 235, 245, 0.72);
+}
+
+body.dark-theme .fuel-modal-footer .btn-clear {
+    color: #FF453A !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(255, 69, 58, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+body.dark-theme .fuel-modal-footer .btn-clear ion-icon {
+    color: #FF453A !important;
+}
+
+body.dark-theme .fuel-modal-footer .btn-clear:active {
+    background-color: rgba(255, 69, 58, 0.12) !important;
+}
+
+body.dark-theme .fuel-modal-footer .btn-success {
+    color: #30D158 !important;
+    box-shadow:
+        inset 0 0 0 2px rgba(48, 209, 88, 0.60),
+        0 1px 0 rgba(255, 255, 255, 0.10) !important;
+}
+
+body.dark-theme .fuel-modal-footer .btn-success ion-icon {
+    color: #30D158 !important;
+}
+
+body.dark-theme .fuel-modal-footer .btn-success:active {
+    background-color: rgba(48, 209, 88, 0.12) !important;
+}
+
+/* --- Адаптив --- */
+@media (max-width: 480px) {
+    .fuel-modal-handle { display: block; }
+    .fuel-modal-header { padding: 18px 16px 12px; }
+    .fuel-modal-body { padding: 16px; }
+    .fuel-modal-footer {
+        padding: 12px 16px;
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
+    .fuel-modal-footer .btn {
+        min-height: 46px;
+        font-size: 15px;
+    }
+    .fuel-card-body .form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .fuel-icon-badge {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        border-radius: 9px;
+        margin-right: 6px;
+    }
+    .fuel-icon-badge ion-icon {
+        font-size: 17px;
+    }
+    .fuel-modal-title .fuel-icon-badge {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+    }
+    .fuel-modal-title .fuel-icon-badge ion-icon {
+        font-size: 20px;
+    }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+    .fuel-modal { max-width: 600px; }
+}
+
+
+
+/* Скрываем все иконки в шапке, кроме первой плашки */
+.fuel-modal-header>ion-icon:not(:first-child) {
+    display: none !important;
+}
+
+.fuel-modal-header .fuel-icon-badge~.fuel-icon-badge {
+    display: none !important;
+}
+
+/* ============================================
+   СКРЫТЫЕ МОДАЛКИ НЕ ЗАНIMAЮТ МЕСТО И НЕ ВЛИЯЮТ НА СКРОЛЛ
+   ============================================ */
+.fuel-modal-overlay:not(.visible),
+.entry-modal-overlay:not(.visible) {
+    visibility: hidden;          /* полностью убирает из «зрения» браузера */
+    pointer-events: none;
+}
+.fuel-modal-overlay.visible,
+.entry-modal-overlay.visible {
+    visibility: visible;
+}
+
+/* Гарантия, что оверлей всегда от экрана, а не от transformed-родителя */
+.fuel-modal-overlay,
+.entry-modal-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+    height: 100dvh;              /* dvh вместо vh — корректно на мобильных */
+    max-height: 100dvh;
+    overflow: hidden;            /* ничего не вылезает за экран */
+}
+
+/* Модалка не должна растекаться больше экрана */
+.fuel-modal,
+.entry-modal {
+    max-height: 94dvh;
+    overflow: hidden;
+}
+.fuel-modal-body,
+.entry-modal-body {
+    max-height: calc(94dvh - 130px); /* header+footer */
+    overflow-y: auto;
+}
+
+/* Вкладка топлива не должна растягиваться на бесконечность */
+#tab-fuel,
+#tab-repair {
+    min-height: auto;            /* было 100vh — убрать */
+    padding-bottom: 96px;        /* только отступ под таб-бар */
+}
+
+/* Список заправок ограничиваем, чтобы не было фантомного скролла */
+#fuel-logs-list {
+    max-height: none;
+}
+
+/* ============================================
+   ФУТЕР + ШАПКА МОДАЛКИ ЗАПРАВКИ — КАК В ENTRY
+   (перебивает .btn ion-icon и header ion-icon)
+   ============================================ */
+
+/* 1. Плашки в футере — размер и отступ как entry-icon-sm */
+.fuel-modal-footer .btn .fuel-icon-badge,
+.fuel-modal-footer .btn .repair-icon-badge,
+#fuel-modal-overlay .btn .fuel-icon-badge,
+#repair-modal-overlay .btn .fuel-icon-badge,
+#repair-modal-overlay .btn .repair-icon-badge {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    border-radius: 8px !important;
+    margin: 0 6px 0 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+}
+
+/* 2. Иконка ВНУТРИ плашки футера — маленький размер, ноль отступов */
+.fuel-modal-footer .btn .fuel-icon-badge ion-icon,
+.fuel-modal-footer .btn .repair-icon-badge ion-icon,
+#fuel-modal-overlay .btn .fuel-icon-badge ion-icon,
+#repair-modal-overlay .btn .fuel-icon-badge ion-icon,
+#repair-modal-overlay .btn .repair-icon-badge ion-icon {
+    font-size: 15px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+    line-height: 1 !important;
+    vertical-align: middle !important;
+}
+
+/* 3. Плашка в заголовке — как в entry: 40px, синий цвет */
+.fuel-modal-header .fuel-icon-badge {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    border-radius: 12px !important;
+    margin: 0 10px 0 0 !important;
+    background: rgba(10, 132, 255, 0.16) !important;
+    color: #0A84FF !important;
+}
+
+/* 4. Иконка в заголовке — 22px, по центру (перебивает font-size:28px) */
+.fuel-modal-header .fuel-icon-badge ion-icon {
+    font-size: 22px !important;
+    margin: 0 !important;
+    display: block !important;
+    line-height: 1 !important;
+}
+
+/* 5. Тёмная тема — тот же синий, что в entry */
+body.dark-theme .fuel-modal-header .fuel-icon-badge {
+    background: rgba(10, 132, 255, 0.16) !important;
+    color: #0A84FF !important;
+}
+
+/* 6. Мобильный адаптив — уменьшение как в entry */
+@media (max-width: 480px) {
+    .fuel-modal-footer .btn .fuel-icon-badge,
+    .fuel-modal-footer .btn .repair-icon-badge,
+    #fuel-modal-overlay .btn .fuel-icon-badge,
+    #repair-modal-overlay .btn .fuel-icon-badge,
+    #repair-modal-overlay .btn .repair-icon-badge {
+        width: 26px !important; height: 26px !important;
+        min-width: 26px !important; min-height: 26px !important;
+        border-radius: 7px !important;
+    }
+    .fuel-modal-footer .btn .fuel-icon-badge ion-icon,
+    .fuel-modal-footer .btn .repair-icon-badge ion-icon,
+    #fuel-modal-overlay .btn .fuel-icon-badge ion-icon,
+    #repair-modal-overlay .btn .fuel-icon-badge ion-icon,
+    #repair-modal-overlay .btn .repair-icon-badge ion-icon {
+        font-size: 14px !important;
+    }
+    .fuel-modal-header .fuel-icon-badge {
+        width: 36px !important; height: 36px !important;
+        min-width: 36px !important; min-height: 36px !important;
+    }
+    .fuel-modal-header .fuel-icon-badge ion-icon {
+        font-size: 20px !important;
+    }
+}
