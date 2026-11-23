@@ -1,10 +1,13 @@
 // ============================================
-// МОДУЛЬ КАЛЕНДАРЯ СМЕН (ВЕРСИЯ 6.1 - АБСОЛЮТНАЯ СИНХРОНИЗАЦИЯ + ЗАЩИТА РУЧНЫХ НАСТРОЕК)
+// МОДУЛЬ КАЛЕНДАРЯ СМЕН (ВЕРСИЯ 7.0)
+// АБСОЛЮТНАЯ СИНХРОНИЗАЦИЯ + РЕЕСТР ОЧИЩЕННЫХ МЕСЯЦЕВ + ЗАЩИТА РУЧНЫХ НАСТРОЕК
 // ============================================
 
 const SHIFTS_STORAGE_KEY = 'driverShifts';
 const SHIFTS_COLLECTION = 'shifts';
 const SCHEDULE_SETTINGS_KEY = 'scheduleSettings';
+const CLEARED_MONTHS_KEY = 'clearedShiftMonths';
+const SUMMARY_STATE_KEY = 'shiftMonthSummaryState';
 
 // ===== ЦВЕТА ДЛЯ ТИПОВ ДНЕЙ =====
 const DEFAULT_COLORS = {
@@ -25,6 +28,7 @@ let selectedDate = null;
 let isFirebaseSync = false;
 let firebaseUnsubscribe = null;
 let recordsUnsubscribe = null;
+let isRendering = false;
 let scheduleSettings = {
     name: 'График 1',
     workDays: 3,
@@ -93,17 +97,56 @@ function getDaysWord(count) {
     return 'дней';
 }
 
-// ===== 3. ОПТИМИЗАЦИЯ РАБОТЫ С ИСТОРИЕЙ =====
+function getMonthPrefix(year, month) {
+    return `${year}-${String(month + 1).padStart(2, '0')}`;
+}
+
+// ===== 3. РЕЕСТР ОЧИЩЕННЫХ МЕСЯЦЕВ =====
+function getClearedMonths() {
+    try {
+        const raw = localStorage.getItem(CLEARED_MONTHS_KEY);
+        return new Set(raw ? JSON.parse(raw) : []);
+    } catch (e) {
+        return new Set();
+    }
+}
+
+function saveClearedMonths(set) {
+    try {
+        localStorage.setItem(CLEARED_MONTHS_KEY, JSON.stringify([...set]));
+    } catch (e) {
+        console.warn('Не удалось сохранить реестр очищенных месяцев', e);
+    }
+}
+
+function markMonthCleared(prefix) {
+    const s = getClearedMonths();
+    s.add(prefix);
+    saveClearedMonths(s);
+}
+
+function unmarkMonthCleared(prefix) {
+    const s = getClearedMonths();
+    s.delete(prefix);
+    saveClearedMonths(s);
+}
+
+function isMonthCleared(prefix) {
+    return getClearedMonths().has(prefix);
+}
+
+// ===== 4. РАБОТА С ИСТОРИЕЙ =====
 function getHistoryRecords() {
-    const r = (typeof window.records !== 'undefined') ? window.records : (typeof records !== 'undefined' ? records : []);
+    const r = (typeof window.records !== 'undefined') ? window.records
+        : (typeof records !== 'undefined' ? records : []);
     return Array.isArray(r) ? r : [];
 }
 
 function getGroupedHistoryRecords() {
-    const recordsArray = getHistoryRecords();
     const grouped = {};
-    recordsArray.forEach(record => {
+    getHistoryRecords().forEach(record => {
         const date = normalizeDate(record.date);
+        if (!date) return;
         if (!grouped[date]) grouped[date] = [];
         grouped[date].push(record);
     });
@@ -112,32 +155,33 @@ function getGroupedHistoryRecords() {
 
 function getDailyMetrics(dateStr, groupedRecords) {
     const targetDate = normalizeDate(dateStr);
-    const dayRecords = groupedRecords[targetDate] || [];
-    if (dayRecords.length === 0) return { income: 0, orders: 0, hours: 0, expenses: 0, bonuses: 0 };
+    const dayRecords = (groupedRecords || getGroupedHistoryRecords())[targetDate] || [];
+    if (dayRecords.length === 0) {
+        return { income: 0, orders: 0, hours: 0, expenses: 0, bonuses: 0 };
+    }
 
     let income = 0, orders = 0, hours = 0, expenses = 0, bonuses = 0;
-    
+
     dayRecords.forEach(r => {
         income += (Number(r.payPickup) || 0) + (Number(r.payDelivery) || 0) +
-                  (Number(r.payDistance) || 0) + (Number(r.payWeight) || 0) +
-                  (Number(r.loadPay) || 0) + (Number(r.bonusPay) || 0) +
-                  (Number(r.rating) || 0) + (Number(r.tips) || 0);
-
+            (Number(r.payDistance) || 0) + (Number(r.payWeight) || 0) +
+            (Number(r.loadPay) || 0) + (Number(r.bonusPay) || 0) +
+            (Number(r.rating) || 0) + (Number(r.tips) || 0);
         orders += (Number(r.ordersDelivery) || 0);
         hours += (Number(r.hours) || 0);
-
         expenses += (Number(r.fuelCost) || 0) + (Number(r.repairCost) || 0) + (Number(r.tax) || 0);
         bonuses += Number(r.bonusPay) || 0;
     });
-    
+
     return { income, orders, hours, expenses, bonuses };
 }
 
-// ===== 4. НАСТРОЙКИ ГРАФИКА =====
+// ===== 5. НАСТРОЙКИ ГРАФИКА =====
 async function loadScheduleSettings() {
     if (typeof auth !== 'undefined' && auth.currentUser && typeof db !== 'undefined') {
         try {
-            const doc = await db.collection('users').doc(auth.currentUser.uid).collection('settings').doc(SCHEDULE_SETTINGS_KEY).get();
+            const doc = await db.collection('users').doc(auth.currentUser.uid)
+                .collection('settings').doc(SCHEDULE_SETTINGS_KEY).get();
             if (doc.exists) {
                 const data = doc.data();
                 const cleanedColors = {};
@@ -156,7 +200,7 @@ async function loadScheduleSettings() {
             }
         } catch (error) { console.warn('⚠️ Ошибка Firebase:', error); }
     }
-    
+
     const saved = localStorage.getItem(SCHEDULE_SETTINGS_KEY);
     if (saved) {
         try {
@@ -189,112 +233,21 @@ async function saveScheduleSettings(settings) {
     localStorage.setItem(SCHEDULE_SETTINGS_KEY, JSON.stringify(scheduleSettings));
     if (typeof auth !== 'undefined' && auth.currentUser && typeof db !== 'undefined') {
         try {
-            await db.collection('users').doc(auth.currentUser.uid).collection('settings').doc(SCHEDULE_SETTINGS_KEY).set(scheduleSettings, { merge: true });
+            await db.collection('users').doc(auth.currentUser.uid)
+                .collection('settings').doc(SCHEDULE_SETTINGS_KEY)
+                .set(scheduleSettings, { merge: true });
         } catch (error) { console.error(error); }
     }
 }
 
-// ===== 5. ИНИЦИАЛИЗАЦИЯ И СИНХРОНИЗАЦИЯ =====
-async function loadShifts() {
-    try {
-        await loadScheduleSettings();
-        const saved = localStorage.getItem(SHIFTS_STORAGE_KEY);
-        if (saved) shifts = JSON.parse(saved);
-        
-        if (!shifts || shifts.length === 0) await generateShiftsBySettings(); 
-        else updateShiftDataFromHistory();
-        
-        await renderCalendar();
-        
-        if (typeof auth !== 'undefined' && typeof db !== 'undefined') {
-            if (!auth.currentUser) {
-                await new Promise((resolve) => {
-                    const unsub = auth.onAuthStateChanged((user) => { unsub(); resolve(user); });
-                });
-            }
-            if (auth.currentUser) {
-                if (firebaseUnsubscribe) firebaseUnsubscribe();
-                firebaseUnsubscribe = db.collection('users').doc(auth.currentUser.uid).collection(SHIFTS_COLLECTION).orderBy('date', 'asc').onSnapshot((snapshot) => {
-                    const firebaseShifts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                    if (firebaseShifts.length > 0) {
-                        mergeFirebaseWithHistory(firebaseShifts);
-                        isFirebaseSync = true;
-                        saveShiftsLocal();
-                        renderCalendar();
-                        safeUpdateTotals();
-                    }
-                }, (error) => console.error(error));
-                
-                listenToRecordsChanges();
-                await loadShiftsFromFirebase();
-            }
-        }
-    } catch (error) { console.error(error); }
-}
-
-async function loadShiftsFromFirebase() {
-    if (typeof auth === 'undefined' || !auth.currentUser || typeof db === 'undefined') return;
-    try {
-        const snapshot = await db.collection('users').doc(auth.currentUser.uid).collection(SHIFTS_COLLECTION).orderBy('date', 'asc').get();
-        if (!snapshot.empty) {
-            mergeFirebaseWithHistory(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-            isFirebaseSync = true;
-            saveShiftsLocal();
-        }
-    } catch (error) { console.error(error); }
-}
-
-function mergeFirebaseWithHistory(firebaseShifts) {
-    const groupedRecords = getGroupedHistoryRecords();
-    const mergedShifts = firebaseShifts.map(firebaseShift => {
-        const localShift = shifts.find(s => s.id === firebaseShift.id);
-        
-        // ⭐ ЗАЩИТА 1: Если локальная смена имеет ручной флаг, приоритет отдаём ей
-        if (localShift && localShift.manualOverride) {
-            const metrics = getDailyMetrics(firebaseShift.date, groupedRecords);
-            const updatedShift = { ...localShift };
-            if (metrics.income > 0) updatedShift.income = metrics.income;
-            if (metrics.orders > 0) updatedShift.orders = metrics.orders;
-            if (metrics.hours > 0) updatedShift.hours = metrics.hours;
-            if (metrics.expenses > 0) updatedShift.expenses = metrics.expenses;
-            if (metrics.bonuses > 0) updatedShift.bonuses = metrics.bonuses;
-            return updatedShift;
-        }
-        
-        const metrics = getDailyMetrics(firebaseShift.date, groupedRecords);
-        const updatedShift = { ...firebaseShift };
-        if (metrics.income > 0) updatedShift.income = metrics.income;
-        if (metrics.orders > 0) updatedShift.orders = metrics.orders;
-        if (metrics.hours > 0) updatedShift.hours = metrics.hours;
-        if (metrics.expenses > 0) updatedShift.expenses = metrics.expenses;
-        if (metrics.bonuses > 0) updatedShift.bonuses = metrics.bonuses;
-        return updatedShift;
-    });
-
-    // ⭐ ЗАЩИТА 2: Сохраняем локальные смены, которых ещё нет в Firebase (или которые не успели синхронизироваться)
-    shifts.forEach(localShift => {
-        if (!mergedShifts.find(s => s.id === localShift.id)) {
-            mergedShifts.push(localShift);
-        }
-    });
-
-    shifts = mergedShifts;
-    window.shifts = shifts;
-}
-
-// ⚠️ ВАЖНО: Эта функция нейтрализована, чтобы не перезаписывать window.records неполным кэшем.
-function listenToRecordsChanges() {
-    if (typeof auth === 'undefined' || !auth.currentUser || typeof db === 'undefined') return;
-    if (recordsUnsubscribe) {
-        try { recordsUnsubscribe(); } catch(e) {}
-        recordsUnsubscribe = null;
-    }
-}
-
-// ===== 6. СОХРАНЕНИЕ =====
+// ===== 6. СОХРАНЕНИЕ / ЗАГРУЗКА СМЕН =====
 function saveShiftsLocal() {
-    localStorage.setItem(SHIFTS_STORAGE_KEY, JSON.stringify(shifts));
-    window.shifts = shifts;
+    try {
+        localStorage.setItem(SHIFTS_STORAGE_KEY, JSON.stringify(shifts));
+        window.shifts = shifts;
+    } catch (e) {
+        console.error('Не удалось сохранить смены локально', e);
+    }
 }
 
 async function saveShiftToFirebase(shift) {
@@ -303,9 +256,14 @@ async function saveShiftToFirebase(shift) {
     try {
         const shiftToSave = { ...shift };
         delete shiftToSave.id;
-        await db.collection('users').doc(auth.currentUser.uid).collection(SHIFTS_COLLECTION).doc(shift.id).set(shiftToSave, { merge: true });
+        await db.collection('users').doc(auth.currentUser.uid)
+            .collection(SHIFTS_COLLECTION).doc(shift.id)
+            .set(shiftToSave, { merge: true });
         return true;
-    } catch (error) { return false; }
+    } catch (error) {
+        console.warn('Ошибка сохранения смены:', error);
+        return false;
+    }
 }
 
 async function saveShiftsBatchToFirebase(shiftsArray) {
@@ -319,63 +277,186 @@ async function saveShiftsBatchToFirebase(shiftsArray) {
                 if (!shift.id) continue;
                 const shiftToSave = { ...shift };
                 delete shiftToSave.id;
-                const ref = db.collection('users').doc(auth.currentUser.uid).collection(SHIFTS_COLLECTION).doc(shift.id);
+                const ref = db.collection('users').doc(auth.currentUser.uid)
+                    .collection(SHIFTS_COLLECTION).doc(shift.id);
                 batch.set(ref, shiftToSave, { merge: true });
             }
             await batch.commit();
         }
-        for (const shift of shiftsArray) {
-            const idx = shifts.findIndex(s => s.id === shift.id);
-            if (idx !== -1) {
-                // ⭐ ЗАЩИТА 3: Если смена уже имела ручной флаг, не даём перезаписать его на false
-                const wasManual = shifts[idx].manualOverride;
-                shifts[idx] = { ...shifts[idx], ...shift };
-                if (wasManual) {
-                    shifts[idx].manualOverride = true;
-                    shifts[idx].dayType = shift.dayType || shifts[idx].dayType;
-                    shifts[idx].isWorking = shift.isWorking !== undefined ? shift.isWorking : shifts[idx].isWorking;
+        return true;
+    } catch (error) {
+        console.error('Ошибка пакетного сохранения в Firebase:', error);
+        return false;
+    }
+}
+
+async function deleteShiftsFromFirebase(shiftIds) {
+    if (typeof auth === 'undefined' || !auth.currentUser || typeof db === 'undefined') return false;
+    if (!shiftIds || shiftIds.length === 0) return true;
+    try {
+        const CHUNK_SIZE = 400;
+        for (let i = 0; i < shiftIds.length; i += CHUNK_SIZE) {
+            const batch = db.batch();
+            for (const id of shiftIds.slice(i, i + CHUNK_SIZE)) {
+                if (!id) continue;
+                batch.delete(db.collection('users').doc(auth.currentUser.uid)
+                    .collection(SHIFTS_COLLECTION).doc(id));
+            }
+            await batch.commit();
+        }
+        return true;
+    } catch (error) {
+        console.error('Ошибка удаления из Firebase:', error);
+        return false;
+    }
+}
+
+// ===== 7. СИНХРОНИЗАЦИЯ С FIREBASE =====
+async function loadShifts() {
+    try {
+        await loadScheduleSettings();
+        const saved = localStorage.getItem(SHIFTS_STORAGE_KEY);
+        if (saved) {
+            try { shifts = JSON.parse(saved) || []; }
+            catch (e) { shifts = []; }
+        }
+
+        updateShiftDataFromHistory();
+        await renderCalendar();
+
+        if (typeof auth !== 'undefined' && typeof db !== 'undefined') {
+            if (!auth.currentUser) {
+                await new Promise((resolve) => {
+                    const unsub = auth.onAuthStateChanged((user) => { unsub(); resolve(user); });
+                });
+            }
+            if (auth.currentUser) {
+                if (firebaseUnsubscribe) {
+                    try { firebaseUnsubscribe(); } catch (e) { }
+                    firebaseUnsubscribe = null;
                 }
-            } else {
-                shifts.push(shift);
+                firebaseUnsubscribe = db.collection('users').doc(auth.currentUser.uid)
+                    .collection(SHIFTS_COLLECTION).orderBy('date', 'asc')
+                    .onSnapshot((snapshot) => {
+                        const firebaseShifts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        mergeFirebaseWithLocal(firebaseShifts);
+                        isFirebaseSync = true;
+                        saveShiftsLocal();
+                        renderCalendar();
+                        safeUpdateTotals();
+                    }, (error) => console.error('Ошибка подписки на смены:', error));
+
+                await loadShiftsFromFirebase();
             }
         }
-        saveShiftsLocal();
-        return true;
-    } catch (error) { 
-        console.error('Ошибка пакетного сохранения в Firebase:', error);
-        return false; 
+    } catch (error) {
+        console.error('Ошибка loadShifts:', error);
     }
 }
 
-// ===== 7. ОБНОВЛЕНИЕ ДАННЫХ ИЗ ИСТОРИИ =====
-function updateShiftDataFromHistory() {
-    const recordsArray = getHistoryRecords();
-    if (recordsArray.length === 0) return;
-    
+async function loadShiftsFromFirebase() {
+    if (typeof auth === 'undefined' || !auth.currentUser || typeof db === 'undefined') return;
+    try {
+        const snapshot = await db.collection('users').doc(auth.currentUser.uid)
+            .collection(SHIFTS_COLLECTION).orderBy('date', 'asc').get();
+        if (!snapshot.empty) {
+            mergeFirebaseWithLocal(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+            isFirebaseSync = true;
+            saveShiftsLocal();
+        }
+    } catch (error) { console.error('Ошибка loadShiftsFromFirebase:', error); }
+}
+
+/**
+ * Мерж облачных смен с локальными.
+ * Приоритет:
+ *   1. manualOverride у локальной → локальная полностью побеждает
+ *   2. Иначе берём облачную, но подтягиваем актуальные метрики из истории
+ *   3. Локальные смены, отсутствующие в облаке, сохраняем (защита от потерь)
+ *   4. Очищенные месяцы — облачные смены в них НЕ добавляем
+ */
+function mergeFirebaseWithLocal(firebaseShifts) {
     const grouped = getGroupedHistoryRecords();
-    let updatedCount = 0;
-    
-    for (let i = 0; i < shifts.length; i++) {
-        const shift = shifts[i];
+    const clearedMonths = getClearedMonths();
+    const localById = new Map(shifts.map(s => [s.id, s]));
+    const result = [];
+
+    // 1. Обрабатываем облачные смены
+    firebaseShifts.forEach(fbShift => {
+        const prefix = String(fbShift.date).slice(0, 7);
+
+        // Месяц очищен — не добавляем облачную смену
+        if (clearedMonths.has(prefix)) return;
+
+        const localShift = localById.get(fbShift.id);
+
+        // Ручная локальная настройка — она главнее
+        if (localShift && localShift.manualOverride) {
+            const metrics = getDailyMetrics(fbShift.date, grouped);
+            const updated = { ...localShift };
+            if (metrics.income > 0) updated.income = metrics.income;
+            if (metrics.orders > 0) updated.orders = metrics.orders;
+            if (metrics.hours > 0) updated.hours = metrics.hours;
+            if (metrics.expenses > 0) updated.expenses = metrics.expenses;
+            if (metrics.bonuses > 0) updated.bonuses = metrics.bonuses;
+            result.push(updated);
+            localById.delete(fbShift.id);
+            return;
+        }
+
+        const metrics = getDailyMetrics(fbShift.date, grouped);
+        const updated = { ...fbShift };
+        if (metrics.income > 0) updated.income = metrics.income;
+        if (metrics.orders > 0) updated.orders = metrics.orders;
+        if (metrics.hours > 0) updated.hours = metrics.hours;
+        if (metrics.expenses > 0) updated.expenses = metrics.expenses;
+        if (metrics.bonuses > 0) updated.bonuses = metrics.bonuses;
+        result.push(updated);
+        localById.delete(fbShift.id);
+    });
+
+    // 2. Локальные смены, которых нет в облаке — сохраняем (кроме очищенных месяцев)
+    localById.forEach(localShift => {
+        const prefix = String(localShift.date).slice(0, 7);
+        if (clearedMonths.has(prefix)) return;
+        result.push(localShift);
+    });
+
+    shifts = result;
+    window.shifts = shifts;
+}
+
+function listenToRecordsChanges() {
+    if (typeof auth === 'undefined' || !auth.currentUser || typeof db === 'undefined') return;
+    if (recordsUnsubscribe) {
+        try { recordsUnsubscribe(); } catch (e) { }
+        recordsUnsubscribe = null;
+    }
+}
+
+// ===== 8. ОБНОВЛЕНИЕ ДАННЫХ ИЗ ИСТОРИИ =====
+function updateShiftDataFromHistory() {
+    const grouped = getGroupedHistoryRecords();
+    const hasRecords = Object.keys(grouped).length > 0;
+    if (!hasRecords) return;
+
+    let changed = false;
+    for (const shift of shifts) {
         const targetDate = normalizeDate(shift.date);
         const dayRecords = grouped[targetDate];
-        
         if (!dayRecords || dayRecords.length === 0) continue;
-        
+
         const metrics = getDailyMetrics(targetDate, grouped);
-        
         if (Number(shift.expenses) !== Number(metrics.expenses)) {
             shift.expenses = metrics.expenses;
-            updatedCount++;
+            changed = true;
         }
     }
-    
-    if (updatedCount > 0) {
-        saveShiftsLocal();
-    }
+
+    if (changed) saveShiftsLocal();
 }
 
-// ===== 8. ЛОГИКА ГРАФИКА =====
+// ===== 9. ЛОГИКА ГРАФИКА =====
 function isWorkingDayBySchedule(dateStr) {
     const firstWorkDate = parseDate(scheduleSettings.firstWorkDate);
     const currentDate = new Date(dateStr + 'T00:00:00');
@@ -383,104 +464,144 @@ function isWorkingDayBySchedule(dateStr) {
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     if (diffDays < 0) return false;
     const cycleLength = scheduleSettings.workDays + scheduleSettings.restDays;
+    if (cycleLength <= 0) return false;
     const dayInCycle = diffDays % cycleLength;
     return dayInCycle < scheduleSettings.workDays;
 }
 
+// ===== 10. ОЧИСТКА МЕСЯЦА =====
 async function clearMonthShifts() {
+    const datePrefix = getMonthPrefix(currentYear, currentMonth);
     const monthStr = String(currentMonth + 1).padStart(2, '0');
-    const datePrefix = `${currentYear}-${monthStr}`;
-    if (!confirm(`🗑️ Удалить все смены за ${monthStr}.${currentYear}?`)) return;
-    const toRemove = shifts.filter(s => s.date.startsWith(datePrefix));
-    if (toRemove.length === 0) { safeShowToast('ℹ️ Нет смен для удаления'); return; }
-    
-    if (typeof auth !== 'undefined' && auth.currentUser && typeof db !== 'undefined') {
-        try {
-            const batch = db.batch();
-            for (const shift of toRemove) batch.delete(db.collection('users').doc(auth.currentUser.uid).collection(SHIFTS_COLLECTION).doc(shift.id));
-            await batch.commit();
-        } catch (error) { console.error(error); }
+
+    if (!confirm(`🗑️ Удалить все смены за ${monthStr}.${currentYear}?\n\nМесяц будет помечен как очищенный — автогенерация по графику больше не будет его заполнять.`)) return;
+
+    const toRemove = shifts.filter(s => String(s.date).trim().startsWith(datePrefix));
+    const ids = toRemove.map(s => s.id).filter(Boolean);
+
+    if (toRemove.length === 0) {
+        // Даже если смен нет — помечаем месяц, чтобы избежать автогенерации
+        markMonthCleared(datePrefix);
+        safeShowToast(`ℹ️ Месяц ${monthStr}.${currentYear} помечен как очищенный`);
+        await renderCalendar();
+        return;
     }
-    shifts = shifts.filter(s => !s.date.startsWith(datePrefix));
+
+    // 1. Удаляем из Firebase
+    if (ids.length > 0) {
+        await deleteShiftsFromFirebase(ids);
+    }
+
+    // 2. Удаляем из локального массива
+    shifts = shifts.filter(s => !String(s.date).trim().startsWith(datePrefix));
+
+    // 3. Помечаем месяц как очищенный
+    markMonthCleared(datePrefix);
+
+    // 4. Сохраняем и перерисовываем
     saveShiftsLocal();
     await renderCalendar();
-    safeShowToast(`✅ Удалено ${toRemove.length} смен`);
+    safeShowToast(`✅ Удалено ${toRemove.length} смен за ${monthStr}.${currentYear}`);
 }
 
+// ===== 11. ГЕНЕРАЦИЯ ГРАФИКА =====
+/**
+ * Генерирует смены на текущий месяц по графику.
+ * ⚠️ НЕ вызывает renderCalendar сам — вызывающий код должен его вызвать.
+ * ⚠️ НЕ перезаписывает смены с manualOverride.
+ * ⚠️ Убирает из реестра "очищенных" текущий месяц (т.к. генерируем заново).
+ */
 async function generateShiftsBySettings() {
+    const datePrefix = getMonthPrefix(currentYear, currentMonth);
     const monthStr = String(currentMonth + 1).padStart(2, '0');
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     const today = getLocalDateString();
-    const datePrefix = `${currentYear}-${monthStr}`;
-    
-    // ⭐ ЗАЩИТА 4: Сохраняем существующие смены месяца в карту, чтобы не потерять ручные настройки при пересоздании
-    const existingShiftsMap = {};
-    shifts.filter(s => s.date.startsWith(datePrefix)).forEach(s => {
-        existingShiftsMap[s.date] = s;
+
+    // Собираем существующие смены этого месяца
+    const existingShiftsMap = new Map();
+    shifts.filter(s => String(s.date).startsWith(datePrefix)).forEach(s => {
+        existingShiftsMap.set(s.date, s);
     });
 
-    if (Object.keys(existingShiftsMap).length > 0) {
-        if (typeof auth !== 'undefined' && auth.currentUser && typeof db !== 'undefined') {
-            try {
-                const batch = db.batch();
-                for (const dateStr of Object.keys(existingShiftsMap)) {
-                    const s = existingShiftsMap[dateStr];
-                    batch.delete(db.collection('users').doc(auth.currentUser.uid).collection(SHIFTS_COLLECTION).doc(s.id));
-                }
-                await batch.commit();
-            } catch (error) { console.error(error); }
-        }
-        shifts = shifts.filter(s => !s.date.startsWith(datePrefix));
+    // Удаляем из Firebase только те смены, что НЕ имеют manualOverride
+    const toDeleteIds = [];
+    existingShiftsMap.forEach((s) => {
+        if (!s.manualOverride && s.id) toDeleteIds.push(s.id);
+    });
+
+    if (toDeleteIds.length > 0) {
+        await deleteShiftsFromFirebase(toDeleteIds);
     }
 
-    const groupedRecords = getGroupedHistoryRecords();
+    // Оставляем в локальном массиве только ручные смены этого месяца
+    const manualShiftsThisMonth = new Map();
+    shifts = shifts.filter(s => {
+        if (!String(s.date).startsWith(datePrefix)) return true;
+        if (s.manualOverride) {
+            manualShiftsThisMonth.set(s.date, s);
+            return true;
+        }
+        return false;
+    });
+
+    const grouped = getGroupedHistoryRecords();
     const newMonthShifts = [];
-    
+
     for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = `${currentYear}-${monthStr}-${String(day).padStart(2, '0')}`;
-        const existing = existingShiftsMap[dateStr];
-        
-        const isWorking = isWorkingDayBySchedule(dateStr);
-        const metrics = getDailyMetrics(dateStr, groupedRecords);
+        const dateStr = `${datePrefix}-${String(day).padStart(2, '0')}`;
+
+        // Ручная смена — оставляем как есть (уже в shifts)
+        if (manualShiftsThisMonth.has(dateStr)) continue;
+
+        const existing = existingShiftsMap.get(dateStr);
+        const scheduleIsWorking = isWorkingDayBySchedule(dateStr);
+        const metrics = getDailyMetrics(dateStr, grouped);
         const isPast = dateStr < today;
-        let finalIsWorking = isWorking;
-        if (isPast) finalIsWorking = metrics.orders > 0 || metrics.expenses > 0;
+
+        let finalIsWorking;
+        if (isPast) {
+            finalIsWorking = metrics.orders > 0 || metrics.expenses > 0;
+        } else {
+            finalIsWorking = scheduleIsWorking;
+        }
 
         newMonthShifts.push({
             id: existing ? existing.id : 'shift_' + dateStr,
             date: dateStr,
-            // ⭐ Если смена существовала и имела ручной флаг, сохраняем её состояние!
-            isWorking: (existing && existing.manualOverride) ? existing.isWorking : finalIsWorking,
-            startTime: (existing && existing.manualOverride) ? existing.startTime : (finalIsWorking ? `${WORK_START_HOUR}:00` : null),
-            endTime: (existing && existing.manualOverride) ? existing.endTime : (finalIsWorking ? `${WORK_END_HOUR}:00` : null),
-            income: existing ? existing.income : metrics.income,
-            orders: existing ? existing.orders : metrics.orders,
-            hours: existing ? existing.hours : (finalIsWorking ? (WORK_END_HOUR - WORK_START_HOUR) : 0),
-            expenses: existing ? existing.expenses : metrics.expenses,
-            bonuses: existing ? existing.bonuses : metrics.bonuses,
+            isWorking: finalIsWorking,
+            startTime: finalIsWorking ? `${WORK_START_HOUR}:00` : null,
+            endTime: finalIsWorking ? `${WORK_END_HOUR}:00` : null,
+            income: metrics.income,
+            orders: metrics.orders,
+            hours: finalIsWorking ? (WORK_END_HOUR - WORK_START_HOUR) : 0,
+            expenses: metrics.expenses,
+            bonuses: metrics.bonuses,
             notes: existing ? existing.notes : '',
-            dayType: (existing && existing.manualOverride) ? existing.dayType : (finalIsWorking ? 'work' : 'dayoff'),
-            manualOverride: existing ? existing.manualOverride : false,
-            updatedAt: existing ? existing.updatedAt : new Date().toISOString()
+            dayType: finalIsWorking ? 'work' : 'dayoff',
+            manualOverride: false,
+            updatedAt: new Date().toISOString()
         });
     }
 
     shifts.push(...newMonthShifts);
+
+    // Генерация = снимаем пометку "очищен"
+    unmarkMonthCleared(datePrefix);
+
     saveShiftsLocal();
-    window.shifts = shifts;
 
     const fbAvailable = (typeof auth !== 'undefined' && auth.currentUser && typeof db !== 'undefined');
     if (!fbAvailable) {
         safeShowToast('✅ График обновлён (локально)');
         return;
     }
-    
+
     const saved = await saveShiftsBatchToFirebase(newMonthShifts);
     if (saved) safeShowToast('✅ График создан и синхронизирован');
     else safeShowToast('⚠️ График сохранён локально, облако догонит');
 }
 
-// ===== 9. МОДАЛЬНЫЕ ОКНА НАСТРОЕК =====
+// ===== 12. МОДАЛЬНОЕ ОКНО НАСТРОЕК ГРАФИКА =====
 function showScheduleSettingsModal() {
     const overlay = document.createElement('div');
     overlay.className = 'shift-modal-overlay';
@@ -533,7 +654,7 @@ function showScheduleSettingsModal() {
 
 function initScheduleDayButtons() {
     document.querySelectorAll('.schedule-day-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             const type = this.dataset.type;
             const value = parseInt(this.dataset.value);
             if (type === 'work') scheduleSettings.workDays = value;
@@ -555,8 +676,12 @@ function updateScheduleDaysList() {
     const container = document.getElementById('schedule-days-list');
     if (!container) return;
     let html = '';
-    for (let i = 1; i <= scheduleSettings.workDays; i++) html += `<div style="padding: 10px 14px; background: var(--ios-bg-primary); border-radius: 10px; border: 1px solid var(--ios-border);"><span style="font-size: 14px; font-weight: 600; color: var(--ios-text-primary);">${i}. Рабочий день</span></div>`;
-    for (let i = 1; i <= scheduleSettings.restDays; i++) html += `<div style="padding: 10px 14px; background: var(--ios-bg-secondary); border-radius: 10px; border: 1px solid var(--ios-border); opacity: 0.6;"><span style="font-size: 14px; font-weight: 600; color: var(--ios-text-secondary);">${i}. Выходной</span></div>`;
+    for (let i = 1; i <= scheduleSettings.workDays; i++) {
+        html += `<div style="padding: 10px 14px; background: var(--ios-bg-primary); border-radius: 10px; border: 1px solid var(--ios-border);"><span style="font-size: 14px; font-weight: 600; color: var(--ios-text-primary);">${i}. Рабочий день</span></div>`;
+    }
+    for (let i = 1; i <= scheduleSettings.restDays; i++) {
+        html += `<div style="padding: 10px 14px; background: var(--ios-bg-secondary); border-radius: 10px; border: 1px solid var(--ios-border); opacity: 0.6;"><span style="font-size: 14px; font-weight: 600; color: var(--ios-text-secondary);">${i}. Выходной</span></div>`;
+    }
     container.innerHTML = html;
 }
 
@@ -566,7 +691,7 @@ async function saveScheduleSettingsFromModal() {
     if (!nameInput || !dateInput) return;
     const name = nameInput.value.trim() || 'График 1';
     const formattedDate = dateInput.value.split('-').reverse().join('.');
-    await saveScheduleSettings({ name: name, firstWorkDate: formattedDate, colors: scheduleSettings.colors });
+    await saveScheduleSettings({ name, firstWorkDate: formattedDate, colors: scheduleSettings.colors });
     await generateShiftsBySettings();
     const overlay = document.querySelector('.shift-modal-overlay');
     if (overlay) overlay.remove();
@@ -574,7 +699,7 @@ async function saveScheduleSettingsFromModal() {
     safeShowToast(`✅ Настройки сохранены`);
 }
 
-// ===== 10. ПЕРЕКЛЮЧЕНИЕ И СОХРАНЕНИЕ СМЕНЫ =====
+// ===== 13. ПЕРЕКЛЮЧЕНИЕ СМЕНЫ =====
 async function toggleShift(dateStr) {
     const existing = shifts.find(s => s.date === dateStr);
     if (existing) {
@@ -587,22 +712,20 @@ async function toggleShift(dateStr) {
         saveShiftsLocal();
         await saveShiftToFirebase(existing);
     } else {
-        await saveShift({ date: dateStr, isWorking: true, notes: '' });
+        await saveShift({ date: dateStr, isWorking: true, notes: '', manualOverride: true });
     }
     await renderCalendar();
 }
 
 async function saveShift(shiftData) {
     const dateStr = shiftData.date;
-    const existingIndex = shifts.findIndex(s => s.date === dateStr);
-    const today = getLocalDateString();
-    const groupedRecords = getGroupedHistoryRecords();
-    const metrics = getDailyMetrics(dateStr, groupedRecords);
-    let isWorking = shiftData.isWorking;
-    if (dateStr < today && !shiftData.manualOverride) isWorking = metrics.orders > 0 || metrics.expenses > 0;
-    
-    let shift = {
-        id: existingIndex !== -1 ? shifts[existingIndex].id : 'shift_' + dateStr,
+    const idx = shifts.findIndex(s => s.date === dateStr);
+    const grouped = getGroupedHistoryRecords();
+    const metrics = getDailyMetrics(dateStr, grouped);
+    const isWorking = shiftData.isWorking;
+
+    const newShift = {
+        id: idx !== -1 ? shifts[idx].id : 'shift_' + dateStr,
         date: dateStr,
         isWorking: isWorking,
         startTime: isWorking ? `${WORK_START_HOUR}:00` : null,
@@ -614,17 +737,19 @@ async function saveShift(shiftData) {
         bonuses: metrics.bonuses,
         notes: shiftData.notes || '',
         dayType: isWorking ? 'work' : 'dayoff',
-        manualOverride: shiftData.manualOverride || false,
+        manualOverride: shiftData.manualOverride !== false,
         updatedAt: new Date().toISOString()
     };
-    if (existingIndex !== -1) shifts[existingIndex] = { ...shifts[existingIndex], ...shift };
-    else shifts.push(shift);
+
+    if (idx !== -1) shifts[idx] = { ...shifts[idx], ...newShift };
+    else shifts.push(newShift);
+
     saveShiftsLocal();
-    await saveShiftToFirebase(shift);
+    await saveShiftToFirebase(newShift);
     await renderCalendar();
 }
 
-// ===== 11. РЕДАКТИРОВАНИЕ СМЕНЫ =====
+// ===== 14. РЕДАКТИРОВАНИЕ СМЕНЫ =====
 function editShift(dateStr) {
     selectedDate = dateStr;
     showShiftModal(dateStr);
@@ -632,26 +757,27 @@ function editShift(dateStr) {
 
 function showShiftModal(dateStr) {
     const shift = shifts.find(s => s.date === dateStr);
-    const isWorking = shift ? shift.isWorking : false;
     const notes = (shift && shift.notes) ? shift.notes : '';
     const dayType = shift ? (shift.dayType || (shift.isWorking ? 'work' : 'dayoff')) : 'dayoff';
-    
-    const groupedRecords = getGroupedHistoryRecords();
-    const metrics = getDailyMetrics(dateStr, groupedRecords);
-    
-    const income = (shift && shift.manualOverride) ? (Number(shift.income) || 0) : metrics.income;
-    const orders = (shift && shift.manualOverride) ? (Number(shift.orders) || 0) : metrics.orders;
-    const hours = (shift && shift.manualOverride) ? (Number(shift.hours) || 0) : metrics.hours;
-    const expenses = (shift && shift.manualOverride) ? (Number(shift.expenses) || 0) : metrics.expenses;
-    const bonuses = (shift && shift.manualOverride) ? (Number(shift.bonuses) || 0) : metrics.bonuses;
-    
+
+    const grouped = getGroupedHistoryRecords();
+    const metrics = getDailyMetrics(dateStr, grouped);
+
+    const isManual = shift && shift.manualOverride;
+    const income = isManual ? (Number(shift.income) || 0) : metrics.income;
+    const orders = isManual ? (Number(shift.orders) || 0) : metrics.orders;
+    const hours = isManual ? (Number(shift.hours) || 0) : metrics.hours;
+    const expenses = isManual ? (Number(shift.expenses) || 0) : metrics.expenses;
+    const bonuses = isManual ? (Number(shift.bonuses) || 0) : metrics.bonuses;
+
     const netIncome = income + bonuses - expenses;
-    
+
     const dayTypeIcons = { work: 'briefcase-outline', sick: 'medical-outline', vacation: 'airplane-outline', dayoff: 'remove-circle-outline', repair: 'construct-outline' };
     const dayTypeNames = { work: 'Рабочий день', sick: 'Больничный', vacation: 'Отпуск', dayoff: 'Выходной', repair: 'Ремонт' };
-    
+
     const overlay = document.createElement('div');
     overlay.className = 'shift-modal-overlay';
+    overlay.dataset.selectedDayType = dayType;
     overlay.innerHTML = `
         <div class="shift-modal">
             <div class="shift-modal-header">
@@ -705,11 +831,11 @@ function showShiftModal(dateStr) {
     `;
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('visible'));
-    
-    document.querySelectorAll('.day-type-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+
+    overlay.querySelectorAll('.day-type-btn').forEach(btn => {
+        btn.addEventListener('click', function () {
             const selectedType = this.dataset.type;
-            document.querySelectorAll('.day-type-btn').forEach(b => {
+            overlay.querySelectorAll('.day-type-btn').forEach(b => {
                 b.style.border = '2px solid var(--ios-border)';
                 b.style.background = 'var(--ios-bg-secondary)';
                 b.style.color = 'var(--ios-text-primary)';
@@ -727,225 +853,318 @@ async function saveShiftDetails(dateStr) {
     const expensesInput = document.getElementById('shift-expenses-input');
     const bonusesInput = document.getElementById('shift-bonuses-input');
     if (!notesInput) return;
+
     const overlay = document.querySelector('.shift-modal-overlay');
+    if (!overlay) return;
     const selectedDayType = overlay.dataset.selectedDayType || 'dayoff';
-    const shift = shifts.find(s => s.date === dateStr);
-    if (shift) {
-        shift.notes = notesInput.value;
-        shift.expenses = expensesInput ? Number(expensesInput.value) || 0 : 0;
-        shift.bonuses = bonusesInput ? Number(bonusesInput.value) || 0 : 0;
-        shift.dayType = selectedDayType;
-        shift.isWorking = (selectedDayType === 'work');
-        shift.manualOverride = true;
-        shift.updatedAt = new Date().toISOString();
-        if (selectedDayType === 'work') {
-            shift.startTime = `${WORK_START_HOUR}:00`;
-            shift.endTime = `${WORK_END_HOUR}:00`;
-            shift.hours = WORK_END_HOUR - WORK_START_HOUR;
-        } else {
-            shift.startTime = null;
-            shift.endTime = null;
-            shift.hours = 0;
+
+    let shift = shifts.find(s => s.date === dateStr);
+    if (!shift) {
+        shift = {
+            id: 'shift_' + dateStr,
+            date: dateStr,
+            isWorking: false,
+            startTime: null,
+            endTime: null,
+            income: 0,
+            orders: 0,
+            hours: 0,
+            expenses: 0,
+            bonuses: 0,
+            notes: '',
+            dayType: 'dayoff',
+            manualOverride: false,
+            updatedAt: new Date().toISOString()
+        };
+        shifts.push(shift);
+    }
+
+    shift.notes = notesInput.value;
+    shift.expenses = expensesInput ? Number(expensesInput.value) || 0 : 0;
+    shift.bonuses = bonusesInput ? Number(bonusesInput.value) || 0 : 0;
+    shift.dayType = selectedDayType;
+    shift.isWorking = (selectedDayType === 'work');
+    shift.manualOverride = true;
+    shift.updatedAt = new Date().toISOString();
+
+    if (selectedDayType === 'work') {
+        shift.startTime = `${WORK_START_HOUR}:00`;
+        shift.endTime = `${WORK_END_HOUR}:00`;
+        shift.hours = WORK_END_HOUR - WORK_START_HOUR;
+    } else {
+        shift.startTime = null;
+        shift.endTime = null;
+        shift.hours = 0;
+    }
+
+    saveShiftsLocal();
+    await saveShiftToFirebase(shift);
+    safeShowToast('✅ Данные смены сохранены');
+    overlay.remove();
+    await renderCalendar();
+    safeUpdateTotals();
+}
+
+// ===== 15. РЕНДЕР КАЛЕНДАРЯ =====
+async function renderCalendar() {
+    if (isRendering) return;
+    isRendering = true;
+    try {
+        const container = document.getElementById('shift-calendar');
+        if (!container) return;
+
+        // ⭐ НЕ генерируем автоматически! Только отображаем то, что есть.
+
+        const allRecords = getHistoryRecords();
+        const normDate = normalizeDate;
+
+        const recIncome = r => (Number(r.payPickup) || 0) + (Number(r.payDelivery) || 0) + (Number(r.payDistance) || 0) + (Number(r.payWeight) || 0) + (Number(r.loadPay) || 0) + (Number(r.bonusPay) || 0) + (Number(r.rating) || 0) + (Number(r.tips) || 0);
+        const recExpenses = r => (Number(r.fuelCost) || 0) + (Number(r.repairCost) || 0) + (Number(r.tax) || 0);
+        const recOrders = r => Number(r.ordersDelivery) || 0;
+        const recBonuses = r => Number(r.bonusPay) || 0;
+        const recHours = r => Number(r.hours) || 0;
+
+        const groupedFresh = {};
+        allRecords.forEach(r => {
+            const d = normDate(r.date);
+            if (!d) return;
+            if (!groupedFresh[d]) groupedFresh[d] = [];
+            groupedFresh[d].push(r);
+        });
+
+        const getDayMetrics = (dateStr) => {
+            const recs = groupedFresh[dateStr] || [];
+            const m = { income: 0, expenses: 0, orders: 0, bonuses: 0, hours: 0 };
+            recs.forEach(r => {
+                m.income += recIncome(r);
+                m.expenses += recExpenses(r);
+                m.orders += recOrders(r);
+                m.bonuses += recBonuses(r);
+                m.hours += recHours(r);
+            });
+            return m;
+        };
+
+        const datePrefix = getMonthPrefix(currentYear, currentMonth);
+
+        // Обновляем expenses у смен из истории (но не трогаем ручные настройки)
+        shifts.forEach(shift => {
+            if (!String(shift.date).startsWith(datePrefix)) return;
+            const d = normDate(shift.date);
+            const dayRecs = groupedFresh[d];
+            if (dayRecs && dayRecs.length > 0) {
+                let exp = 0;
+                dayRecs.forEach(r => { exp += recExpenses(r); });
+                if (Number(shift.expenses) !== Number(exp)) {
+                    shift.expenses = exp;
+                }
+            }
+        });
+
+        const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+        const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+        const today = getLocalDateString();
+        const dayTypeIcons = { work: 'briefcase-outline', sick: 'medical-outline', vacation: 'airplane-outline', dayoff: 'remove-circle-outline', repair: 'construct-outline' };
+
+        let totalIncome = 0, totalBonuses = 0, totalExpenses = 0, totalOrders = 0, totalHours = 0;
+
+        allRecords.forEach(r => {
+            const d = normDate(r.date);
+            if (!d || !d.startsWith(datePrefix)) return;
+            totalIncome += recIncome(r);
+            totalExpenses += recExpenses(r);
+            totalOrders += recOrders(r);
+            totalBonuses += recBonuses(r);
+            totalHours += recHours(r);
+        });
+        totalHours = Math.round(totalHours * 10) / 10;
+
+        const workingDays = shifts.filter(s => String(s.date).startsWith(datePrefix) && s.isWorking).length;
+        const netIncome = totalIncome - totalExpenses;
+        const avgIncome = workingDays > 0 ? totalIncome / workingDays : 0;
+        const avgHourlyRate = totalHours > 0 ? netIncome / totalHours : 0;
+
+        let html = `
+            <div class="shift-calendar-header">
+                <button class="shift-nav-btn" onclick="changeMonth(-1)"><ion-icon name="chevron-back-outline"></ion-icon></button>
+                <div style="text-align: center;">
+                    <h2>${monthNames[currentMonth]} ${currentYear}</h2>
+                    <div style="font-size: 11px; color: var(--ios-text-secondary); margin-top: 2px;">${scheduleSettings.name} · ${scheduleSettings.workDays}/${scheduleSettings.restDays}</div>
+                </div>
+                <button class="shift-nav-btn" onclick="changeMonth(1)"><ion-icon name="chevron-forward-outline"></ion-icon></button>
+            </div>
+            <div class="shift-calendar-actions">
+                <button class="btn btn-small btn-primary" onclick="showScheduleSettingsModal()"><ion-icon name="settings-outline"></ion-icon> Настроить график</button>
+                <button class="btn btn-small btn-secondary" onclick="applyScheduleToMonth()"><ion-icon name="refresh-outline"></ion-icon> Применить</button>
+                <button class="btn btn-small btn-danger" onclick="clearMonthShifts()"><ion-icon name="trash-outline"></ion-icon> Очистить</button>
+            </div>
+            <div class="shift-weekdays">
+                ${dayNames.map(day => `<div class="shift-weekday">${day}</div>`).join('')}
+            </div>
+            <div class="shift-days-grid">
+        `;
+
+        const firstDay = new Date(currentYear, currentMonth, 1);
+        const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+        const startOffset = (firstDay.getDay() + 6) % 7;
+        for (let i = 0; i < startOffset; i++) html += `<div class="shift-day empty"></div>`;
+
+        const monthCleared = isMonthCleared(datePrefix);
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${datePrefix}-${String(day).padStart(2, '0')}`;
+            const shift = shifts.find(s => s.date === dateStr);
+            const metrics = getDayMetrics(dateStr);
+            const income = metrics.income;
+            const orders = metrics.orders;
+            const expenses = metrics.expenses;
+            const isPast = dateStr < today;
+            const isToday = dateStr === today;
+            const isFuture = dateStr > today;
+
+            let isWorking = false;
+            let dayType = 'dayoff';
+
+            if (shift) {
+                isWorking = shift.isWorking;
+                dayType = shift.dayType || (isWorking ? 'work' : 'dayoff');
+            } else if (monthCleared) {
+                // Месяц очищен — не показываем "виртуальные" смены по графику
+                isWorking = false;
+                dayType = 'dayoff';
+            } else if (isPast) {
+                isWorking = orders > 0 || expenses > 0;
+                dayType = isWorking ? 'work' : 'dayoff';
+            } else {
+                isWorking = isWorkingDayBySchedule(dateStr);
+                dayType = isWorking ? 'work' : 'dayoff';
+            }
+
+            const dayColor = scheduleSettings.colors[dayType] || DEFAULT_COLORS[dayType];
+            let dayClass = 'shift-day';
+            if (isToday) dayClass += ' today';
+            if (isWorking) dayClass += ' working';
+            else if (!isWorking && !isFuture) dayClass += ' day-off';
+            else if (!isWorking && isFuture) dayClass += ' future-day-off';
+
+            const net = income - expenses;
+            const fmtShort = (v) => {
+                const a = Math.abs(v);
+                return a >= 1000 ? (a / 1000).toFixed(1) + 'k' : Math.round(a).toString();
+            };
+            let statusIconHtml = '';
+
+            if (net !== 0) {
+                const sign = net > 0 ? '+' : '-';
+                const cls = net > 0 ? 'shift-day-net positive' : 'shift-day-net negative';
+                statusIconHtml += `<div class="${cls}" data-net="${sign}${fmtShort(net)}"><ion-icon name="cash-outline"></ion-icon>${sign}${fmtShort(net)}</div>`;
+            }
+            if (orders > 0) {
+                statusIconHtml += `<div class="shift-day-orders" data-orders="${orders}"><ion-icon name="cube-outline"></ion-icon>${orders}</div>`;
+            }
+            if (!statusIconHtml) {
+                statusIconHtml = `<div class="shift-day-status"><ion-icon name="${dayTypeIcons[dayType] || (isWorking ? 'briefcase-outline' : 'remove-circle-outline')}"></ion-icon></div>`;
+            }
+            html += `<div class="${dayClass}" onclick="editShift('${dateStr}')" style="border-color: ${dayColor}40; background: ${dayColor}20;"><div class="shift-day-number">${day}</div><div class="shift-day-body">${statusIconHtml}</div></div>`;
         }
+        html += `</div>`;
+
+        const dayTypeCounts = { work: 0, sick: 0, vacation: 0, dayoff: 0, repair: 0 };
+        shifts.forEach(s => {
+            if (String(s.date).startsWith(datePrefix) && s.dayType) {
+                if (dayTypeCounts[s.dayType] !== undefined) dayTypeCounts[s.dayType]++;
+                else dayTypeCounts.dayoff++;
+            }
+        });
+
+        const dayTypeConfig = {
+            work: { icon: 'briefcase-outline', color: '#5AC8FA', label: 'Рабочие' },
+            sick: { icon: 'medical-outline', color: '#8E8E93', label: 'Больничные' },
+            vacation: { icon: 'airplane-outline', color: '#34C759', label: 'Отпуск' },
+            dayoff: { icon: 'remove-circle-outline', color: '#8E8E93', label: 'Выходные' },
+            repair: { icon: 'construct-outline', color: '#FF9500', label: 'Ремонт' }
+        };
+
+        injectStyles();
+
+        const netIncomeClass = netIncome >= 0 ? 'positive' : 'negative';
+        html += `
+        <div class="month-summary-wrapper">
+            <div class="month-summary-toggle" onclick="toggleMonthSummary(this)">
+                <span class="shift-icon-badge shift-icon-sm shift-icon-blue"><ion-icon name="stats-chart-outline"></ion-icon></span>
+                <h4>Итоги месяца</h4>
+                <ion-icon name="chevron-down-outline" class="toggle-chevron"></ion-icon>
+            </div>
+            <div class="month-summary-content">
+                <div class="month-summary-card">
+                    <div class="summary-hero">
+                        <span class="hero-label">ЧИСТЫЙ ДОХОД ЗА МЕСЯЦ</span>
+                        <span class="hero-value ${netIncomeClass}">${formatMoney(netIncome)}</span>
+                    </div>
+                    <div class="summary-grid">
+                        <div class="grid-item">
+                            <span class="grid-label"><ion-icon name="cash-outline"></ion-icon> Доход</span>
+                            <span class="grid-value">${formatMoney(totalIncome)}</span>
+                        </div>
+                        <div class="grid-item" onclick="showExpensesDetailsModal()" style="cursor: pointer; transition: transform 0.15s;" onmousedown="this.style.transform='scale(0.97)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'">
+                            <span class="grid-label"><ion-icon name="wallet-outline"></ion-icon> Расходы</span>
+                            <span class="grid-value text-danger">-${formatMoney(totalExpenses)}</span>
+                        </div>
+                        <div class="grid-item">
+                            <span class="grid-label"><ion-icon name="gift-outline"></ion-icon> Бонусы</span>
+                            <span class="grid-value text-accent">+${formatMoney(totalBonuses)}</span>
+                        </div>
+                        <div class="grid-item">
+                            <span class="grid-label"><ion-icon name="cube-outline"></ion-icon> Заказы</span>
+                            <span class="grid-value">${totalOrders}</span>
+                        </div>
+                        <div class="grid-item">
+                            <span class="grid-label"><ion-icon name="time-outline"></ion-icon> Часы</span>
+                            <span class="grid-value">${totalHours} ч</span>
+                        </div>
+                        <div class="grid-item">
+                            <span class="grid-label"><ion-icon name="calendar-outline"></ion-icon> Смены</span>
+                            <span class="grid-value">${workingDays} / ${daysInMonth}</span>
+                        </div>
+                    </div>
+                    <div class="day-types-section">
+                        <h4 class="day-types-title"><ion-icon name="stats-chart-outline"></ion-icon> Дни по типам</h4>
+                        <div class="day-types-grid">
+                            ${Object.entries(dayTypeConfig).map(([type, config]) => {
+                                const count = dayTypeCounts[type] || 0;
+                                if (count === 0) return '';
+                                return `<div class="day-type-stat"><div class="day-type-icon" style="background: ${config.color}20; border: 1px solid ${config.color}40;"><ion-icon name="${config.icon}" style="color: ${config.color};"></ion-icon></div><div class="day-type-info"><span class="day-type-label">${config.label}</span><span class="day-type-count">${count} ${getDaysWord(count)}</span></div></div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                    <div class="summary-footer">
+                        <div class="footer-item"><span class="footer-label">За смену</span><span class="footer-value">${formatMoney(avgIncome)}</span></div>
+                        <div class="footer-item"><span class="footer-label">В час</span><span class="footer-value">${formatMoney(avgHourlyRate)}</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        `;
+
+        container.innerHTML = html;
+        restoreMonthSummaryState();
+
+        // Сохраняем обновлённые expenses
         saveShiftsLocal();
-        await saveShiftToFirebase(shift);
-        safeShowToast('✅ Данные смены сохранены');
-        if (overlay) overlay.remove();
-        await renderCalendar();
-        safeUpdateTotals();
+    } finally {
+        isRendering = false;
     }
 }
 
-// ===== 12. РЕНДЕР КАЛЕНДАРЯ =====
-async function renderCalendar() {
-    const container = document.getElementById('shift-calendar');
-    if (!container) return;
+// ===== 16. ВСПОМОГАТЕЛЬНОЕ: применение графика явно =====
+async function applyScheduleToMonth() {
+    await generateShiftsBySettings();
+    await renderCalendar();
+    safeUpdateTotals();
+}
 
-    let allRecords = (typeof getHistoryRecords === 'function') ? (getHistoryRecords() || []) : [];
-    if (!Array.isArray(allRecords)) allRecords = [];
-    if (allRecords.length === 0 && Array.isArray(window.records)) {
-        allRecords = window.records;
-    }
-
-    const normDate = (d) => {
-        if (!d) return '';
-        if (typeof normalizeDate === 'function') {
-            try {
-                const n = normalizeDate(d);
-                if (n) return String(n).trim();
-            } catch (e) { }
-        }
-        return String(d).trim();
-    };
-
-    const recIncome   = r => (Number(r.payPickup)||0) + (Number(r.payDelivery)||0) + (Number(r.payDistance)||0) + (Number(r.payWeight)||0) + (Number(r.loadPay)||0) + (Number(r.bonusPay)||0) + (Number(r.rating)||0) + (Number(r.tips)||0);
-    const recExpenses = r => (Number(r.fuelCost)||0) + (Number(r.repairCost)||0) + (Number(r.tax)||0);
-    const recOrders   = r => Number(r.ordersDelivery)||0;
-    const recBonuses  = r => Number(r.bonusPay)||0;
-    const recHours    = r => Number(r.hours)||0;
-
-    const groupedFresh = {};
-    allRecords.forEach(r => {
-        const d = normDate(r.date);
-        if (!d) return;
-        if (!groupedFresh[d]) groupedFresh[d] = [];
-        groupedFresh[d].push(r);
-    });
-
-    const getDayMetrics = (dateStr) => {
-        const recs = groupedFresh[dateStr] || [];
-        const m = { income: 0, expenses: 0, orders: 0, bonuses: 0, hours: 0 };
-        recs.forEach(r => {
-            m.income   += recIncome(r);
-            m.expenses += recExpenses(r);
-            m.orders   += recOrders(r);
-            m.bonuses  += recBonuses(r);
-            m.hours    += recHours(r);
-        });
-        return m;
-    };
-
-    const monthStr = String(currentMonth + 1).padStart(2, '0');
-    const datePrefix = `${currentYear}-${monthStr}`;
-    const hasShiftsInMonth = shifts.some(s => String(s.date).startsWith(datePrefix));
-
-    if (!hasShiftsInMonth) {
-        await generateShiftsBySettings();
-        return;
-    }
-
-    shifts.forEach(shift => {
-        const d = normDate(shift.date);
-        const dayRecs = groupedFresh[d];
-        if (dayRecs && dayRecs.length > 0) {
-            let exp = 0;
-            dayRecs.forEach(r => { exp += recExpenses(r); });
-            if (Number(shift.expenses) !== Number(exp)) {
-                shift.expenses = exp;
-            }
-        }
-    });
-
-    const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-    const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-    const today = getLocalDateString();
-    const dayTypeIcons = { work: 'briefcase-outline', sick: 'medical-outline', vacation: 'airplane-outline', dayoff: 'remove-circle-outline', repair: 'construct-outline' };
-
-    let totalIncome = 0, totalBonuses = 0, totalExpenses = 0, totalOrders = 0, totalHours = 0;
-
-    allRecords.forEach(r => {
-        const d = normDate(r.date);
-        if (!d || !d.startsWith(datePrefix)) return;
-
-        totalIncome   += recIncome(r);
-        totalExpenses += recExpenses(r);
-        totalOrders   += recOrders(r);
-        totalBonuses  += recBonuses(r);
-        totalHours    += recHours(r);
-    });
-    totalHours = Math.round(totalHours * 10) / 10;
-
-    const workingDays = shifts.filter(s => String(s.date).startsWith(datePrefix) && s.isWorking).length;
-    const netIncome = totalIncome - totalExpenses;
-    const avgIncome = workingDays > 0 ? totalIncome / workingDays : 0;
-    const avgHourlyRate = totalHours > 0 ? netIncome / totalHours : 0;
-
-    let html = `
-        <div class="shift-calendar-header">
-            <button class="shift-nav-btn" onclick="changeMonth(-1)"><ion-icon name="chevron-back-outline"></ion-icon></button>
-            <div style="text-align: center;">
-                <h2>${monthNames[currentMonth]} ${currentYear}</h2>
-                <div style="font-size: 11px; color: var(--ios-text-secondary); margin-top: 2px;">${scheduleSettings.name} · ${scheduleSettings.workDays}/${scheduleSettings.restDays}</div>
-            </div>
-            <button class="shift-nav-btn" onclick="changeMonth(1)"><ion-icon name="chevron-forward-outline"></ion-icon></button>
-        </div>
-        <div class="shift-calendar-actions">
-            <button class="btn btn-small btn-primary" onclick="showScheduleSettingsModal()"><ion-icon name="settings-outline"></ion-icon> Настроить график</button>
-            <button class="btn btn-small btn-secondary" onclick="generateShiftsBySettings()"><ion-icon name="refresh-outline"></ion-icon> Применить</button>
-            <button class="btn btn-small btn-danger" onclick="clearMonthShifts()"><ion-icon name="trash-outline"></ion-icon> Очистить</button>
-        </div>
-        <div class="shift-weekdays">
-            ${dayNames.map(day => `<div class="shift-weekday">${day}</div>`).join('')}
-        </div>
-        <div class="shift-days-grid">
-    `;
-
-    const firstDay = new Date(currentYear, currentMonth, 1);
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    const startOffset = (firstDay.getDay() + 6) % 7;
-    for (let i = 0; i < startOffset; i++) html += `<div class="shift-day empty"></div>`;
-
-    for (let day = 1; day <= daysInMonth; day++) {
-        const dateStr = `${currentYear}-${monthStr}-${String(day).padStart(2, '0')}`;
-        const shift = shifts.find(s => s.date === dateStr);
-        const metrics = getDayMetrics(dateStr);
-        const income = metrics.income;
-        const orders = metrics.orders;
-        const bonuses = metrics.bonuses;
-        const expenses = metrics.expenses;
-        const isPast = dateStr < today;
-        const isToday = dateStr === today;
-        const isFuture = dateStr > today;
-
-        let isWorking = false;
-        let dayType = 'dayoff';
-
-        if (shift) {
-            isWorking = shift.isWorking;
-            dayType = shift.dayType || (isWorking ? 'work' : 'dayoff');
-        } else if (isPast) {
-            isWorking = orders > 0 || expenses > 0;
-            dayType = isWorking ? 'work' : 'dayoff';
-        } else {
-            isWorking = isWorkingDayBySchedule(dateStr);
-            dayType = isWorking ? 'work' : 'dayoff';
-        }
-
-        const dayColor = scheduleSettings.colors[dayType] || DEFAULT_COLORS[dayType];
-        let dayClass = 'shift-day';
-        if (isToday) dayClass += ' today';
-        if (isWorking) dayClass += ' working';
-        else if (!isWorking && !isFuture) dayClass += ' day-off';
-        else if (!isWorking && isFuture) dayClass += ' future-day-off';
-
-        const net = income - expenses;
-        const fmtShort = (v) => {
-            const a = Math.abs(v);
-            return a >= 1000 ? (a / 1000).toFixed(1) + 'k' : Math.round(a).toString();
-        };
-        let statusIconHtml = '';
-
-        if (net !== 0) {
-            const sign = net > 0 ? '+' : '-';
-            const cls = net > 0 ? 'shift-day-net positive' : 'shift-day-net negative';
-            statusIconHtml += `<div class="${cls}" data-net="${sign}${fmtShort(net)}"><ion-icon name="cash-outline"></ion-icon>${sign}${fmtShort(net)}</div>`;
-        }
-        if (orders > 0) {
-            statusIconHtml += `<div class="shift-day-orders" data-orders="${orders}"><ion-icon name="cube-outline"></ion-icon>${orders}</div>`;
-        }
-        if (!statusIconHtml) {
-            statusIconHtml = `<div class="shift-day-status"><ion-icon name="${dayTypeIcons[dayType] || (isWorking ? 'briefcase-outline' : 'remove-circle-outline')}"></ion-icon></div>`;
-        }
-        html += `<div class="${dayClass}" onclick="editShift('${dateStr}')" style="border-color: ${dayColor}40; background: ${dayColor}20;"><div class="shift-day-number">${day}</div><div class="shift-day-body">${statusIconHtml}</div></div>`;
-    }
-    html += `</div>`;
-
-    const dayTypeCounts = { work: 0, sick: 0, vacation: 0, dayoff: 0, repair: 0 };
-    shifts.forEach(s => {
-        if (String(s.date).startsWith(datePrefix) && s.dayType) {
-            if (dayTypeCounts[s.dayType] !== undefined) dayTypeCounts[s.dayType]++;
-            else dayTypeCounts.dayoff++;
-        }
-    });
-
-    const dayTypeConfig = {
-        work: { icon: 'briefcase-outline', color: '#5AC8FA', label: 'Рабочие' },
-        sick: { icon: 'medical-outline', color: '#8E8E93', label: 'Больничные' },
-        vacation: { icon: 'airplane-outline', color: '#34C759', label: 'Отпуск' },
-        dayoff: { icon: 'remove-circle-outline', color: '#8E8E93', label: 'Выходные' },
-        repair: { icon: 'construct-outline', color: '#FF9500', label: 'Ремонт' }
-    };
-
+// ===== 17. ВСПОМОГАТЕЛЬНОЕ: инъекция стилей =====
+function injectStyles() {
     if (!document.getElementById('shift-summary-styles')) {
         const style = document.createElement('style');
         style.id = 'shift-summary-styles';
@@ -980,25 +1199,7 @@ async function renderCalendar() {
             .footer-value { display: block; font-size: 16px; font-weight: 700; color: var(--ios-text-primary, #000000); font-variant-numeric: tabular-nums; }
             @media (max-width: 375px) {
                 .month-summary-card { padding: 12px; }
-                .summary-hero { padding: 12px 0; margin-bottom: 12px; }
                 .hero-value { font-size: 28px; }
-                .summary-grid { gap: 8px; margin-bottom: 12px; }
-                .grid-item { padding: 10px; }
-                .grid-label { font-size: 11px; }
-                .grid-label ion-icon { font-size: 14px; }
-                .grid-value { font-size: 15px; }
-                .day-types-section { padding: 10px; margin-bottom: 12px; }
-                .day-types-title { font-size: 12px; margin-bottom: 8px; }
-                .day-types-grid { gap: 6px; }
-                .day-type-stat { padding: 6px 8px; gap: 8px; }
-                .day-type-icon { width: 32px; height: 32px; }
-                .day-type-icon ion-icon { font-size: 18px; }
-                .day-type-label { font-size: 10px; }
-                .day-type-count { font-size: 14px; }
-                .summary-footer { gap: 8px; }
-                .footer-item { padding: 10px; }
-                .footer-label { font-size: 10px; }
-                .footer-value { font-size: 14px; }
             }
         `;
         document.head.appendChild(style);
@@ -1037,76 +1238,45 @@ async function renderCalendar() {
         document.head.appendChild(styleMoney);
     }
 
-    const netIncomeClass = netIncome >= 0 ? 'positive' : 'negative';
-    html += `
-        <div class="month-summary-card">
-            <div class="summary-hero">
-                <span class="hero-label">ЧИСТЫЙ ДОХОД ЗА МЕСЯЦ</span>
-                <span class="hero-value ${netIncomeClass}">${formatMoney(netIncome)}</span>
-            </div>
-            <div class="summary-grid">
-                <div class="grid-item">
-                    <span class="grid-label"><ion-icon name="cash-outline"></ion-icon> Доход</span>
-                    <span class="grid-value">${formatMoney(totalIncome)}</span>
-                </div>
-                <div class="grid-item" onclick="showExpensesDetailsModal()" style="cursor: pointer; transition: transform 0.15s;" onmousedown="this.style.transform='scale(0.97)'" onmouseup="this.style.transform='scale(1)'" onmouseleave="this.style.transform='scale(1)'">
-                    <span class="grid-label"><ion-icon name="wallet-outline"></ion-icon> Расходы</span>
-                    <span class="grid-value text-danger">-${formatMoney(totalExpenses)}</span>
-                </div>
-                <div class="grid-item">
-                    <span class="grid-label"><ion-icon name="gift-outline"></ion-icon> Бонусы</span>
-                    <span class="grid-value text-accent">+${formatMoney(totalBonuses)}</span>
-                </div>
-                <div class="grid-item">
-                    <span class="grid-label"><ion-icon name="cube-outline"></ion-icon> Заказы</span>
-                    <span class="grid-value">${totalOrders}</span>
-                </div>
-                <div class="grid-item">
-                    <span class="grid-label"><ion-icon name="time-outline"></ion-icon> Часы</span>
-                    <span class="grid-value">${totalHours} ч</span>
-                </div>
-                <div class="grid-item">
-                    <span class="grid-label"><ion-icon name="calendar-outline"></ion-icon> Смены</span>
-                    <span class="grid-value">${workingDays} / ${daysInMonth}</span>
-                </div>
-            </div>
-            <div class="day-types-section">
-                <h4 class="day-types-title"><ion-icon name="stats-chart-outline"></ion-icon> Дни по типам</h4>
-                <div class="day-types-grid">
-                    ${Object.entries(dayTypeConfig).map(([type, config]) => {
-                        const count = dayTypeCounts[type] || 0;
-                        if (count === 0) return '';
-                        return `<div class="day-type-stat"><div class="day-type-icon" style="background: ${config.color}20; border: 1px solid ${config.color}40;"><ion-icon name="${config.icon}" style="color: ${config.color};"></ion-icon></div><div class="day-type-info"><span class="day-type-label">${config.label}</span><span class="day-type-count">${count} ${getDaysWord(count)}</span></div></div>`;
-                    }).join('')}
-                </div>
-            </div>
-            <div class="summary-footer">
-                <div class="footer-item"><span class="footer-label">За смену</span><span class="footer-value">${formatMoney(avgIncome)}</span></div>
-                <div class="footer-item"><span class="footer-label">В час</span><span class="footer-value">${formatMoney(avgHourlyRate)}</span></div>
-            </div>
-        </div>
-    `;
-    container.innerHTML = html;
-
-    localStorage.setItem('driverShifts', JSON.stringify(shifts));
-    window.shifts = shifts;
+    if (!document.getElementById('expenses-details-styles')) {
+        const style = document.createElement('style');
+        style.id = 'expenses-details-styles';
+        style.textContent = `
+            .expense-category { background: var(--ios-bg-primary, #ffffff); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--ios-border, rgba(0,0,0,0.06)); overflow: hidden; }
+            .expense-category-header { padding: 14px 16px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 12px; }
+            .expense-category-header:hover { background: var(--ios-bg-secondary, #f2f2f7); }
+            .expense-category-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; background: var(--ios-bg-secondary, #f2f2f7); }
+            .expense-category-content.expanded { max-height: 2000px; }
+            .expense-item { padding: 14px 16px; border-top: 1px solid var(--ios-border, rgba(0,0,0,0.06)); }
+            .expense-item:first-child { border-top: none; }
+            .repair-part { display: flex; justify-content: space-between; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid var(--ios-border, rgba(0,0,0,0.04)); }
+            .repair-part:last-child { border-bottom: none; }
+            .repair-part-name { font-size: 13px; font-weight: 500; color: var(--ios-text-primary); flex: 1; }
+            .repair-part-cost { font-size: 13px; font-weight: 700; color: var(--ios-danger, #ff3b30); white-space: nowrap; margin-left: 10px; }
+            .repair-labor { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; }
+            .repair-labor-label { font-size: 12px; font-weight: 600; color: var(--ios-text-secondary); }
+            .repair-labor-cost { font-size: 14px; font-weight: 700; color: var(--ios-danger, #ff3b30); }
+            .expense-date { font-size: 13px; font-weight: 700; color: var(--ios-text-primary); margin-bottom: 6px; }
+            .expense-description { font-size: 12px; color: var(--ios-text-secondary); margin-bottom: 8px; line-height: 1.4; }
+        `;
+        document.head.appendChild(style);
+    }
 }
 
-// ===== 12.5. ДЕТАЛИЗАЦИЯ РАСХОДОВ =====
+// ===== 18. ДЕТАЛИЗАЦИЯ РАСХОДОВ =====
 function showExpensesDetailsModal() {
-    const monthStr = String(currentMonth + 1).padStart(2, '0');
-    const datePrefix = `${currentYear}-${monthStr}`;
+    const datePrefix = getMonthPrefix(currentYear, currentMonth);
     const recordsArray = getHistoryRecords();
     const monthRecords = recordsArray.filter(r => normalizeDate(r.date).startsWith(datePrefix));
-    
+
     if (monthRecords.length === 0) {
         safeShowToast('ℹ️ Нет записей за этот месяц');
         return;
     }
-    
+
     const expenses = { fuel: [], repair: [], tax: [] };
     let totalFuel = 0, totalRepair = 0, totalTax = 0;
-    
+
     monthRecords.forEach(record => {
         const date = formatDate(normalizeDate(record.date));
         const fuelCost = Number(record.fuelCost) || 0;
@@ -1136,9 +1306,9 @@ function showExpensesDetailsModal() {
             totalTax += tax;
         }
     });
-    
+
     const totalExpenses = totalFuel + totalRepair + totalTax;
-    
+
     const overlay = document.createElement('div');
     overlay.className = 'shift-modal-overlay';
     overlay.innerHTML = `
@@ -1165,31 +1335,7 @@ function showExpensesDetailsModal() {
             </div>
         </div>
     `;
-    
-    if (!document.getElementById('expenses-details-styles')) {
-        const style = document.createElement('style');
-        style.id = 'expenses-details-styles';
-        style.textContent = `
-            .expense-category { background: var(--ios-bg-primary, #ffffff); border-radius: 12px; margin-bottom: 12px; border: 1px solid var(--ios-border, rgba(0,0,0,0.06)); overflow: hidden; }
-            .expense-category-header { padding: 14px 16px; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 12px; }
-            .expense-category-header:hover { background: var(--ios-bg-secondary, #f2f2f7); }
-            .expense-category-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; background: var(--ios-bg-secondary, #f2f2f7); }
-            .expense-category-content.expanded { max-height: 2000px; }
-            .expense-item { padding: 14px 16px; border-top: 1px solid var(--ios-border, rgba(0,0,0,0.06)); }
-            .expense-item:first-child { border-top: none; }
-            .repair-part { display: flex; justify-content: space-between; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid var(--ios-border, rgba(0,0,0,0.04)); }
-            .repair-part:last-child { border-bottom: none; }
-            .repair-part-name { font-size: 13px; font-weight: 500; color: var(--ios-text-primary); flex: 1; }
-            .repair-part-cost { font-size: 13px; font-weight: 700; color: var(--ios-danger, #ff3b30); white-space: nowrap; margin-left: 10px; }
-            .repair-labor { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; }
-            .repair-labor-label { font-size: 12px; font-weight: 600; color: var(--ios-text-secondary); }
-            .repair-labor-cost { font-size: 14px; font-weight: 700; color: var(--ios-danger, #ff3b30); }
-            .expense-date { font-size: 13px; font-weight: 700; color: var(--ios-text-primary); margin-bottom: 6px; }
-            .expense-description { font-size: 12px; color: var(--ios-text-secondary); margin-bottom: 8px; line-height: 1.4; }
-        `;
-        document.head.appendChild(style);
-    }
-    
+
     document.body.appendChild(overlay);
     requestAnimationFrame(() => overlay.classList.add('visible'));
 }
@@ -1197,7 +1343,6 @@ function showExpensesDetailsModal() {
 function buildExpenseCategory(id, title, icon, color, items, total) {
     if (items.length === 0 || total === 0) return '';
     const count = items.length;
-    const daysWord = getDaysWord(count);
     return `
         <div class="expense-category">
             <div class="expense-category-header" onclick="toggleExpenseCategory('${id}')">
@@ -1206,7 +1351,7 @@ function buildExpenseCategory(id, title, icon, color, items, total) {
                 </div>
                 <div style="flex: 1; min-width: 0;">
                     <div style="font-size: 15px; font-weight: 700; color: var(--ios-text-primary);">${title}</div>
-                    <div style="font-size: 12px; color: var(--ios-text-tertiary);">${count} ${daysWord}</div>
+                    <div style="font-size: 12px; color: var(--ios-text-tertiary);">${count} ${getDaysWord(count)}</div>
                 </div>
                 <div style="font-size: 18px; font-weight: 700; color: var(--ios-danger, #ff3b30);">${formatMoney(total)}</div>
                 <ion-icon name="chevron-down-outline" id="${id}-chevron" style="font-size: 20px; color: var(--ios-text-tertiary); transition: transform 0.3s; flex-shrink: 0;"></ion-icon>
@@ -1230,7 +1375,6 @@ function buildExpenseCategory(id, title, icon, color, items, total) {
 function buildRepairCategory(id, title, icon, color, items, total) {
     if (items.length === 0 || total === 0) return '';
     const count = items.length;
-    const daysWord = getDaysWord(count);
     return `
         <div class="expense-category">
             <div class="expense-category-header" onclick="toggleExpenseCategory('${id}')">
@@ -1239,7 +1383,7 @@ function buildRepairCategory(id, title, icon, color, items, total) {
                 </div>
                 <div style="flex: 1; min-width: 0;">
                     <div style="font-size: 15px; font-weight: 700; color: var(--ios-text-primary);">${title}</div>
-                    <div style="font-size: 12px; color: var(--ios-text-tertiary);">${count} ${daysWord}</div>
+                    <div style="font-size: 12px; color: var(--ios-text-tertiary);">${count} ${getDaysWord(count)}</div>
                 </div>
                 <div style="font-size: 18px; font-weight: 700; color: var(--ios-danger, #ff3b30);">${formatMoney(total)}</div>
                 <ion-icon name="chevron-down-outline" id="${id}-chevron" style="font-size: 20px; color: var(--ios-text-tertiary); transition: transform 0.3s; flex-shrink: 0;"></ion-icon>
@@ -1299,20 +1443,40 @@ function toggleExpenseCategory(category) {
     }
 }
 
-// ===== 13. ПЕРЕКЛЮЧЕНИЕ МЕСЯЦА =====
+// ===== 19. СВОРАЧИВАНИЕ ИТОГОВ =====
+function toggleMonthSummary(toggleEl) {
+    const wrapper = toggleEl.closest('.month-summary-wrapper');
+    if (!wrapper) return;
+    wrapper.classList.toggle('collapsed');
+    try {
+        const state = JSON.parse(localStorage.getItem(SUMMARY_STATE_KEY) || '{}');
+        state.collapsed = wrapper.classList.contains('collapsed');
+        localStorage.setItem(SUMMARY_STATE_KEY, JSON.stringify(state));
+    } catch (e) { }
+}
+
+function restoreMonthSummaryState() {
+    try {
+        const state = JSON.parse(localStorage.getItem(SUMMARY_STATE_KEY) || '{}');
+        if (state.collapsed) {
+            const wrapper = document.querySelector('.month-summary-wrapper');
+            if (wrapper) wrapper.classList.add('collapsed');
+        }
+    } catch (e) { }
+}
+
+// ===== 20. ПЕРЕКЛЮЧЕНИЕ МЕСЯЦА =====
 async function changeMonth(delta) {
     currentMonth += delta;
-    if (currentMonth > 11) { currentMonth = 0; currentYear++; } 
+    if (currentMonth > 11) { currentMonth = 0; currentYear++; }
     else if (currentMonth < 0) { currentMonth = 11; currentYear--; }
-    const monthStr = String(currentMonth + 1).padStart(2, '0');
-    const datePrefix = `${currentYear}-${monthStr}`;
-    const hasShifts = shifts.some(s => s.date.startsWith(datePrefix));
-    if (!hasShifts) await generateShiftsBySettings();
-    else updateShiftDataFromHistory();
+
+    // НЕ автогенерируем! Пользователь сам нажмёт "Применить" если нужно.
+    updateShiftDataFromHistory();
     await renderCalendar();
 }
 
-// ===== 14. ИНИЦИАЛИЗАЦИЯ И ЭКСПОРТ =====
+// ===== 21. ИНИЦИАЛИЗАЦИЯ =====
 function openShiftCalendar() {
     if (typeof window.switchTab === 'function') window.switchTab('shifts');
     setTimeout(() => renderCalendar(), 100);
@@ -1322,25 +1486,20 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => loadShifts(), 300);
 });
 
-const origSwitchTab = window.switchTab || function() {};
-window.switchTab = function(tabName) {
+const origSwitchTab = window.switchTab || function () { };
+window.switchTab = function (tabName) {
     if (typeof origSwitchTab === 'function') origSwitchTab(tabName);
     if (tabName === 'shifts') {
         setTimeout(() => {
-            if (typeof loadShifts === 'function') loadShifts();
             if (typeof renderCalendar === 'function') renderCalendar();
         }, 100);
     }
 };
 
 let _syncDebounceTimer = null;
-window.forceSyncHistoryToCalendar = function() {
+window.forceSyncHistoryToCalendar = function () {
     if (_syncDebounceTimer) clearTimeout(_syncDebounceTimer);
     _syncDebounceTimer = setTimeout(() => {
-        if (typeof shifts !== 'undefined' && shifts.length === 0) {
-            if (typeof generateShiftsBySettings === 'function') { generateShiftsBySettings(); return; }
-        }
-        console.log('🔄 forceSyncHistoryToCalendar выполняется...');
         updateShiftDataFromHistory();
         if (typeof renderCalendar === 'function') renderCalendar();
         safeUpdateTotals();
@@ -1348,397 +1507,178 @@ window.forceSyncHistoryToCalendar = function() {
     }, 150);
 };
 
-/* ============================================================
-   ЕДИНАЯ СИНХРОНИЗАЦИЯ РАСХОДОВ (конец shift-module.js)
-   ============================================================ */
-(function () {
-    'use strict';
-
-    const num = (v) => {
-        if (typeof v === 'number') return isFinite(v) ? v : 0;
-        if (v == null) return 0;
-        const n = Number(String(v).replace(/\s+/g, '').replace(',', '.'));
-        return isFinite(n) ? n : 0;
+// ============================================
+// ПАТЧ: оборачиваем ВСЕ иконки календаря в плашки
+// ============================================
+function wrapShiftIcons() {
+    const ICON_COLOR = {
+        'cash-outline': 'shift-icon-green',
+        'wallet-outline': 'shift-icon-red',
+        'gift-outline': 'shift-icon-orange',
+        'cube-outline': 'shift-icon-blue',
+        'time-outline': 'shift-icon-teal',
+        'calendar-outline': 'shift-icon-purple',
+        'settings-outline': 'shift-icon-blue',
+        'refresh-outline': 'shift-icon-green',
+        'trash-outline': 'shift-icon-red',
+        'stats-chart-outline': 'shift-icon-blue',
+        'briefcase-outline': 'shift-icon-cyan',
+        'medical-outline': 'shift-icon-gray',
+        'airplane-outline': 'shift-icon-green',
+        'remove-circle-outline': 'shift-icon-gray',
+        'construct-outline': 'shift-icon-orange',
+        'document-text-outline': 'shift-icon-blue',
+        'flag-outline': 'shift-icon-orange',
+        'chevron-back-outline': 'shift-icon-blue',
+        'chevron-forward-outline': 'shift-icon-blue',
+        'chevron-down-outline': 'shift-icon-blue',
+        'close-outline': 'shift-icon-red',
+        'checkmark-outline': 'shift-icon-green',
+        'fuel-outline': 'shift-icon-orange'
     };
-
-    const normDate = (d) => {
-        if (!d) return '';
-        if (typeof d === 'object' && typeof d.toDate === 'function') d = d.toDate();
-        if (d instanceof Date) {
-            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-        }
-        const s = String(d).trim();
-        let m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-        if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
-        m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
-        if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
-        return s;
-    };
-
-    const getRecords = () => {
-        let r = (typeof getHistoryRecords === 'function') ? (getHistoryRecords() || []) : [];
-        if (!Array.isArray(r) || r.length === 0) r = Array.isArray(window.records) ? window.records : [];
-        return r;
-    };
-
-    const recIncome   = r => num(r.payPickup) + num(r.payDelivery) + num(r.payDistance) + num(r.payWeight) + num(r.loadPay) + num(r.bonusPay) + num(r.rating) + num(r.tips);
-    const recExpenses = r => num(r.fuelCost) + num(r.repairCost) + num(r.tax);
-
-    const dayMetrics = (dateStr) => {
-        const d = normDate(dateStr);
-        const m = { income: 0, expenses: 0, orders: 0, bonuses: 0, hours: 0 };
-        getRecords().forEach(r => {
-            if (normDate(r.date) !== d) return;
-            m.income += recIncome(r);
-            m.expenses += recExpenses(r);
-            m.orders += num(r.ordersDelivery);
-            m.bonuses += num(r.bonusPay);
-            m.hours += num(r.hours);
-        });
-        return m;
-    };
-
-    const monthTotals = (year, month) => {
-        const prefix = year + '-' + String(month + 1).padStart(2, '0');
-        const t = { income: 0, expenses: 0, orders: 0, bonuses: 0, hours: 0 };
-        getRecords().forEach(r => {
-            if (!normDate(r.date).startsWith(prefix)) return;
-            t.income += recIncome(r);
-            t.expenses += recExpenses(r);
-            t.orders += num(r.ordersDelivery);
-            t.bonuses += num(r.bonusPay);
-            t.hours += num(r.hours);
-        });
-        return t;
-    };
-
-    window.ShiftSync = { num, normDate, getRecords, dayMetrics, monthTotals };
-
-    const setText = (el, txt) => { if (el && el.textContent !== txt) el.textContent = txt; };
-
-    const patchCard = () => {
-        const card = document.querySelector('.month-summary-card');
-        if (!card) return;
-        const y  = (typeof currentYear  !== 'undefined') ? currentYear  : new Date().getFullYear();
-        const mo = (typeof currentMonth !== 'undefined') ? currentMonth : new Date().getMonth();
-        const t = monthTotals(y, mo);
-        const fmt = (typeof formatMoney === 'function') ? formatMoney : (x => String(x));
-        setText(card.querySelector('.grid-item[onclick*="showExpensesDetailsModal"] .grid-value'), '-' + fmt(t.expenses));
-        const hero = card.querySelector('.hero-value');
-        if (hero) {
-            const net = t.income - t.expenses;
-            setText(hero, fmt(net));
-            hero.classList.toggle('positive', net >= 0);
-            hero.classList.toggle('negative', net < 0);
-        }
-    };
-
-    const patchShiftInput = (dateStr) => {
-        const inp = document.getElementById('shift-expenses-input');
-        if (inp && dateStr) inp.value = dayMetrics(dateStr).expenses;
-    };
-
-    if (typeof window.editShift === 'function' && !window.editShift.__syncWrapped) {
-        const origEdit = window.editShift;
-        window.editShift = function (dateStr) {
-            window.__shiftSyncLastDate = dateStr;
-            const res = origEdit.apply(this, arguments);
-            patchShiftInput(dateStr);
-            setTimeout(() => patchShiftInput(dateStr), 0);
-            return res;
-        };
-        window.editShift.__syncWrapped = true;
+    
+    function wrap(icon, sizeClass) {
+        if (!icon) return;
+        // Уже обёрнута?
+        if (icon.parentElement && icon.parentElement.classList.contains('shift-icon-badge')) return;
+        const name = icon.getAttribute('name') || '';
+        const colorClass = ICON_COLOR[name] || 'shift-icon-blue';
+        const badge = document.createElement('span');
+        badge.className = `shift-icon-badge ${sizeClass} ${colorClass}`;
+        icon.parentNode.insertBefore(badge, icon);
+        badge.appendChild(icon);
     }
+    
+    // 1. Иконка в заголовке "Календарь смен"
+    document.querySelectorAll('#tab-shifts .card > h2 > ion-icon').forEach(icon => wrap(icon, 'shift-icon-lg'));
+    
+    // 2. Иконки в кнопках действий календаря
+    document.querySelectorAll('.shift-calendar-actions .btn > ion-icon').forEach(icon => wrap(icon, 'shift-icon-sm'));
+    
 
-    if (typeof window.renderCalendar === 'function' && !window.renderCalendar.__syncWrapped) {
-        const origRender = window.renderCalendar;
-        window.renderCalendar = async function () {
-            const res = await origRender.apply(this, arguments);
-            patchCard();
-            return res;
-        };
-        window.renderCalendar.__syncWrapped = true;
+    
+    // 4. Иконки в "Итогах месяца" (сетка метрик)
+    document.querySelectorAll('.month-summary-card .grid-label > ion-icon').forEach(icon => wrap(icon, 'shift-icon-sm'));
+    
+    // 5. Иконка в заголовке "Дни по типам"
+    document.querySelectorAll('.day-types-title > ion-icon').forEach(icon => wrap(icon, 'shift-icon-sm'));
+    
+    // 6. Тоггл-иконка "Итоги месяца" (стрелка вниз) — уже обёрнута вручную в шаблоне,
+    //    но на всякий случай проверим иконку stats-chart в toggle:
+    document.querySelectorAll('.month-summary-toggle > ion-icon').forEach(icon => {
+        if (icon.classList.contains('toggle-chevron')) return; // стрелку не трогаем
+        wrap(icon, 'shift-icon-sm');
+    });
+    
+    // 7. Иконки в модалке смены (stats)
+    document.querySelectorAll('.shift-modal-stats .label > ion-icon').forEach(icon => wrap(icon, 'shift-icon-sm'));
+    
+    // 8. Иконки в шапках модалок
+    document.querySelectorAll('.shift-modal-header > ion-icon').forEach(icon => wrap(icon, 'shift-icon-lg'));
+    
+    // 9. Иконки в футерах модалок
+    document.querySelectorAll('.shift-modal-footer .btn > ion-icon').forEach(icon => {
+        const name = icon.getAttribute('name') || '';
+        let size = 'shift-icon-sm';
+        let color = ICON_COLOR[name] || 'shift-icon-blue';
+        if (name.includes('checkmark')) color = 'shift-icon-green';
+        if (name.includes('close')) color = 'shift-icon-red';
+        if (icon.parentElement && icon.parentElement.classList.contains('shift-icon-badge')) return;
+        const badge = document.createElement('span');
+        badge.className = `shift-icon-badge ${size} ${color}`;
+        icon.parentNode.insertBefore(badge, icon);
+        badge.appendChild(icon);
+    });
+    
+    // 10. Иконки внутри модалки выбора типа дня (day-type-btn) — НЕ оборачиваем,
+    //     там уже стилизованные кнопки с цветом при активном состоянии.
+    //     Пропускаем намеренно.
+    
+    // 11. Иконки в модалке расходов (buildExpenseCategory/buildRepairCategory)
+    document.querySelectorAll('.expense-category-header > div > ion-icon').forEach(icon => wrap(icon, 'shift-icon-md'));
+    
+    // 12. Иконки в полях ввода расходов/бонусов внутри модалки смены
+    document.querySelectorAll('.shift-modal-expenses > label > ion-icon, .shift-modal-bonuses > label > ion-icon, .shift-modal-notes > label > ion-icon').forEach(icon => wrap(icon, 'shift-icon-sm'));
+    
+    // 13. Иконка в блоке "Чистый доход" в модалке
+    document.querySelectorAll('.shift-modal-body > div > div > span > ion-icon').forEach(icon => {
+        if (icon.closest('.shift-icon-badge')) return;
+        const name = icon.getAttribute('name') || '';
+        if (name === 'cash-outline') wrap(icon, 'shift-icon-sm');
+    });
+}
+
+// ⭐ Надёжный вызов: ловим ЛЮБУЮ перерисовку календаря через MutationObserver
+(function initShiftIconPatcher() {
+    let debounceTimer = null;
+    
+    function debouncedWrap() {
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            try { wrapShiftIcons(); } catch (e) { console.warn('wrapShiftIcons error:', e); }
+            debounceTimer = null;
+        }, 30);
     }
-
-    const startObserver = () => {
-        if (window.__shiftSyncObserver) return;
-        window.__shiftSyncObserver = new MutationObserver((muts) => {
-            patchCard();
+    
+    function attach() {
+        const cal = document.getElementById('shift-calendar');
+        if (!cal) { setTimeout(attach, 300); return; }
+        if (cal.__iconPatched) return;
+        cal.__iconPatched = true;
+        
+        wrapShiftIcons(); // Первичный прогон
+        
+        // Реагируем на любую перерисовку календаря
+        new MutationObserver(() => debouncedWrap())
+            .observe(cal, { childList: true, subtree: true });
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', attach);
+    } else {
+        attach();
+    }
+    
+    // Модалки живут в document.body — ловим их отдельно
+    if (document.body) {
+        new MutationObserver((muts) => {
+            // реагируем только на добавление элементов (модалки открываются)
             for (const mu of muts) {
-                for (const n of mu.addedNodes) {
-                    if (n.nodeType !== 1) continue;
-                    const hasInput = n.id === 'shift-expenses-input' || (n.querySelector && n.querySelector('#shift-expenses-input'));
-                    if (hasInput && window.__shiftSyncLastDate) patchShiftInput(window.__shiftSyncLastDate);
+                if (mu.addedNodes && mu.addedNodes.length > 0) {
+                    debouncedWrap();
+                    return;
                 }
             }
-        });
-        window.__shiftSyncObserver.observe(document.body, { childList: true, subtree: true });
-    };
-
-    const syncShifts = () => {
-        if (typeof shifts === 'undefined' || !Array.isArray(shifts)) return;
-        let changed = false;
-        shifts.forEach(s => {
-            const exp = dayMetrics(s.date).expenses;
-            if (Number(s.expenses) !== exp) { s.expenses = exp; s.manualOverride = false; changed = true; }
-        });
-        if (changed) {
-            try { localStorage.setItem('driverShifts', JSON.stringify(shifts)); } catch (e) {}
-            window.shifts = shifts;
-        }
-    };
-
-    const init = () => { syncShifts(); patchCard(); startObserver(); };
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-    else init();
-})();
-
-/* ============================================================================
-   COURIER APP · ЕДИНЫЙ ИСТОЧНИК РАСХОДОВ
-   ============================================================================ */
-(function () {
-    'use strict';
-    if (window.__expenseSyncV2) { console.warn('[ExpenseSync] уже установлен'); return; }
-    window.__expenseSyncV2 = true;
-
-    var LS_RECORDS = 'driverRecords';
-    var LS_TOMB = 'expenseSync_tombstones';
-    var LS_SHIFT = 'driverShifts';
-    var MAX_TOMB = 600;
-
-    function num(v) {
-        if (typeof v === 'number') return isFinite(v) ? v : 0;
-        if (v == null) return 0;
-        var n = Number(String(v).replace(/\s+/g, '').replace(',', '.'));
-        return isFinite(n) ? n : 0;
-    }
-    function normDate(d) {
-        if (!d) return '';
-        if (typeof d === 'object' && typeof d.toDate === 'function') d = d.toDate();
-        if (d instanceof Date) return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-        var s = String(d).trim(), m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-        if (m) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
-        m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
-        if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
-        return s;
-    }
-    function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-    function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
-    function lsJSON(k, fallback) { var raw = lsGet(k); if (!raw) return fallback; try { var v = JSON.parse(raw); return v == null ? fallback : v; } catch (e) { return fallback; } }
-    function stamp(r) { var t = r && (r.updatedAt || r.modifiedAt || r._updatedAt || r.createdAt); if (!t) return 0; if (typeof t === 'object' && typeof t.toMillis === 'function') return t.toMillis(); var n = Date.parse(t); return isFinite(n) ? n : (num(t) || 0); }
-    function keyOf(r) {
-        if (!r) return '';
-        if (r.id != null && r.id !== '') return 'id:' + r.id;
-        return 'sig:' + normDate(r.date) + '|' + num(r.fuelCost) + '|' + num(r.repairCost) + '|' + num(r.tax) + '|' + num(r.payDelivery) + '|' + num(r.ordersDelivery) + '|' + num(r.hours);
-    }
-    function expensesOf(r) { return num(r.fuelCost) + num(r.repairCost) + num(r.tax); }
-    function fbReady() { return typeof db !== 'undefined' && db && typeof auth !== 'undefined' && auth && auth.currentUser; }
-    function fbCol() { return db.collection('users').doc(auth.currentUser.uid).collection('records'); }
-
-    var st = {
-        union: [], byKey: {}, cloudReady: false, cloudIds: {}, prevCloudIds: null,
-        tomb: {}, healing: false, renderTimer: 0, attached: false, bootAt: Date.now(), lastReason: 'boot'
-    };
-    (lsJSON(LS_TOMB, []) || []).forEach(function (id) { st.tomb[id] = 1; });
-
-    function saveTomb() {
-        var ids = Object.keys(st.tomb);
-        if (ids.length > MAX_TOMB) { ids = ids.slice(ids.length - MAX_TOMB); st.tomb = {}; ids.forEach(function (i) { st.tomb[i] = 1; }); }
-        lsSet(LS_TOMB, JSON.stringify(ids));
-    }
-
-    var rawHistoryFn = (typeof window.getHistoryRecords === 'function') ? window.getHistoryRecords : null;
-    function localRaw() {
-        var arr = null;
-        if (rawHistoryFn) { try { arr = rawHistoryFn(); } catch (e) { arr = null; } }
-        if (!Array.isArray(arr) || !arr.length) arr = lsJSON(LS_RECORDS, []);
-        return Array.isArray(arr) ? arr.filter(Boolean) : [];
-    }
-    function cloudRaw() { return Array.isArray(window.records) ? window.records.filter(Boolean) : []; }
-
-    function rebuild(reason) {
-        st.lastReason = reason || 'manual';
-        var local = localRaw(), cloudArr = cloudRaw();
-        var map = {}, order = [];
-
-        function put(r, origin) {
-            var k = keyOf(r); if (!k) return;
-            if (st.tomb[k] || (r.id != null && st.tomb['id:' + r.id])) return;
-            if (!map[k]) { map[k] = r; order.push(k); return; }
-            var cur = map[k];
-            var a = stamp(r), b = stamp(cur);
-            if (a > b) map[k] = r;
-            else if (a === b && origin === 'cloud' && st.cloudReady) map[k] = r;
-        }
-        local.forEach(function (r) { put(r, 'local'); });
-        cloudArr.forEach(function (r) { put(r, 'cloud'); });
-
-        st.union = order.map(function (k) { return map[k]; });
-        st.byKey = map;
-
-        var raw = lsJSON(LS_RECORDS, []);
-        var rawKeys = (Array.isArray(raw) ? raw : []).map(keyOf).sort().join('~');
-        var unionKeys = st.union.map(keyOf).sort().join('~');
-        if (rawKeys !== unionKeys) lsSet(LS_RECORDS, JSON.stringify(st.union));
-
-        if (typeof shifts !== 'undefined' && Array.isArray(shifts) && shifts.length > 0) {
-            var sh = shifts;
-            var changed = false;
-            sh.forEach(function (s) {
-                var d = normDate(s.date), s_exp = 0;
-                for (var i = 0; i < st.union.length; i++) if (normDate(st.union[i].date) === d) s_exp += expensesOf(st.union[i]);
-                s_exp = Math.round(s_exp * 100) / 100;
-                if (num(s.expenses) !== s_exp) { s.expenses = s_exp; s.manualOverride = false; changed = true; }
-            });
-            if (changed) { lsSet(LS_SHIFT, JSON.stringify(sh)); window.shifts = sh; }
-        }
-
-        scheduleRender();
-        heal();
-        badge();
-        return st.union;
-    }
-
-    function dayExpenses(dateStr) {
-        var d = normDate(dateStr), s = 0;
-        for (var i = 0; i < st.union.length; i++) if (normDate(st.union[i].date) === d) s += expensesOf(st.union[i]);
-        return Math.round(s * 100) / 100;
-    }
-    function scheduleRender() {
-        if (st.renderTimer) clearTimeout(st.renderTimer);
-        st.renderTimer = setTimeout(function () {
-            st.renderTimer = 0;
-            try { if (typeof window.updateShiftDataFromHistory === 'function') window.updateShiftDataFromHistory(); } catch (e) {}
-            try { if (typeof window.renderCalendar === 'function') window.renderCalendar(); } catch (e) {}
-            try { if (typeof window.safeUpdateTotals === 'function') window.safeUpdateTotals(); } catch (e) {}
-        }, 150);
-    }
-
-    window.getHistoryRecords = function () { return st.union.length ? st.union.slice() : localRaw(); };
-    if (typeof window.getGroupedHistoryRecords === 'function') {
-        window.getGroupedHistoryRecords = function () {
-            var g = {};
-            window.getHistoryRecords().forEach(function (r) { var d = normDate(r.date); if (!d) return; (g[d] = g[d] || []).push(r); });
-            return g;
-        };
-    }
-
-    function attachListener() {
-        if (!fbReady()) return false;
-        try { if (typeof recordsUnsubscribe === 'function') { recordsUnsubscribe(); recordsUnsubscribe = null; } } catch (e) {}
-        var unsub;
-        try {
-            unsub = fbCol().onSnapshot(function (snap) {
-                var fromCache = !!(snap.metadata && snap.metadata.fromCache);
-                var arr = snap.docs.map(function (d) { var o = d.data() || {}; o.id = d.id; return o; });
-
-                if (fromCache && st.union.length && st.cloudReady) return;
-
-                if (!fromCache) {
-                    var ids = {};
-                    arr.forEach(function (r) { ids['id:' + r.id] = 1; });
-                    if (st.prevCloudIds && (arr.length > 0 || Object.keys(st.prevCloudIds).length <= 5)) {
-                        var killed = 0;
-                        Object.keys(st.prevCloudIds).forEach(function (k) { if (!ids[k] && !st.tomb[k]) { st.tomb[k] = 1; killed++; } });
-                        if (killed) saveTomb();
+        }).observe(document.body, { childList: true });
+    } else {
+        document.addEventListener('DOMContentLoaded', () => {
+            new MutationObserver((muts) => {
+                for (const mu of muts) {
+                    if (mu.addedNodes && mu.addedNodes.length > 0) {
+                        debouncedWrap();
+                        return;
                     }
-                    st.prevCloudIds = ids;
-                    st.cloudIds = ids;
-                    st.cloudReady = true;
                 }
-                window.records = arr;
-                rebuild(fromCache ? 'cache' : 'server');
-            }, function (err) {
-                console.warn('[ExpenseSync] onSnapshot:', (err && err.code) || err);
-                st.cloudReady = true; badge();
-            });
-        } catch (e) { console.warn('[ExpenseSync] не удалось подключить слушатель:', e); return false; }
-        try { recordsUnsubscribe = unsub; } catch (e) { window.__expenseUnsub = unsub; }
-        st.attached = true;
-        return true;
+            }).observe(document.body, { childList: true });
+        });
     }
-    window.listenToRecordsChanges = attachListener;
-
-    function heal() {
-        if (!st.cloudReady || !fbReady() || st.healing) return;
-        var missing = st.union.filter(function (r) {
-            if (r.__fromSide) return false;
-            var k = keyOf(r);
-            if (st.tomb[k]) return false;
-            if (r.id == null || r.id === '') return false;
-            return !st.cloudIds['id:' + r.id];
-        }).slice(0, 25);
-        if (!missing.length) return;
-        st.healing = true;
-        var col = fbCol(), i = 0;
-        (function next() {
-            if (i >= missing.length) { st.healing = false; badge(); return; }
-            var r = missing[i++];
-            var data = {}; Object.keys(r).forEach(function (k) { if (k !== 'id') data[k] = r[k]; });
-            col.doc(String(r.id)).set(data, { merge: true }).then(next).catch(function (e) {
-                console.warn('[ExpenseSync] запись не отправлена в облако:', r.id, (e && e.code) || '');
-                st.healing = false; badge();
-            });
-        })();
-    }
-
-    function badge() { /* no-op: визуальный индикатор отключён */ }
-
-    function boot(reason) {
-        rebuild(reason);
-        if (!st.attached && attachListener()) return;
-        if (!st.attached && typeof auth !== 'undefined' && auth && typeof auth.onAuthStateChanged === 'function' && !st.authHooked) {
-            st.authHooked = true;
-            try {
-                auth.onAuthStateChanged(function (u) { if (u && !st.attached) { attachListener(); rebuild('auth'); } });
-            } catch (e) {}
-        }
-    }
-    
-    (function purgeSide() {
-        try {
-            var raw = lsJSON(LS_RECORDS, []);
-            if (Array.isArray(raw)) {
-                var clean = raw.filter(function (r) { return r && !r.__fromSide && String(r.id || '').indexOf('side_') !== 0; });
-                if (clean.length !== raw.length) lsSet(LS_RECORDS, JSON.stringify(clean));
-            }
-        } catch (e) {}
-    })();
-    
-    boot('boot');
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { boot('dom'); });
-    window.addEventListener('focus', function () { rebuild('focus'); });
-    window.addEventListener('online', function () { st.cloudReady = false; attachListener(); rebuild('online'); });
-    document.addEventListener('visibilitychange', function () { if (!document.hidden) rebuild('visible'); });
-    setTimeout(function () { if (!st.cloudReady) { st.cloudReady = true; badge(); scheduleRender(); } }, 6000);
-
-    window.ExpenseSync = {
-        rebuild: function () { return rebuild('api'); },
-        status: function () {
-            return {
-                записей: st.union.length,
-                локально: localRaw().length,
-                облако: cloudRaw().length,
-                готовоОблако: st.cloudReady,
-                слушатель: st.attached,
-                надгробия: Object.keys(st.tomb).length,
-                расходВсего: Math.round(st.union.reduce(function (a, r) { return a + expensesOf(r); }, 0) * 100) / 100,
-                причина: st.lastReason
-            };
-        },
-        dayExpenses: dayExpenses,
-        records: function () { return st.union.slice(); },
-        resetTombstones: function () { st.tomb = {}; saveTomb(); rebuild('reset-tomb'); return 'надгробия очищены'; }
-    };
-
-    console.log('%c[ExpenseSync] установлен: локальная история и облако объединяются, первый рендер уже полный. Диагностика: ExpenseSync.status()', 'color:#35e07f;font-weight:bold');
 })();
 
-window.addEventListener('beforeunload', () => {
-    if (firebaseUnsubscribe) firebaseUnsubscribe();
-    if (recordsUnsubscribe) recordsUnsubscribe();
-});
+// Также вызываем при смене таба
+const _origSwitchTabForIcons = window.switchTab;
+if (typeof _origSwitchTabForIcons === 'function') {
+    window.switchTab = function(tabName) {
+        const res = _origSwitchTabForIcons.apply(this, arguments);
+        if (tabName === 'shifts') {
+            setTimeout(() => {
+                try { wrapShiftIcons(); } catch (e) {}
+            }, 200);
+        }
+        return res;
+    };
+}
 
+// ===== 22. ЭКСПОРТ =====
 window.shifts = shifts;
 window.loadShifts = loadShifts;
 window.renderCalendar = renderCalendar;
@@ -1748,11 +1688,18 @@ window.editShift = editShift;
 window.saveShiftDetails = saveShiftDetails;
 window.showScheduleSettingsModal = showScheduleSettingsModal;
 window.generateShiftsBySettings = generateShiftsBySettings;
+window.applyScheduleToMonth = applyScheduleToMonth;
 window.clearMonthShifts = clearMonthShifts;
 window.openShiftCalendar = openShiftCalendar;
 window.formatMoney = formatMoney;
 window.scheduleSettings = scheduleSettings;
 window.showExpensesDetailsModal = showExpensesDetailsModal;
 window.toggleExpenseCategory = toggleExpenseCategory;
+window.isMonthCleared = isMonthCleared;
+window.getClearedMonths = getClearedMonths;
+window.markMonthCleared = markMonthCleared;
+window.unmarkMonthCleared = unmarkMonthCleared;
 
-console.log('✅ Модуль календаря смен v6.1 (Абсолютная синхронизация + Защита ручных настроек) загружен');
+console.log('✅ Модуль календаря смен v7.0 (Реестр очищенных месяцев + защита ручных настроек) загружен');
+console.log('ℹ️ Очищенные месяцы:', [...getClearedMonths()]);
+console.log('ℹ️ Для сброса реестра: localStorage.removeItem("clearedShiftMonths") и перезагрузите страницу');
