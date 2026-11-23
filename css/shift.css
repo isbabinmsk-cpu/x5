@@ -722,3 +722,304 @@ body.dark-theme .shift-modal-bonuses input {
     font-weight: 700 !important;
 }
 
+/* ============================================
+ПЛАШКИ-ИКОНКИ В КАЛЕНДАРЕ СМЕН
+============================================ */
+
+/* Базовая плашка */
+.shift-icon-badge {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    border-radius: 11px;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(142, 142, 147, 0.15);
+    color: #8E8E93;
+    flex-shrink: 0 !important;
+    margin: 0 10px 0 0 !important;
+    line-height: 1;
+    box-sizing: border-box;
+}
+
+.shift-icon-badge ion-icon {
+    font-size: 19px;
+    display: block;
+    line-height: 1;
+    pointer-events: none;
+    margin: 0 !important;
+}
+
+/* Маленькая плашка (для кнопок) */
+.shift-icon-badge.shift-icon-sm {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    min-height: 28px;
+    border-radius: 8px;
+    margin-right: 6px !important;
+}
+
+.shift-icon-badge.shift-icon-sm ion-icon {
+    font-size: 15px;
+}
+
+/* Большая плашка (для заголовка) */
+.shift-icon-badge.shift-icon-lg {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: 12px;
+    margin-right: 12px !important;
+}
+
+.shift-icon-badge.shift-icon-lg ion-icon {
+    font-size: 22px;
+}
+
+/* Цвета плашек */
+.shift-icon-blue   { background: rgba(10, 132, 255, 0.16);  color: #0A84FF; }
+.shift-icon-green  { background: rgba(48, 209, 88, 0.16);   color: #30D158; }
+.shift-icon-orange { background: rgba(255, 159, 10, 0.16);  color: #FF9F0A; }
+.shift-icon-purple { background: rgba(175, 82, 222, 0.16);  color: #AF52DE; }
+.shift-icon-cyan   { background: rgba(100, 210, 255, 0.16); color: #64D2FF; }
+.shift-icon-yellow { background: rgba(255, 214, 10, 0.16);  color: #FFD60A; }
+.shift-icon-red    { background: rgba(255, 69, 58, 0.16);   color: #FF453A; }
+.shift-icon-teal   { background: rgba(48, 176, 199, 0.16);  color: #30B0C7; }
+
+/* Тёмная тема */
+body.dark-theme .shift-icon-badge {
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(235, 235, 245, 0.7);
+}
+
+body.dark-theme .shift-icon-blue   { background: rgba(10, 132, 255, 0.20);  color: #64B5FF; }
+body.dark-theme .shift-icon-green  { background: rgba(48, 209, 88, 0.20);   color: #30D158; }
+body.dark-theme .shift-icon-orange { background: rgba(255, 159, 10, 0.20);  color: #FF9F0A; }
+body.dark-theme .shift-icon-purple { background: rgba(175, 82, 222, 0.20);  color: #BF5AF2; }
+body.dark-theme .shift-icon-cyan   { background: rgba(100, 210, 255, 0.20); color: #64D2FF; }
+body.dark-theme .shift-icon-yellow { background: rgba(255, 214, 10, 0.20);  color: #FFD60A; }
+body.dark-theme .shift-icon-red    { background: rgba(255, 69, 58, 0.20);   color: #FF453A; }
+body.dark-theme .shift-icon-teal   { background: rgba(48, 176, 199, 0.20);  color: #64D2FF; }
+
+/* Адаптив */
+@media (max-width: 480px) {
+    .shift-icon-badge {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        min-height: 32px;
+        border-radius: 9px;
+    }
+    .shift-icon-badge ion-icon { font-size: 17px; }
+    .shift-icon-badge.shift-icon-sm {
+        width: 26px;
+        height: 26px;
+        min-width: 26px;
+        min-height: 26px;
+    }
+    .shift-icon-badge.shift-icon-sm ion-icon { font-size: 14px; }
+    .shift-icon-badge.shift-icon-lg {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+        min-height: 36px;
+    }
+    .shift-icon-badge.shift-icon-lg ion-icon { font-size: 20px; }
+}
+
+/* Стили для кнопок с плашками */
+.shift-calendar-actions .btn {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px;
+}
+
+/* Иконки в ячейках календаря */
+.shift-day .shift-icon-badge {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+    border-radius: 6px;
+    margin: 0 !important;
+}
+
+.shift-day .shift-icon-badge ion-icon {
+    font-size: 12px;
+}
+
+/* ============================================
+ПЛАШКИ В БЛОКЕ "ИТОГИ МЕСЯЦА" И "ДНИ ПО ТИПАМ"
+============================================ */
+.month-summary-card .grid-label,
+.day-types-title {
+    align-items: center !important;
+}
+
+.month-summary-card .grid-label .shift-icon-badge,
+.day-types-title .shift-icon-badge {
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    min-height: 26px !important;
+    border-radius: 7px !important;
+    margin: 0 6px 0 0 !important;
+}
+
+.month-summary-card .grid-label .shift-icon-badge ion-icon,
+.day-types-title .shift-icon-badge ion-icon {
+    font-size: 14px !important;
+    opacity: 1 !important;
+    margin: 0 !important;
+}
+
+/* Серая плашка (для больничных/выходных) */
+.shift-icon-gray { background: rgba(142, 142, 147, 0.16); color: #8E8E93; }
+body.dark-theme .shift-icon-gray { background: rgba(255,255,255,0.10); color: rgba(235,235,245,0.65); }
+
+/* Тёмная тема — плашки внутри итогов чуть ярче */
+body.dark-theme .month-summary-card .grid-label .shift-icon-badge ion-icon {
+    opacity: 1 !important;
+}
+
+/* Модалка смены — компактные плашки в статистике */
+.shift-modal-stats .label .shift-icon-badge {
+    width: 22px !important;
+    height: 22px !important;
+    min-width: 22px !important;
+    min-height: 22px !important;
+    border-radius: 6px !important;
+    margin: 0 4px 0 0 !important;
+}
+.shift-modal-stats .label .shift-icon-badge ion-icon {
+    font-size: 12px !important;
+}
+
+/* ============================================
+СВОРАЧИВАЕМЫЙ БЛОК "ИТОГИ МЕСЯЦА"
+============================================ */
+.month-summary-wrapper {
+    margin-top: 16px;
+}
+
+.month-summary-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.02);
+    border: 1px solid var(--ios-border, rgba(0,0,0,0.06));
+    border-radius: 12px 12px 0 0;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.2s;
+}
+
+.month-summary-toggle:hover {
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.month-summary-toggle:active {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+.month-summary-toggle h4 {
+    flex: 1;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ios-text-secondary, #8E8E93);
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.month-summary-toggle .toggle-chevron {
+    font-size: 18px;
+    color: var(--ios-text-tertiary, #8E8E93);
+    transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    flex-shrink: 0;
+}
+
+.month-summary-wrapper.collapsed .toggle-chevron {
+    transform: rotate(-90deg);
+}
+
+.month-summary-wrapper.collapsed .month-summary-toggle {
+    border-radius: 12px;
+    border-bottom: 1px solid var(--ios-border, rgba(0,0,0,0.06));
+}
+
+.month-summary-content {
+    overflow: hidden;
+    max-height: 2000px;
+    opacity: 1;
+    transition: max-height 0.4s cubic-bezier(0.32, 0.72, 0, 1),
+                opacity 0.3s ease,
+                padding 0.3s ease;
+    padding: 0;
+}
+
+.month-summary-wrapper.collapsed .month-summary-content {
+    max-height: 0;
+    opacity: 0;
+    padding: 0;
+}
+
+/* Плашка иконки в заголовке */
+.month-summary-toggle .shift-icon-badge {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    border-radius: 8px !important;
+    margin: 0 !important;
+}
+
+.month-summary-toggle .shift-icon-badge ion-icon {
+    font-size: 15px !important;
+}
+
+/* Тёмная тема */
+body.dark-theme .month-summary-toggle {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+body.dark-theme .month-summary-toggle:hover {
+    background: rgba(255, 255, 255, 0.07);
+}
+
+body.dark-theme .month-summary-toggle:active {
+    background: rgba(255, 255, 255, 0.10);
+}
+
+body.dark-theme .month-summary-toggle h4 {
+    color: rgba(235, 235, 245, 0.6);
+}
+
+body.dark-theme .month-summary-toggle .toggle-chevron {
+    color: rgba(235, 235, 245, 0.5);
+}
+
+body.dark-theme .month-summary-wrapper.collapsed .month-summary-toggle {
+    border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* Адаптив */
+@media (max-width: 480px) {
+    .month-summary-toggle {
+        padding: 11px 14px;
+    }
+    .month-summary-toggle h4 {
+        font-size: 12px;
+    }
+}
